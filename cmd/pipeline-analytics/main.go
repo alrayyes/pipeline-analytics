@@ -24,6 +24,8 @@ import (
 	forgejoclient "github.com/alrayyes/pipeline-analytics/internal/ingestion/forgejo"
 	githubclient "github.com/alrayyes/pipeline-analytics/internal/ingestion/github"
 	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/metrics"
+	metricssqlite "github.com/alrayyes/pipeline-analytics/internal/metrics/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/webassets"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/spf13/cobra"
@@ -184,6 +186,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		Registrar:      registrar,
 		IngestionStore: ingestionStore,
 		RunStore:       ingestionStore,
+		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
 		Auth:           auth.NewService(webAuthn, authStore),
 		AuthStore:      authStore,
 		Version:        version,

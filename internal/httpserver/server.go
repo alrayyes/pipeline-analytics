@@ -7,6 +7,7 @@ import (
 
 	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
+	"github.com/alrayyes/pipeline-analytics/internal/metrics"
 )
 
 // Deps are New's dependencies.
@@ -14,6 +15,7 @@ type Deps struct {
 	Registrar      *ingestion.Registrar
 	IngestionStore ingestion.Store
 	RunStore       ingestion.RunStore
+	Metrics        *metrics.Service
 	Auth           *auth.Service
 	AuthStore      auth.Store
 	// Version is reported by GET /api/version -- the build's tagged
@@ -37,6 +39,14 @@ func New(deps Deps) http.Handler {
 	repos := &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore}
 	mux.HandleFunc("GET /api/repos", repos.list)
 	mux.HandleFunc("POST /api/repos", repos.register)
+
+	usage := &usageHandler{service: deps.Metrics, repos: deps.IngestionStore}
+	mux.HandleFunc("GET /api/repos/{repoId}/usage", usage.get)
+
+	pipelines := &pipelinesHandler{service: deps.Metrics}
+	mux.HandleFunc("GET /api/pipelines", pipelines.list)
+	mux.HandleFunc("GET /api/pipelines/{pipelineId}", pipelines.get)
+	mux.HandleFunc("GET /api/pipelines/{pipelineId}/steps", pipelines.steps)
 
 	authH := &authHandler{service: deps.Auth}
 	mux.HandleFunc("POST /api/auth/register/options", authH.registerOptions)
