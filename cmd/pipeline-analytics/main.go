@@ -21,9 +21,14 @@ import (
 	forgejoclient "github.com/alrayyes/pipeline-analytics/internal/ingestion/forgejo"
 	githubclient "github.com/alrayyes/pipeline-analytics/internal/ingestion/github"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/webassets"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+// version is set via goreleaser's ldflags (-X main.version={{.Version}}) on
+// a release build; a local `go build` leaves it at "dev".
+var version = "dev"
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
@@ -139,7 +144,12 @@ func buildHandler(cfg config.Config, conn *sql.DB) (http.Handler, error) {
 		ingestion.ForgeForgejo: forgejoForgeClient,
 	}, cfg.CallbackURL)
 
-	return httpserver.New(registrar, store), nil
+	assets, err := webassets.FS()
+	if err != nil {
+		return nil, fmt.Errorf("load embedded frontend: %w", err)
+	}
+
+	return httpserver.New(registrar, store, version, assets), nil
 }
 
 func serveUntilDone(ctx context.Context, srv *http.Server) error {
