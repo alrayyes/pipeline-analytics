@@ -45,6 +45,7 @@ func newAuthTestServer(t *testing.T) http.Handler {
 		Auth:           auth.NewService(web, authStore),
 		AuthStore:      authStore,
 		IngestionStore: ingestionStore,
+		RunStore:       ingestionStore,
 		Version:        "test-version",
 		Assets:         fstest.MapFS{"index.html": {Data: []byte("<html></html>")}},
 	})
