@@ -3,3 +3,8 @@ apis:
     root: openapi/openapi.yaml
 extends:
   - recommended-strict
+rules:
+  # GET /api/version is the one genuinely parameterless, always-succeeding
+  # endpoint in the spec -- no real 4xx exists to document for it. Every
+  # other operation still has a real error response.
+  operation-4xx-response: off

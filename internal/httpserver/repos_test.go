@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/fstest"
 
 	"github.com/alrayyes/pipeline-analytics/internal/db"
 	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
@@ -23,7 +25,15 @@ func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhook
 	return f.err
 }
 
+var testAssets fs.FS = fstest.MapFS{"index.html": {Data: []byte("<html></html>")}}
+
 func newTestServer(t *testing.T, forgeErr error) http.Handler {
+	t.Helper()
+
+	return newTestServerWithAssets(t, forgeErr, testAssets)
+}
+
+func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) http.Handler {
 	t.Helper()
 
 	conn, err := db.Open(":memory:")
@@ -36,7 +46,7 @@ func newTestServer(t *testing.T, forgeErr error) http.Handler {
 		ingestion.ForgeGitHub: &fakeForgeClient{err: forgeErr},
 	}, "https://example.com")
 
-	return httpserver.New(registrar, store)
+	return httpserver.New(registrar, store, "test-version", assets)
 }
 
 func TestReposRegisterAndList(t *testing.T) {

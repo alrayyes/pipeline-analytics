@@ -16,6 +16,23 @@ security:
   - sessionCookie: []
 
 paths:
+  /api/version:
+    get:
+      operationId: getVersion
+      summary: The running server's build version
+      description: >
+        Public and unauthenticated -- the dashboard's own footer fetches
+        this to render a version chip linking to that release's notes.
+      tags: [meta]
+      security: []
+      responses:
+        "200":
+          description: Build version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+
   /api/repos:
     get:
       operationId: listRepos
@@ -373,6 +390,14 @@ components:
           type: string
         message:
           type: string
+
+    Version:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+          description: "The build's tagged version (e.g. \"v1.2.3\"), or \"dev\" for an untagged local build."
 
     Forge:
       type: string

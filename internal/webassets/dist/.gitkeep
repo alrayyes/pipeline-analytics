@@ -1,0 +1,4 @@
+Placeholder so `go:embed all:dist` has at least one file to embed on a
+checkout that hasn't run `bun run build` in web/ yet (embed fails to
+compile against an empty directory). The real frontend build overwrites
+everything in this directory except this file.
