@@ -28,7 +28,7 @@
 - [x] 4.5 Slowest-step ranking -- verify steps are ordered by duration contribution, highest first
 - [x] 4.6 Health-status computation combining failure rate, duration regression, and flakiness -- verify the healthy/unhealthy scenarios from pipeline-metrics/spec.md
 - [x] 4.7 Actions-minutes usage tracking per workflow -- verify usage is reported broken down by workflow
-- [ ] 4.8 Wire `GET /api/pipelines`, `GET /api/pipelines/{id}`, `GET /api/pipelines/{id}/steps`, `GET /api/repos/{id}/usage` handlers against `openapi/openapi.yaml`
+- [x] 4.8 Wire `GET /api/pipelines`, `GET /api/pipelines/{id}`, `GET /api/pipelines/{id}/steps`, `GET /api/repos/{id}/usage` handlers against `openapi/openapi.yaml`
 
 ## 5. dashboard-ui
 
