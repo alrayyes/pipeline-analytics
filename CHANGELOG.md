@@ -1,0 +1,17 @@
+# Changelog
+
+## [0.2.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.1.0...v0.2.0) (2026-09-15)
+
+
+### Features
+
+* **api:** author OpenAPI spec for v1 endpoints ([#12](https://github.com/alrayyes/pipeline-analytics/issues/12)) ([81b336e](https://github.com/alrayyes/pipeline-analytics/commit/81b336e3315e196235f314843f784ef489d158f8))
+* **ingestion:** POST /api/repos registration with real webhook creation ([#15](https://github.com/alrayyes/pipeline-analytics/issues/15)) ([d3c2dcd](https://github.com/alrayyes/pipeline-analytics/commit/d3c2dcdf04987993825ef05a2f1c30bdd6516eef))
+* **ingestion:** schema and encrypted credential storage ([#14](https://github.com/alrayyes/pipeline-analytics/issues/14)) ([7f11037](https://github.com/alrayyes/pipeline-analytics/commit/7f110374026d35e2a628aaf3083caa6e802d4bdd))
+* release automation (release-please + goreleaser) and Docker image ([#17](https://github.com/alrayyes/pipeline-analytics/issues/17)) ([577da7c](https://github.com/alrayyes/pipeline-analytics/commit/577da7c89e85e8890e947fc3fced79a84eff46cb))
+* sveltekit frontend, embedded, with a version footer ([#16](https://github.com/alrayyes/pipeline-analytics/issues/16)) ([c0895bf](https://github.com/alrayyes/pipeline-analytics/commit/c0895bffadffff26e112346f91b6af7cce3bf710))
+
+
+### Bug Fixes
+
+* **ci:** bump golangci-lint pin past go1.27 skew ([#11](https://github.com/alrayyes/pipeline-analytics/issues/11)) ([0f3400e](https://github.com/alrayyes/pipeline-analytics/commit/0f3400ed0044311850aa740ab07a12cb0ec78e44))
