@@ -19,6 +19,11 @@
 			"quoteStyle": "single"
 		}
 	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
 	"overrides": [
 		{
 			"includes": ["**/*.svelte"],
