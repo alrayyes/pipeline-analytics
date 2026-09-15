@@ -115,3 +115,24 @@ func TestStore_ListAndGetRepo(t *testing.T) {
 		require.Equal(t, created.Identifier, got.Identifier)
 	})
 }
+
+func TestStore_SetIngestionStatus(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	created, err := store.CreateRepo(ctx, ingestion.NewRepo{
+		Forge:      ingestion.ForgeGitHub,
+		Identifier: "alrayyes/pipeline-analytics",
+		Token:      "ghp_supersecrettoken1234",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, store.SetIngestionStatus(ctx, created.ID, ingestion.StatusDegraded, "insufficient token scope"))
+
+	got, err := store.GetRepo(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, ingestion.StatusDegraded, got.IngestionStatus)
+	require.Equal(t, "insufficient token scope", got.IngestionStatusReason)
+}

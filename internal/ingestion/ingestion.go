@@ -57,6 +57,26 @@ type Store interface {
 	// RepoToken returns the decrypted token for internal use (calling the
 	// forge's API) -- never exposed over HTTP.
 	RepoToken(ctx context.Context, id string) (string, error)
+	// SetIngestionStatus records whether webhook registration (or later
+	// ingestion) succeeded, and why when it didn't.
+	SetIngestionStatus(ctx context.Context, id string, status Status, reason string) error
+}
+
+// CreateWebhookRequest is what a ForgeClient needs to register a webhook on
+// a tracked repo.
+type CreateWebhookRequest struct {
+	// InstanceURL is set for Forgejo, empty for GitHub.
+	InstanceURL string
+	Identifier  string
+	Token       string
+	CallbackURL string
+	Secret      string
+}
+
+// ForgeClient is the port the domain calls out to a forge's REST API
+// through, to manage the webhook a tracked repo needs.
+type ForgeClient interface {
+	CreateWebhook(ctx context.Context, req CreateWebhookRequest) error
 }
 
 // MaskToken returns a display form of token that reveals at most its last

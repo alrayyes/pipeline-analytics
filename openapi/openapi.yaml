@@ -384,7 +384,7 @@ components:
 
     Repo:
       type: object
-      required: [id, forge, identifier, ingestionStatus]
+      required: [id, forge, identifier, tokenMasked, ingestionStatus]
       properties:
         id:
           type: string
@@ -397,6 +397,9 @@ components:
           type: string
           format: uri
           description: Set only when forge is forgejo.
+        tokenMasked:
+          type: string
+          description: "The stored token's display form, e.g. \"****1234\" (forge-ingestion/spec.md's \"Credential storage\" -- never the full value)."
         ingestionStatus:
           $ref: "#/components/schemas/IngestionStatus"
         ingestionStatusReason:

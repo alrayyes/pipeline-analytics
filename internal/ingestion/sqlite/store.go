@@ -121,6 +121,28 @@ func (s *Store) GetRepo(ctx context.Context, id string) (ingestion.Repo, error) 
 	return repo, nil
 }
 
+// SetIngestionStatus implements ingestion.Store.
+func (s *Store) SetIngestionStatus(ctx context.Context, id string, status ingestion.Status, reason string) error {
+	result, err := s.db.ExecContext(ctx,
+		"UPDATE repos SET ingestion_status = ?, ingestion_status_reason = ? WHERE id = ?",
+		string(status), nullable(reason), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update ingestion status: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return ErrRepoNotFound
+	}
+
+	return nil
+}
+
 // RepoToken implements ingestion.Store.
 func (s *Store) RepoToken(ctx context.Context, id string) (string, error) {
 	var encrypted []byte
