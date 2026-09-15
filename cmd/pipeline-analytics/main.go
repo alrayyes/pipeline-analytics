@@ -163,6 +163,7 @@ func buildHandler(cfg config.Config, conn *sql.DB) (http.Handler, error) {
 	return httpserver.New(httpserver.Deps{
 		Registrar:      registrar,
 		IngestionStore: ingestionStore,
+		RunStore:       ingestionStore,
 		Auth:           auth.NewService(webAuthn, authStore),
 		AuthStore:      authStore,
 		Version:        version,

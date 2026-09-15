@@ -33,6 +33,7 @@ var testAssets fs.FS = fstest.MapFS{"index.html": {Data: []byte("<html></html>")
 type testServer struct {
 	http.Handler
 	sessionCookie *http.Cookie
+	runStore      ingestion.RunStore
 }
 
 // authenticated clones req with the test server's session cookie attached.
@@ -58,7 +59,8 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testSer
 
 	ingestionStore := ingestionsqlite.NewStore(conn, make([]byte, 32))
 	registrar := ingestion.NewRegistrar(ingestionStore, map[ingestion.Forge]ingestion.ForgeClient{
-		ingestion.ForgeGitHub: &fakeForgeClient{err: forgeErr},
+		ingestion.ForgeGitHub:  &fakeForgeClient{err: forgeErr},
+		ingestion.ForgeForgejo: &fakeForgeClient{err: forgeErr},
 	}, "https://example.com")
 
 	authStore := authsqlite.NewStore(conn)
@@ -71,6 +73,7 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testSer
 	handler := httpserver.New(httpserver.Deps{
 		Registrar:      registrar,
 		IngestionStore: ingestionStore,
+		RunStore:       ingestionStore,
 		AuthStore:      authStore,
 		Version:        "test-version",
 		Assets:         assets,
@@ -84,7 +87,7 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testSer
 		SameSite: http.SameSiteStrictMode,
 	}
 
-	return testServer{Handler: handler, sessionCookie: cookie}
+	return testServer{Handler: handler, sessionCookie: cookie, runStore: ingestionStore}
 }
 
 func TestReposRegisterAndList(t *testing.T) {

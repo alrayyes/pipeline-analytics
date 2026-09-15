@@ -13,6 +13,7 @@ import (
 type Deps struct {
 	Registrar      *ingestion.Registrar
 	IngestionStore ingestion.Store
+	RunStore       ingestion.RunStore
 	Auth           *auth.Service
 	AuthStore      auth.Store
 	// Version is reported by GET /api/version -- the build's tagged
@@ -43,6 +44,10 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("POST /api/auth/login/options", authH.loginOptions)
 	mux.HandleFunc("POST /api/auth/login", authH.login)
 	mux.HandleFunc("POST /api/auth/logout", authH.logout)
+
+	webhooks := &webhooksHandler{store: deps.RunStore}
+	mux.HandleFunc("POST /webhooks/github", webhooks.github)
+	mux.HandleFunc("POST /webhooks/forgejo", webhooks.forgejo)
 
 	mux.Handle("/", staticHandler(deps.Assets))
 

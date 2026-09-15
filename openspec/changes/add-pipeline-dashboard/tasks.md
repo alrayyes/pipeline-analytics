@@ -9,7 +9,7 @@
 - [x] 2.1 SQLite schema/migrations for repos, runs, jobs, steps, and encrypted credentials -- verify a fresh `:memory:` database migrates cleanly
 - [x] 2.2 Encrypted-at-rest credential storage for repo-scoped PATs -- verify a stored token is never returned in plaintext from any read path
 - [x] 2.3 `POST /api/repos` handler: register a repo, create its webhook via `google/go-github` (GitHub) or the Gitea SDK (Forgejo) -- verify against forge-ingestion/spec.md's registration scenarios using `httptest.Server` fakes for each forge's REST API
-- [ ] 2.4 Webhook receiver handlers (`POST /webhooks/github`, `POST /webhooks/forgejo`): HMAC signature verification, run/job/step upsert -- verify the valid-signature and invalid-signature scenarios
+- [x] 2.4 Webhook receiver handlers (`POST /webhooks/github`, `POST /webhooks/forgejo`): HMAC signature verification, run/job/step upsert -- verify the valid-signature and invalid-signature scenarios
 - [ ] 2.5 Hourly reconciliation poller: GitHub conditional-GET (ETag/If-None-Match, no rate-limit cost on 304), Forgejo REST poll, backfill on newly tracked repo -- verify the backfill and missed-webhook scenarios
 - [ ] 2.6 Wire ingestion into `cmd/pipeline-analytics` (reconciliation scheduler started, webhook routes registered) -- verify `pipeline-analytics serve` exposes the new routes and the scheduler runs
 
