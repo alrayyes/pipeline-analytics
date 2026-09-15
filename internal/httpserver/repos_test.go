@@ -10,10 +10,11 @@ import (
 	"testing"
 	"testing/fstest"
 
+	authsqlite "github.com/alrayyes/pipeline-analytics/internal/auth/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/db"
 	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
-	"github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
+	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,13 +28,27 @@ func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhook
 
 var testAssets fs.FS = fstest.MapFS{"index.html": {Data: []byte("<html></html>")}}
 
-func newTestServer(t *testing.T, forgeErr error) http.Handler {
+// testServer is an httpserver.New() instance plus a ready-made session
+// cookie for tests that need to call a gated endpoint.
+type testServer struct {
+	http.Handler
+	sessionCookie *http.Cookie
+}
+
+// authenticated clones req with the test server's session cookie attached.
+func (s testServer) authenticated(req *http.Request) *http.Request {
+	req.AddCookie(s.sessionCookie)
+
+	return req
+}
+
+func newTestServer(t *testing.T, forgeErr error) testServer {
 	t.Helper()
 
 	return newTestServerWithAssets(t, forgeErr, testAssets)
 }
 
-func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) http.Handler {
+func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testServer {
 	t.Helper()
 
 	conn, err := db.Open(":memory:")
@@ -41,12 +56,35 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) http.Ha
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 	require.NoError(t, db.Migrate(context.Background(), conn))
 
-	store := sqlite.NewStore(conn, make([]byte, 32))
-	registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+	ingestionStore := ingestionsqlite.NewStore(conn, make([]byte, 32))
+	registrar := ingestion.NewRegistrar(ingestionStore, map[ingestion.Forge]ingestion.ForgeClient{
 		ingestion.ForgeGitHub: &fakeForgeClient{err: forgeErr},
 	}, "https://example.com")
 
-	return httpserver.New(registrar, store, "test-version", assets)
+	authStore := authsqlite.NewStore(conn)
+	ctx := context.Background()
+	user, err := authStore.CreateUser(ctx, []byte("test-handle"), "admin")
+	require.NoError(t, err)
+	sessionID, err := authStore.CreateSession(ctx, user.ID)
+	require.NoError(t, err)
+
+	handler := httpserver.New(httpserver.Deps{
+		Registrar:      registrar,
+		IngestionStore: ingestionStore,
+		AuthStore:      authStore,
+		Version:        "test-version",
+		Assets:         assets,
+	})
+
+	cookie := &http.Cookie{
+		Name:     "session",
+		Value:    sessionID,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	return testServer{Handler: handler, sessionCookie: cookie}
 }
 
 func TestReposRegisterAndList(t *testing.T) {
@@ -64,7 +102,7 @@ func TestReposRegisterAndList(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		req := httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body))
+		req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
 		rec := httptest.NewRecorder()
 		srv.ServeHTTP(rec, req)
 
@@ -89,7 +127,7 @@ func TestReposRegisterAndList(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		req := httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body))
+		req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
 		rec := httptest.NewRecorder()
 		srv.ServeHTTP(rec, req)
 
@@ -106,11 +144,23 @@ func TestReposRegisterAndList(t *testing.T) {
 
 		srv := newTestServer(t, nil)
 
-		req := httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader([]byte(`{"forge":"github"}`)))
+		req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader([]byte(`{"forge":"github"}`))))
 		rec := httptest.NewRecorder()
 		srv.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("rejects an unauthenticated request", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/repos", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
 
 	t.Run("list returns every registered repo", func(t *testing.T) {
@@ -125,10 +175,10 @@ func TestReposRegisterAndList(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		postReq := httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body))
+		postReq := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
 		srv.ServeHTTP(httptest.NewRecorder(), postReq)
 
-		getReq := httptest.NewRequest(http.MethodGet, "/api/repos", nil)
+		getReq := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos", nil))
 		rec := httptest.NewRecorder()
 		srv.ServeHTTP(rec, getReq)
 

@@ -166,7 +166,15 @@ paths:
       security: []
       responses:
         "200":
-          description: WebAuthn PublicKeyCredentialCreationOptions
+          description: >
+            WebAuthn PublicKeyCredentialCreationOptions. The Set-Cookie header
+            carries an opaque, server-side ceremony reference (not the
+            session itself) that the subsequent POST /api/auth/register call
+            must present back to complete the ceremony it belongs to.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -214,7 +222,15 @@ paths:
       security: []
       responses:
         "200":
-          description: WebAuthn PublicKeyCredentialRequestOptions
+          description: >
+            WebAuthn PublicKeyCredentialRequestOptions. The Set-Cookie header
+            carries an opaque, server-side ceremony reference (not the
+            session itself) that the subsequent POST /api/auth/login call
+            must present back to complete the ceremony it belongs to.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
           content:
             application/json:
               schema:

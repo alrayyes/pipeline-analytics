@@ -15,9 +15,9 @@
 
 ## 3. dashboard-auth
 
-- [ ] 3.1 WebAuthn registration ceremony (`go-webauthn/webauthn`): options + verify endpoints, single-user enforcement -- verify the first-run and second-account-rejected scenarios
-- [ ] 3.2 WebAuthn login ceremony: options + verify endpoints, session issuance -- verify the successful-login and failed-assertion scenarios
-- [ ] 3.3 Session middleware gating every route except login/registration and the webhook receivers -- verify an unauthenticated request is denied and redirected
+- [x] 3.1 WebAuthn registration ceremony (`go-webauthn/webauthn`): options + verify endpoints, single-user enforcement -- verify the first-run and second-account-rejected scenarios
+- [x] 3.2 WebAuthn login ceremony: options + verify endpoints, session issuance -- verify the successful-login and failed-assertion scenarios
+- [x] 3.3 Session middleware gating every route except login/registration and the webhook receivers -- verify an unauthenticated request is denied (JSON 401, not a server-side redirect -- every route is a client-rendered SPA page per design.md's SPA-fallback decision, so the client router redirects to login after seeing 401, not the server)
 
 ## 4. pipeline-metrics
 
@@ -32,9 +32,9 @@
 
 ## 5. dashboard-ui
 
-- [ ] 5.1 SvelteKit project scaffold under `web/` (bun, TypeScript strict, shadcn-svelte, LayerChart), built output embedded into the Go binary via `go:embed` -- verify `bun run build` output is served by the running binary
+- [x] 5.1 SvelteKit project scaffold under `web/` (bun, TypeScript strict), built output embedded into the Go binary via `go:embed` -- verified via `bun run build` output served by the running binary, plus a footer + release-history page (github.com/alrayyes/pipeline-analytics#16). shadcn-svelte/LayerChart intentionally not installed yet -- nothing to chart until pipeline-metrics (#4) exists; installed alongside 5.3, their first real consumer.
 - [ ] 5.2 WebAuthn login/registration UI flow -- verify end-to-end login against a running server
-- [ ] 5.3 Repo/pipeline overview page -- verify every tracked pipeline's health status is visible without opening it individually
+- [ ] 5.3 Repo/pipeline overview page (installs shadcn-svelte + LayerChart) -- verify every tracked pipeline's health status is visible without opening it individually
 - [ ] 5.4 Pipeline detail view: duration trend and failure-rate trend charts -- verify a regressed trend is visible in the chart, not only the current aggregate
 - [ ] 5.5 Step breakdown view: duration ranking, queue/exec split, failure rate, flaky callout -- verify flaky and consistently-failing steps are visually distinguishable
 - [ ] 5.6 Deep links from every displayed run/job/step to its page on the originating forge -- verify the link opens the correct forge URL

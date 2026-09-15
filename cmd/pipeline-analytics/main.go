@@ -9,19 +9,23 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/alrayyes/pipeline-analytics/internal/auth"
+	authsqlite "github.com/alrayyes/pipeline-analytics/internal/auth/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/config"
 	"github.com/alrayyes/pipeline-analytics/internal/db"
 	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	forgejoclient "github.com/alrayyes/pipeline-analytics/internal/ingestion/forgejo"
 	githubclient "github.com/alrayyes/pipeline-analytics/internal/ingestion/github"
-	"github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
+	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/webassets"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -127,7 +131,7 @@ func loadConfig() (config.Config, error) {
 }
 
 func buildHandler(cfg config.Config, conn *sql.DB) (http.Handler, error) {
-	store := sqlite.NewStore(conn, cfg.EncryptionKey)
+	ingestionStore := ingestionsqlite.NewStore(conn, cfg.EncryptionKey)
 
 	githubForgeClient, err := githubclient.NewClient("")
 	if err != nil {
@@ -139,17 +143,53 @@ func buildHandler(cfg config.Config, conn *sql.DB) (http.Handler, error) {
 		return nil, fmt.Errorf("create forgejo client: %w", err)
 	}
 
-	registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+	registrar := ingestion.NewRegistrar(ingestionStore, map[ingestion.Forge]ingestion.ForgeClient{
 		ingestion.ForgeGitHub:  githubForgeClient,
 		ingestion.ForgeForgejo: forgejoForgeClient,
 	}, cfg.CallbackURL)
+
+	authStore := authsqlite.NewStore(conn)
+
+	webAuthn, err := newWebAuthn(cfg.CallbackURL)
+	if err != nil {
+		return nil, fmt.Errorf("configure webauthn: %w", err)
+	}
 
 	assets, err := webassets.FS()
 	if err != nil {
 		return nil, fmt.Errorf("load embedded frontend: %w", err)
 	}
 
-	return httpserver.New(registrar, store, version, assets), nil
+	return httpserver.New(httpserver.Deps{
+		Registrar:      registrar,
+		IngestionStore: ingestionStore,
+		Auth:           auth.NewService(webAuthn, authStore),
+		AuthStore:      authStore,
+		Version:        version,
+		Assets:         assets,
+	}), nil
+}
+
+// newWebAuthn derives the WebAuthn Relying Party ID (the effective domain,
+// no scheme or port) and allowed origin from the server's own public
+// callback URL -- the dashboard is same-origin with itself, so there's
+// nothing else to configure here.
+func newWebAuthn(callbackURL string) (*webauthn.WebAuthn, error) {
+	u, err := url.Parse(callbackURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse callback url: %w", err)
+	}
+
+	web, err := webauthn.New(&webauthn.Config{
+		RPID:          u.Hostname(),
+		RPDisplayName: "pipeline-analytics",
+		RPOrigins:     []string{callbackURL},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create webauthn instance: %w", err)
+	}
+
+	return web, nil
 }
 
 func serveUntilDone(ctx context.Context, srv *http.Server) error {

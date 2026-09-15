@@ -1,13 +1,26 @@
-// Package crypto seals repo-scoped forge tokens for storage at rest.
+// Package crypto seals repo-scoped forge tokens for storage at rest and
+// generates the random ids used for webhook secrets, ceremony ids, and
+// session ids.
 package crypto
 
 import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 )
+
+// RandomHex returns n random bytes, hex-encoded.
+func RandomHex(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("read random bytes: %w", err)
+	}
+
+	return hex.EncodeToString(b), nil
+}
 
 // ErrInvalidKeySize is returned when the supplied key isn't a valid AES-256 key.
 var ErrInvalidKeySize = errors.New("encryption key must be 32 bytes")

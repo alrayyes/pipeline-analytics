@@ -46,3 +46,15 @@ func TestEncryptDecrypt(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestRandomHex(t *testing.T) {
+	t.Parallel()
+
+	a, err := crypto.RandomHex(32)
+	require.NoError(t, err)
+	require.Len(t, a, 64)
+
+	b, err := crypto.RandomHex(32)
+	require.NoError(t, err)
+	require.NotEqual(t, a, b)
+}
