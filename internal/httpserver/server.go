@@ -5,27 +5,46 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 )
 
-// New returns the root HTTP handler. version is reported by GET
-// /api/version -- pass the build's tagged version, or "dev" for a local
-// build. assets is the built frontend (internal/webassets.FS()), served for
-// every path the API doesn't claim, falling back to index.html for the SPA
-// client router.
-func New(registrar *ingestion.Registrar, store ingestion.Store, version string, assets fs.FS) http.Handler {
+// Deps are New's dependencies.
+type Deps struct {
+	Registrar      *ingestion.Registrar
+	IngestionStore ingestion.Store
+	Auth           *auth.Service
+	AuthStore      auth.Store
+	// Version is reported by GET /api/version -- the build's tagged
+	// version, or "dev" for a local build.
+	Version string
+	// Assets is the built frontend (internal/webassets.FS()), served for
+	// every path the API doesn't claim, falling back to index.html for the
+	// SPA client router.
+	Assets fs.FS
+}
+
+// New returns the root HTTP handler.
+func New(deps Deps) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("GET /api/version", versionHandler(version))
+	mux.HandleFunc("GET /api/version", versionHandler(deps.Version))
 
-	repos := &reposHandler{registrar: registrar, store: store}
+	repos := &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore}
 	mux.HandleFunc("GET /api/repos", repos.list)
 	mux.HandleFunc("POST /api/repos", repos.register)
 
-	mux.Handle("/", staticHandler(assets))
+	authH := &authHandler{service: deps.Auth}
+	mux.HandleFunc("POST /api/auth/register/options", authH.registerOptions)
+	mux.HandleFunc("POST /api/auth/register", authH.register)
+	mux.HandleFunc("POST /api/auth/login/options", authH.loginOptions)
+	mux.HandleFunc("POST /api/auth/login", authH.login)
+	mux.HandleFunc("POST /api/auth/logout", authH.logout)
 
-	return mux
+	mux.Handle("/", staticHandler(deps.Assets))
+
+	return requireSession(deps.AuthStore, mux)
 }

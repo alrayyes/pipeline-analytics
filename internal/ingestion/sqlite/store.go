@@ -3,9 +3,7 @@ package sqlite
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -40,7 +38,7 @@ func (s *Store) CreateRepo(ctx context.Context, repo ingestion.NewRepo) (ingesti
 		return ingestion.Repo{}, fmt.Errorf("encrypt token: %w", err)
 	}
 
-	webhookSecret, err := randomHex(32)
+	webhookSecret, err := crypto.RandomHex(32)
 	if err != nil {
 		return ingestion.Repo{}, fmt.Errorf("generate webhook secret: %w", err)
 	}
@@ -195,13 +193,4 @@ func scanRepo(row rowScanner) (ingestion.Repo, error) {
 
 func nullable(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}
-}
-
-func randomHex(n int) (string, error) {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("read random bytes: %w", err)
-	}
-
-	return hex.EncodeToString(b), nil
 }
