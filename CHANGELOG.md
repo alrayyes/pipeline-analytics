@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.2.0...v0.3.0) (2026-09-15)
+
+
+### Features
+
+* **auth:** WebAuthn login/registration and session gating ([#20](https://github.com/alrayyes/pipeline-analytics/issues/20)) ([b78a48e](https://github.com/alrayyes/pipeline-analytics/commit/b78a48e942981fd915a16e6334cf6bec21c4547a))
+
 ## [0.2.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.1.0...v0.2.0) (2026-09-15)
 
 
