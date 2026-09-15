@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/config"
 	"github.com/stretchr/testify/require"
@@ -9,10 +10,11 @@ import (
 
 func validConfig() config.Config {
 	return config.Config{
-		Addr:          ":8080",
-		DBPath:        "pipeline-analytics.db",
-		CallbackURL:   "https://example.com",
-		EncryptionKey: make([]byte, 32),
+		Addr:              ":8080",
+		DBPath:            "pipeline-analytics.db",
+		CallbackURL:       "https://example.com",
+		EncryptionKey:     make([]byte, 32),
+		ReconcileInterval: time.Hour,
 	}
 }
 
@@ -55,5 +57,13 @@ func TestValidate(t *testing.T) {
 		cfg := validConfig()
 		cfg.EncryptionKey = make([]byte, 16)
 		require.ErrorIs(t, cfg.Validate(), config.ErrEncryptionKeyInvalid)
+	})
+
+	t.Run("non-positive reconcile interval", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := validConfig()
+		cfg.ReconcileInterval = 0
+		require.ErrorIs(t, cfg.Validate(), config.ErrReconcileIntervalNonPositive)
 	})
 }

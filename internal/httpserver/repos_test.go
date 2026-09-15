@@ -26,6 +26,10 @@ func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhook
 	return f.err
 }
 
+func (f *fakeForgeClient) ListRecentRuns(context.Context, ingestion.ListRunsRequest) (ingestion.ListRunsResult, error) {
+	return ingestion.ListRunsResult{}, nil
+}
+
 var testAssets fs.FS = fstest.MapFS{"index.html": {Data: []byte("<html></html>")}}
 
 // testServer is an httpserver.New() instance plus a ready-made session

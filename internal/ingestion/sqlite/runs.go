@@ -13,7 +13,7 @@ import (
 // RepoByIdentifier implements ingestion.RunStore.
 func (s *Store) RepoByIdentifier(ctx context.Context, forge ingestion.Forge, identifier string) (ingestion.Repo, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, forge, identifier, forgejo_instance_url, token_masked, webhook_secret, ingestion_status, ingestion_status_reason, created_at
+		SELECT id, forge, identifier, forgejo_instance_url, token_masked, webhook_secret, ingestion_status, ingestion_status_reason, reconcile_etag, created_at
 		FROM repos WHERE forge = ? AND identifier = ?
 	`, string(forge), identifier)
 

@@ -38,7 +38,11 @@ type Repo struct {
 	WebhookSecret         string
 	IngestionStatus       Status
 	IngestionStatusReason string
-	CreatedAt             time.Time
+	// ReconcileETag is the response ETag from the repo's last reconciliation
+	// poll (GitHub only), used as If-None-Match on the next poll so an
+	// unchanged repo costs no rate-limit budget. Empty before the first poll.
+	ReconcileETag string
+	CreatedAt     time.Time
 }
 
 // NewRepo is the input to registering a repo for tracking.
@@ -60,6 +64,9 @@ type Store interface {
 	// SetIngestionStatus records whether webhook registration (or later
 	// ingestion) succeeded, and why when it didn't.
 	SetIngestionStatus(ctx context.Context, id string, status Status, reason string) error
+	// SetReconcileETag records the ETag from a repo's most recent
+	// reconciliation poll, for use as If-None-Match on the next one.
+	SetReconcileETag(ctx context.Context, id string, etag string) error
 }
 
 // CreateWebhookRequest is what a ForgeClient needs to register a webhook on
@@ -74,9 +81,74 @@ type CreateWebhookRequest struct {
 }
 
 // ForgeClient is the port the domain calls out to a forge's REST API
-// through, to manage the webhook a tracked repo needs.
+// through, to manage the webhook a tracked repo needs and to reconcile
+// tracked repos' recent run history.
 type ForgeClient interface {
 	CreateWebhook(ctx context.Context, req CreateWebhookRequest) error
+	// ListRecentRuns lists a tracked repo's recent workflow runs (with their
+	// jobs and steps) for reconciliation polling. On GitHub, req.ETag is
+	// sent as If-None-Match; ListRunsResult.NotModified is true when the
+	// forge reports nothing changed, costing no rate-limit budget.
+	ListRecentRuns(ctx context.Context, req ListRunsRequest) (ListRunsResult, error)
+}
+
+// ListRunsRequest is what ListRecentRuns needs to poll a tracked repo.
+type ListRunsRequest struct {
+	// InstanceURL is set for Forgejo, empty for GitHub.
+	InstanceURL string
+	Identifier  string
+	Token       string
+	// ETag is the repo's ReconcileETag from the last poll, sent as
+	// If-None-Match. Empty on a repo's first poll.
+	ETag string
+}
+
+// ListRunsResult is what a reconciliation poll found.
+type ListRunsResult struct {
+	// NotModified is true when the forge reported nothing changed since
+	// ETag (a 304 on GitHub); Runs is empty and ignored in that case.
+	NotModified bool
+	// ETag is the new value to persist as the repo's ReconcileETag, for
+	// If-None-Match on the next poll. Always empty on Forgejo.
+	ETag string
+	Runs []RunSnapshot
+}
+
+// RunSnapshot is a workflow run as reconciliation polling found it on the
+// forge, with its jobs and their steps nested -- unlike Run/Job/Step, which
+// are flat storage records keyed by ID once persisted.
+type RunSnapshot struct {
+	ForgeRunID   string
+	PipelineName string
+	Status       string
+	Conclusion   string
+	StartedAt    *time.Time
+	CompletedAt  *time.Time
+	ForgeURL     string
+	Jobs         []JobSnapshot
+}
+
+// JobSnapshot is a workflow job nested under a RunSnapshot.
+type JobSnapshot struct {
+	ForgeJobID  string
+	Name        string
+	Status      string
+	Conclusion  string
+	QueuedAt    *time.Time
+	StartedAt   *time.Time
+	CompletedAt *time.Time
+	ForgeURL    string
+	Steps       []StepSnapshot
+}
+
+// StepSnapshot is a job step nested under a JobSnapshot.
+type StepSnapshot struct {
+	Number      int
+	Name        string
+	Status      string
+	Conclusion  string
+	StartedAt   *time.Time
+	CompletedAt *time.Time
 }
 
 // MaskToken returns a display form of token that reveals at most its last

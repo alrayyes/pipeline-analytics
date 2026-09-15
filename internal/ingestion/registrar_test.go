@@ -88,12 +88,36 @@ func (f *fakeStore) SetIngestionStatus(_ context.Context, id string, status inge
 	return nil
 }
 
+func (f *fakeStore) SetReconcileETag(_ context.Context, id string, etag string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	repo, ok := f.repos[id]
+	if !ok {
+		return errRepoNotFound
+	}
+
+	repo.ReconcileETag = etag
+	f.repos[id] = repo
+
+	return nil
+}
+
 type fakeForgeClient struct {
-	err error
+	err          error
+	listRunsFunc func(context.Context, ingestion.ListRunsRequest) (ingestion.ListRunsResult, error)
 }
 
 func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhookRequest) error {
 	return f.err
+}
+
+func (f *fakeForgeClient) ListRecentRuns(ctx context.Context, req ingestion.ListRunsRequest) (ingestion.ListRunsResult, error) {
+	if f.listRunsFunc != nil {
+		return f.listRunsFunc(ctx, req)
+	}
+
+	return ingestion.ListRunsResult{}, nil
 }
 
 func TestRegistrar_Register(t *testing.T) {

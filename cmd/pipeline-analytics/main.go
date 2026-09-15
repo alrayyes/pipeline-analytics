@@ -63,8 +63,9 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("db", "pipeline-analytics.db", "path to the SQLite database file")
 	cmd.Flags().String("callback-url", "", "this server's own public base URL, used for forge webhook callbacks")
 	cmd.Flags().String("encryption-key", "", "hex-encoded 32-byte key repo tokens are encrypted under at rest")
+	cmd.Flags().Duration("reconcile-interval", time.Hour, "how often to poll tracked repos for reconciliation (forge-ingestion/spec.md requires at least hourly)")
 
-	for _, name := range []string{"addr", "db", "callback-url", "encryption-key"} {
+	for _, name := range []string{"addr", "db", "callback-url", "encryption-key", "reconcile-interval"} {
 		if err := viper.BindPFlag(name, cmd.Flags().Lookup(name)); err != nil {
 			panic(err)
 		}
@@ -97,7 +98,14 @@ func runServe(ctx context.Context) error {
 		return fmt.Errorf("migrate database: %w", err)
 	}
 
-	handler, err := buildHandler(cfg, conn)
+	ingestionStore := ingestionsqlite.NewStore(conn, cfg.EncryptionKey)
+
+	forgeClients, err := newForgeClients()
+	if err != nil {
+		return err
+	}
+
+	handler, err := buildHandler(cfg, conn, ingestionStore, forgeClients)
 	if err != nil {
 		return err
 	}
@@ -108,31 +116,19 @@ func runServe(ctx context.Context) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	reconciler := ingestion.NewReconciler(ingestionStore, ingestionStore, forgeClients)
+	go reconciler.Run(ctx, cfg.ReconcileInterval)
+
 	return serveUntilDone(ctx, srv)
 }
 
-func loadConfig() (config.Config, error) {
-	encryptionKey, err := hex.DecodeString(viper.GetString("encryption-key"))
-	if err != nil {
-		return config.Config{}, fmt.Errorf("decode encryption key: %w", err)
-	}
-
-	cfg := config.Config{
-		Addr:          viper.GetString("addr"),
-		DBPath:        viper.GetString("db"),
-		CallbackURL:   viper.GetString("callback-url"),
-		EncryptionKey: encryptionKey,
-	}
-	if err := cfg.Validate(); err != nil {
-		return config.Config{}, fmt.Errorf("invalid config: %w", err)
-	}
-
-	return cfg, nil
-}
-
-func buildHandler(cfg config.Config, conn *sql.DB) (http.Handler, error) {
-	ingestionStore := ingestionsqlite.NewStore(conn, cfg.EncryptionKey)
-
+// newForgeClients returns the real GitHub and Forgejo ForgeClient adapters,
+// shared between the HTTP handler's repo registrar and the reconciliation
+// scheduler.
+func newForgeClients() (map[ingestion.Forge]ingestion.ForgeClient, error) {
 	githubForgeClient, err := githubclient.NewClient("")
 	if err != nil {
 		return nil, fmt.Errorf("create github client: %w", err)
@@ -143,10 +139,34 @@ func buildHandler(cfg config.Config, conn *sql.DB) (http.Handler, error) {
 		return nil, fmt.Errorf("create forgejo client: %w", err)
 	}
 
-	registrar := ingestion.NewRegistrar(ingestionStore, map[ingestion.Forge]ingestion.ForgeClient{
+	return map[ingestion.Forge]ingestion.ForgeClient{
 		ingestion.ForgeGitHub:  githubForgeClient,
 		ingestion.ForgeForgejo: forgejoForgeClient,
-	}, cfg.CallbackURL)
+	}, nil
+}
+
+func loadConfig() (config.Config, error) {
+	encryptionKey, err := hex.DecodeString(viper.GetString("encryption-key"))
+	if err != nil {
+		return config.Config{}, fmt.Errorf("decode encryption key: %w", err)
+	}
+
+	cfg := config.Config{
+		Addr:              viper.GetString("addr"),
+		DBPath:            viper.GetString("db"),
+		CallbackURL:       viper.GetString("callback-url"),
+		EncryptionKey:     encryptionKey,
+		ReconcileInterval: viper.GetDuration("reconcile-interval"),
+	}
+	if err := cfg.Validate(); err != nil {
+		return config.Config{}, fmt.Errorf("invalid config: %w", err)
+	}
+
+	return cfg, nil
+}
+
+func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqlite.Store, forgeClients map[ingestion.Forge]ingestion.ForgeClient) (http.Handler, error) {
+	registrar := ingestion.NewRegistrar(ingestionStore, forgeClients, cfg.CallbackURL)
 
 	authStore := authsqlite.NewStore(conn)
 
@@ -193,10 +213,10 @@ func newWebAuthn(callbackURL string) (*webauthn.WebAuthn, error) {
 	return web, nil
 }
 
+// serveUntilDone runs srv until ctx is done, then shuts it down gracefully.
+// ctx is expected to already carry signal-driven cancellation (runServe
+// arms it once, shared with the reconciliation scheduler).
 func serveUntilDone(ctx context.Context, srv *http.Server) error {
-	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	errCh := make(chan error, 1)
 
 	go func() {

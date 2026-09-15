@@ -71,7 +71,7 @@ func (s *Store) CreateRepo(ctx context.Context, repo ingestion.NewRepo) (ingesti
 // ListRepos implements ingestion.Store.
 func (s *Store) ListRepos(ctx context.Context) ([]ingestion.Repo, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, forge, identifier, forgejo_instance_url, token_masked, webhook_secret, ingestion_status, ingestion_status_reason, created_at
+		SELECT id, forge, identifier, forgejo_instance_url, token_masked, webhook_secret, ingestion_status, ingestion_status_reason, reconcile_etag, created_at
 		FROM repos ORDER BY created_at
 	`)
 	if err != nil {
@@ -103,7 +103,7 @@ var ErrRepoNotFound = errors.New("repo not found")
 // GetRepo implements ingestion.Store.
 func (s *Store) GetRepo(ctx context.Context, id string) (ingestion.Repo, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, forge, identifier, forgejo_instance_url, token_masked, webhook_secret, ingestion_status, ingestion_status_reason, created_at
+		SELECT id, forge, identifier, forgejo_instance_url, token_masked, webhook_secret, ingestion_status, ingestion_status_reason, reconcile_etag, created_at
 		FROM repos WHERE id = ?
 	`, id)
 
@@ -117,6 +117,25 @@ func (s *Store) GetRepo(ctx context.Context, id string) (ingestion.Repo, error) 
 	}
 
 	return repo, nil
+}
+
+// SetReconcileETag implements ingestion.Store.
+func (s *Store) SetReconcileETag(ctx context.Context, id string, etag string) error {
+	result, err := s.db.ExecContext(ctx, "UPDATE repos SET reconcile_etag = ? WHERE id = ?", etag, id)
+	if err != nil {
+		return fmt.Errorf("update reconcile etag: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return ErrRepoNotFound
+	}
+
+	return nil
 }
 
 // SetIngestionStatus implements ingestion.Store.
@@ -177,7 +196,7 @@ func scanRepo(row rowScanner) (ingestion.Repo, error) {
 
 	err := row.Scan(
 		&repo.ID, &forge, &repo.Identifier, &forgejoInstanceURL, &repo.TokenMasked,
-		&repo.WebhookSecret, &status, &statusReason, &repo.CreatedAt,
+		&repo.WebhookSecret, &status, &statusReason, &repo.ReconcileETag, &repo.CreatedAt,
 	)
 	if err != nil {
 		return ingestion.Repo{}, fmt.Errorf("scan repo: %w", err)
