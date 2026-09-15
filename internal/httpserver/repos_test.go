@@ -15,6 +15,8 @@ import (
 	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/metrics"
+	metricssqlite "github.com/alrayyes/pipeline-analytics/internal/metrics/sqlite"
 	"github.com/stretchr/testify/require"
 )
 
@@ -78,6 +80,7 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testSer
 		Registrar:      registrar,
 		IngestionStore: ingestionStore,
 		RunStore:       ingestionStore,
+		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
 		AuthStore:      authStore,
 		Version:        "test-version",
 		Assets:         assets,
