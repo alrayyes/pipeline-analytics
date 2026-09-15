@@ -1,0 +1,7 @@
+{
+  "name": "pipeline-analytics",
+  "private": true,
+  "devDependencies": {
+    "@redocly/cli": "2.53.1"
+  }
+}

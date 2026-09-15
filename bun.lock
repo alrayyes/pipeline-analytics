@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "pipeline-analytics",
+      "devDependencies": {
+        "@redocly/cli": "2.53.1",
+      },
+    },
+  },
+  "packages": {
+    "@redocly/cli": ["@redocly/cli@2.53.1", "", { "bin": { "openapi": "bin/cli.js", "redocly": "bin/cli.js" } }, "sha512-NzfSDjHZMMY5qvoXWT5Xz3qIdEEzlxjukU1hytgxY0UMTVroCLm8xprzVjDcMW/2L/P6zgP3vzIZBqS0tG69eA=="],
+  }
+}

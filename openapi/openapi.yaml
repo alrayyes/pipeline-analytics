@@ -1,0 +1,522 @@
+openapi: 3.1.0
+info:
+  title: pipeline-analytics API
+  version: "1.0.0"
+  description: >
+    Self-hosted CI pipeline analytics for GitHub Actions and Forgejo Actions.
+    Every endpoint except the WebAuthn ceremony and the forge webhook
+    receivers requires an authenticated session (see dashboard-auth/spec.md).
+  license:
+    name: AGPL-3.0
+    identifier: AGPL-3.0-only
+servers:
+  - url: /
+
+security:
+  - sessionCookie: []
+
+paths:
+  /api/repos:
+    get:
+      operationId: listRepos
+      summary: List tracked repositories
+      tags: [repos]
+      responses:
+        "200":
+          description: Tracked repositories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Repo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: registerRepo
+      summary: Register a repository for tracking
+      description: >
+        Stores the supplied token encrypted at rest and creates a webhook on
+        the repository (forge-ingestion/spec.md's "Repo tracking
+        registration" and "Webhook registration on tracking").
+      tags: [repos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepoRegistration"
+      responses:
+        "201":
+          description: Repository registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Repo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/repos/{repoId}/usage:
+    get:
+      operationId: getRepoUsage
+      summary: Runner-minutes usage per workflow for a repository
+      tags: [repos]
+      parameters:
+        - $ref: "#/components/parameters/RepoId"
+        - $ref: "#/components/parameters/Window"
+      responses:
+        "200":
+          description: Usage broken down by workflow
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UsageEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/pipelines:
+    get:
+      operationId: listPipelines
+      summary: Overview of every tracked pipeline and its health status
+      tags: [pipelines]
+      responses:
+        "200":
+          description: Pipeline overview
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/pipelines/{pipelineId}:
+    get:
+      operationId: getPipeline
+      summary: Duration and failure-rate trend for one pipeline
+      tags: [pipelines]
+      parameters:
+        - $ref: "#/components/parameters/PipelineId"
+        - $ref: "#/components/parameters/Window"
+      responses:
+        "200":
+          description: Pipeline detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/pipelines/{pipelineId}/steps:
+    get:
+      operationId: getPipelineSteps
+      summary: Step breakdown -- duration ranking, queue/exec split, failure rate, flaky flag
+      tags: [pipelines]
+      parameters:
+        - $ref: "#/components/parameters/PipelineId"
+        - $ref: "#/components/parameters/Window"
+      responses:
+        "200":
+          description: >
+            Steps ordered by duration contribution, highest first
+            (pipeline-metrics/spec.md's "Slowest-step ranking").
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Step"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/auth/register/options:
+    post:
+      operationId: webauthnRegisterOptions
+      summary: Begin WebAuthn credential registration (first run only)
+      tags: [auth]
+      security: []
+      responses:
+        "200":
+          description: WebAuthn PublicKeyCredentialCreationOptions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnCreationOptions"
+        "409":
+          description: A user account already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/register:
+    post:
+      operationId: webauthnRegister
+      summary: Complete WebAuthn credential registration
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebAuthnAttestationResponse"
+      responses:
+        "201":
+          description: Account created, session established
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: A user account already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/login/options:
+    post:
+      operationId: webauthnLoginOptions
+      summary: Begin WebAuthn login
+      tags: [auth]
+      security: []
+      responses:
+        "200":
+          description: WebAuthn PublicKeyCredentialRequestOptions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnRequestOptions"
+        "404":
+          description: No account has been registered yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/login:
+    post:
+      operationId: webauthnLogin
+      summary: Complete WebAuthn login
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebAuthnAssertionResponse"
+      responses:
+        "200":
+          description: Session established
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        "401":
+          description: Assertion did not verify
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/logout:
+    post:
+      operationId: webauthnLogout
+      summary: End the current session
+      tags: [auth]
+      responses:
+        "204":
+          description: Session ended
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /webhooks/github:
+    post:
+      operationId: githubWebhook
+      summary: GitHub Actions webhook receiver (workflow_run / workflow_job events)
+      tags: [webhooks]
+      security: []
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          description: HMAC-SHA256 signature over the raw request body, keyed by the repository's webhook secret.
+          schema:
+            type: string
+        - name: X-GitHub-Event
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: GitHub's workflow_run or workflow_job event payload.
+      responses:
+        "202":
+          description: Accepted -- signature verified, event queued for ingestion
+        "401":
+          description: Signature missing or invalid; payload discarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /webhooks/forgejo:
+    post:
+      operationId: forgejoWebhook
+      summary: Forgejo Actions webhook receiver
+      tags: [webhooks]
+      security: []
+      parameters:
+        - name: X-Forgejo-Signature
+          in: header
+          required: true
+          description: HMAC-SHA256 signature over the raw request body, keyed by the repository's webhook secret.
+          schema:
+            type: string
+        - name: X-Forgejo-Event
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Forgejo's workflow run/job event payload.
+      responses:
+        "202":
+          description: Accepted -- signature verified, event queued for ingestion
+        "401":
+          description: Signature missing or invalid; payload discarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+
+  parameters:
+    RepoId:
+      name: repoId
+      in: path
+      required: true
+      schema:
+        type: string
+    PipelineId:
+      name: pipelineId
+      in: path
+      required: true
+      schema:
+        type: string
+    Window:
+      name: window
+      in: query
+      required: false
+      description: Trailing run count or duration the trend/ranking is computed over. Defaults to a server-chosen rolling window.
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: The request body failed validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: No valid session
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No resource with that id
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    Forge:
+      type: string
+      enum: [github, forgejo]
+
+    IngestionStatus:
+      type: string
+      enum: [pending, active, degraded]
+
+    Repo:
+      type: object
+      required: [id, forge, identifier, ingestionStatus]
+      properties:
+        id:
+          type: string
+        forge:
+          $ref: "#/components/schemas/Forge"
+        identifier:
+          type: string
+          description: "owner/name on the forge."
+        forgejoInstanceUrl:
+          type: string
+          format: uri
+          description: Set only when forge is forgejo.
+        ingestionStatus:
+          $ref: "#/components/schemas/IngestionStatus"
+        ingestionStatusReason:
+          type: string
+          description: Set when ingestionStatus is degraded.
+
+    RepoRegistration:
+      type: object
+      required: [forge, identifier, token]
+      properties:
+        forge:
+          $ref: "#/components/schemas/Forge"
+        identifier:
+          type: string
+        forgejoInstanceUrl:
+          type: string
+          format: uri
+        token:
+          type: string
+          description: Repo-scoped personal access token. Never echoed back.
+
+    HealthStatus:
+      type: string
+      enum: [healthy, unhealthy]
+
+    PipelineSummary:
+      type: object
+      required: [id, repoId, name, healthStatus]
+      properties:
+        id:
+          type: string
+        repoId:
+          type: string
+        name:
+          type: string
+        healthStatus:
+          $ref: "#/components/schemas/HealthStatus"
+        triggeredSignals:
+          type: array
+          description: Which signal(s) triggered an unhealthy status (pipeline-metrics/spec.md).
+          items:
+            type: string
+            enum: [failure_rate, duration_regression, flaky_step]
+
+    Trend:
+      type: object
+      required: [timestamps]
+      properties:
+        timestamps:
+          type: array
+          items:
+            type: string
+            format: date-time
+        p50:
+          type: array
+          items:
+            type: number
+          description: Seconds. Present on a duration trend.
+        p90:
+          type: array
+          items:
+            type: number
+          description: Seconds. Present on a duration trend.
+        rate:
+          type: array
+          items:
+            type: number
+          description: 0-1. Present on a failure-rate trend.
+
+    PipelineDetail:
+      allOf:
+        - $ref: "#/components/schemas/PipelineSummary"
+        - type: object
+          properties:
+            durationTrend:
+              $ref: "#/components/schemas/Trend"
+            failureRateTrend:
+              $ref: "#/components/schemas/Trend"
+
+    Step:
+      type: object
+      required: [id, name, durationContributionSeconds, queueSeconds, execSeconds, failureRate, flaky]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        durationContributionSeconds:
+          type: number
+        queueSeconds:
+          type: number
+        execSeconds:
+          type: number
+        failureRate:
+          type: number
+        flaky:
+          type: boolean
+        forgeUrl:
+          type: string
+          format: uri
+          description: Deep link to this step's log on the originating forge.
+
+    UsageEntry:
+      type: object
+      required: [workflow, runnerMinutes]
+      properties:
+        workflow:
+          type: string
+        runnerMinutes:
+          type: number
+
+    WebAuthnCreationOptions:
+      type: object
+      description: A WebAuthn PublicKeyCredentialCreationOptions (opaque to the client beyond browser API use).
+    WebAuthnRequestOptions:
+      type: object
+      description: A WebAuthn PublicKeyCredentialRequestOptions (opaque to the client beyond browser API use).
+    WebAuthnAttestationResponse:
+      type: object
+      description: The browser's AuthenticatorAttestationResponse, JSON-encoded.
+    WebAuthnAssertionResponse:
+      type: object
+      description: The browser's AuthenticatorAssertionResponse, JSON-encoded.
