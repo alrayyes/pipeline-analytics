@@ -8,6 +8,7 @@ New project, no existing code. See proposal.md - Why for motivation. Single user
 - Single-binary-friendly deployment: one Go process serving both the API and the built SvelteKit frontend.
 - Minimize GitHub REST rate-limit consumption without adding a second API paradigm (no GraphQL).
 - Keep the forge integration read-mostly: only a webhook-management write (create/verify webhook) against either forge, nothing else.
+- Every HTTP endpoint is designed in a committed OpenAPI description before its handler is written (per this account's `api.md` convention) -- the spec for a capability's endpoints lands as its own reviewed step before that capability's handler code, not alongside it.
 
 **Non-Goals:**
 - Multi-user/multi-tenant support (single WebAuthn user in v1).
@@ -41,12 +42,35 @@ Matches the proposal's stated requirement directly. No password fallback is offe
 ### Actionability: diagnose + deep-link only
 The dashboard identifies the specific failing/slow step and links to it on the originating forge, rather than acting on the user's behalf (re-run, alerting). This keeps forge write scope limited to webhook management, avoids building a notification-delivery subsystem in v1, and keeps the token-scope/attack-surface footprint minimal for a public-URL deployment.
 
+### API design: OpenAPI first, Redocly-linted
+Every endpoint -- repo registration, WebAuthn ceremonies, the webhook receivers, and the dashboard's own data APIs -- is hand-written into `openapi/openapi.yaml` and reviewed before its handler exists, per this account's standing `api.md` convention. Linted with Redocly CLI (`recommended-strict`, since the spec is new), one `redocly.yaml` at the repo root. Server stubs/typed clients may be generated from it later; the spec itself is never generated from annotations. A capability's spec PR lands and is reviewed on its own, then its handler PR follows -- not combined into one PR that changes both.
+
+### Server entrypoint: cobra + viper
+The binary's command surface is `spf13/cobra` (a `serve` command now; room for a one-off admin/migration command later without restructuring), with `spf13/viper` for configuration -- flags, environment variables, and an optional config file, in that precedence, bound via `viper.BindPFlag`. A `Validate() error` on the config struct runs once after `viper.Unmarshal`, so a bad value fails at startup rather than wherever it's first read.
+
+### Architecture: hexagonal, ports owned by the domain
+Domain logic (health-status computation, flaky-step detection, duration/failure-rate aggregation) sits at the centre, importing neither `net/http` nor `database/sql`. It's tested with fakes. Ports -- a run/job/step store, a forge client -- are interfaces defined in the domain package that needs them; adapters (the SQLite-backed store, the GitHub/Forgejo REST clients built on `google/go-github`/the Gitea SDK, the HTTP handler tree) implement those ports at the edges and are wired together at the composition root in `cmd/pipeline-analytics/main.go`. Package layout follows `internal/<capability>` (`internal/ingestion`, `internal/metrics`, `internal/auth`, `internal/httpserver`), not a `domain/application/infrastructure` tree -- there's no DI framework, dependencies are passed explicitly from `main`.
+
+### Testing: outside-in, testify, containers only where a real service exists
+Per this account's `testing.md`/`go-test.md`: the outer (acceptance/integration) test goes in first against the interface a caller wants, unit tests fill in branches and edge cases once that's red for the right reason. Unit tests use testify (`require`/`assert`), external `_test` packages, table-driven cases with `t.Parallel()`. SQLite is embedded, not a separate service, so `testcontainers-go` doesn't apply to it; it's reserved for a genuine external dependency if one is ever added. GitHub/Forgejo API interaction is tested against an `httptest.Server` fake implementing the subset of each forge's REST API this project actually calls (webhook creation, run/job listing, conditional-GET semantics) -- there's no real forge to containerize, and a fake gives control over rate-limit/304 responses a live API wouldn't.
+
+### Frontend tooling: bun
+The SvelteKit frontend uses bun as the runtime, package manager, bundler, and test runner (`bun run`, `bun test`, `bun build`), not npm/node -- this account's default per `javascript.md`. Lockfile is `bun.lock`, committed. Linted with Biome (JS/TS/JSON/CSS in one pass); Prettier only for the Markdown/YAML gaps Biome doesn't cover.
+
+### Containerization: hardened multi-stage Dockerfile
+Multi-stage build (Go toolchain image to compile, a minimal runtime base -- alpine or distroless -- for the artifact), non-root `USER`, base image pinned by digest, bound to a high port (8080) rather than granting a low-port capability. Hadolint runs against the Dockerfile in the same hook/CI step as everything else.
+
+### Dependency hygiene and releases
+Dependabot watches both ecosystems (Go, and bun/npm once the frontend's `package.json` exists) once each manifest lands. `govulncheck ./...` (Go) and `bun audit` (frontend) run in CI on every push, separately from the update bot. Since this repo is GitHub-hosted, releases use **release-please** (reads Conventional Commits, keeps a release PR open) plus **goreleaser** (cross-compiles and attaches the binary once that PR merges and tags) -- not semantic-release, which is this account's Forgejo-side equivalent. `RELEASE_TOKEN` is already provisioned as a repo secret.
+
 ## Risks / Trade-offs
 
 - [Pasted PAT model requires manual rotation and has no automatic revocation path] -> Mitigated by encrypting tokens at rest and scoping them to only the tracked repos; acceptable for a single-user tool, revisit if this ever becomes multi-user.
 - [Gitea SDK's Forgejo Actions endpoint coverage is unverified] -> Verify during early implementation; fall back to raw REST calls against Forgejo's documented Actions API where the SDK is missing coverage.
 - [Public-URL deployment with no forge write access still exposes a webhook receiver endpoint to the internet] -> Mitigated by per-repo webhook signature verification (HMAC) rejecting any unverified delivery before it touches stored data.
 - [Health-score formula (how duration regression, failure rate, and flakiness combine into one status) is not fully specified] -> See Open Questions; the individual signals are each specified in pipeline-metrics/spec.md and can ship independently of a single combined score if needed.
+- [OpenAPI-spec-first adds a design/review step before any handler for a capability can be written] -> Accepted cost for a stable, reviewed contract; the spec PR is usually small relative to the handler PR that follows it.
+- [cobra/viper is real ceremony for a binary that, in v1, has exactly one command] -> Accepted for consistency with this account's standing Go convention and to leave room for a later admin/migration command with no restructuring.
 
 ## Open Questions
 
