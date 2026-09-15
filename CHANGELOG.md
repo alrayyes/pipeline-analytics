@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.4.0...v0.5.0) (2026-09-15)
+
+
+### Features
+
+* **dashboard-ui:** pipeline overview page ([#29](https://github.com/alrayyes/pipeline-analytics/issues/29)) ([cb05aa4](https://github.com/alrayyes/pipeline-analytics/commit/cb05aa4f59772b666d73a4c4bad5e17076421009))
+* **dashboard-ui:** WebAuthn login/registration flow ([#28](https://github.com/alrayyes/pipeline-analytics/issues/28)) ([cec2ede](https://github.com/alrayyes/pipeline-analytics/commit/cec2edec668ef3ef4675daeed251933faea05bd8))
+* **metrics:** pipeline health, trend, ranking, and usage computation ([#25](https://github.com/alrayyes/pipeline-analytics/issues/25)) ([806c9a0](https://github.com/alrayyes/pipeline-analytics/commit/806c9a0fae6706a0933f1d29a564e13f1c465eef))
+* **metrics:** wire pipeline and usage API handlers ([#27](https://github.com/alrayyes/pipeline-analytics/issues/27)) ([f128e98](https://github.com/alrayyes/pipeline-analytics/commit/f128e98e4dd278422cb75271adfb3d260876a603))
+
 ## [0.4.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.3.0...v0.4.0) (2026-09-15)
 
 
