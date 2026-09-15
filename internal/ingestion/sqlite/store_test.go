@@ -136,3 +136,33 @@ func TestStore_SetIngestionStatus(t *testing.T) {
 	require.Equal(t, ingestion.StatusDegraded, got.IngestionStatus)
 	require.Equal(t, "insufficient token scope", got.IngestionStatusReason)
 }
+
+func TestStore_SetReconcileETag(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	created, err := store.CreateRepo(ctx, ingestion.NewRepo{
+		Forge:      ingestion.ForgeGitHub,
+		Identifier: "alrayyes/pipeline-analytics",
+		Token:      "ghp_supersecrettoken1234",
+	})
+	require.NoError(t, err)
+	require.Empty(t, created.ReconcileETag)
+
+	require.NoError(t, store.SetReconcileETag(ctx, created.ID, `"v1"`))
+
+	got, err := store.GetRepo(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, `"v1"`, got.ReconcileETag)
+}
+
+func TestStore_SetReconcileETag_UnknownRepo(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+
+	err := store.SetReconcileETag(context.Background(), "does-not-exist", `"v1"`)
+	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
+}

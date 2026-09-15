@@ -86,3 +86,142 @@ func TestClient_CreateWebhook(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+const workflowRunsPayload = `{
+  "workflow_runs": [
+    {
+      "id": 1001,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "success",
+      "run_started_at": "2026-09-15T10:00:00Z",
+      "updated_at": "2026-09-15T10:05:00Z",
+      "html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001"
+    }
+  ]
+}`
+
+const workflowJobsPayload = `{
+  "jobs": [
+    {
+      "id": 5001,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-09-15T09:59:00Z",
+      "started_at": "2026-09-15T10:00:00Z",
+      "completed_at": "2026-09-15T10:04:00Z",
+      "html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001/job/5001",
+      "steps": [
+        {"name": "checkout", "status": "completed", "conclusion": "success", "number": 1}
+      ]
+    }
+  ]
+}`
+
+func TestClient_ListRecentRuns(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a first poll (no ETag) fetches runs with their jobs and steps", func(t *testing.T) {
+		t.Parallel()
+
+		var gotIfNoneMatch string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/repos/alrayyes/pipeline-analytics/actions/runs":
+				gotIfNoneMatch = r.Header.Get("If-None-Match")
+				w.Header().Set("ETag", `"v2"`)
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowRunsPayload))
+			case "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowJobsPayload))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+
+		require.Empty(t, gotIfNoneMatch)
+		require.False(t, result.NotModified)
+		require.Equal(t, `"v2"`, result.ETag)
+		require.Len(t, result.Runs, 1)
+
+		run := result.Runs[0]
+		require.Equal(t, "1001", run.ForgeRunID)
+		require.Equal(t, "CI", run.PipelineName)
+		require.Equal(t, "success", run.Conclusion)
+		require.Len(t, run.Jobs, 1)
+
+		job := run.Jobs[0]
+		require.Equal(t, "5001", job.ForgeJobID)
+		require.Equal(t, "build", job.Name)
+		require.Len(t, job.Steps, 1)
+		require.Equal(t, "checkout", job.Steps[0].Name)
+	})
+
+	t.Run("sends the repo's ETag as If-None-Match and reports 304 as unmodified", func(t *testing.T) {
+		t.Parallel()
+
+		var gotIfNoneMatch string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs" {
+				t.Fatal("jobs should never be fetched for an unmodified run list")
+			}
+
+			gotIfNoneMatch = r.Header.Get("If-None-Match")
+			w.WriteHeader(http.StatusNotModified)
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+			ETag:       `"v1"`,
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, `"v1"`, gotIfNoneMatch)
+		require.True(t, result.NotModified)
+		require.Empty(t, result.Runs)
+	})
+
+	t.Run("rejects an identifier not in owner/name form", func(t *testing.T) {
+		t.Parallel()
+
+		client, err := ghclient.NewClient("")
+		require.NoError(t, err)
+
+		_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{Identifier: "not-owner-slash-name"})
+		require.ErrorIs(t, err, ghclient.ErrInvalidIdentifier)
+	})
+
+	t.Run("wraps an unexpected status from the forge", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{Identifier: "alrayyes/pipeline-analytics", Token: "ghp_test"})
+		require.Error(t, err)
+	})
+}
