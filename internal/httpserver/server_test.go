@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +14,7 @@ func TestHealthz(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
-	httpserver.New().ServeHTTP(rec, req)
+	newTestServer(t, nil).ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "ok", rec.Body.String())
