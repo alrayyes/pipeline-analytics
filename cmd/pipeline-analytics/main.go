@@ -81,6 +81,10 @@ func runServe(ctx context.Context) error {
 		}
 	}()
 
+	if err := db.Migrate(ctx, conn); err != nil {
+		return fmt.Errorf("migrate database: %w", err)
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           httpserver.New(),
