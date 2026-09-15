@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.3.0...v0.4.0) (2026-09-15)
+
+
+### Features
+
+* **ingestion:** reconciliation polling and scheduler wiring ([#24](https://github.com/alrayyes/pipeline-analytics/issues/24)) ([f59494a](https://github.com/alrayyes/pipeline-analytics/commit/f59494a7ff0305ec4ad63761d2bf2c5bb9ed59e2))
+* **ingestion:** webhook receivers and run/job/step storage ([#22](https://github.com/alrayyes/pipeline-analytics/issues/22)) ([72ad44f](https://github.com/alrayyes/pipeline-analytics/commit/72ad44fda282b93abcc19550b55783ee02586353))
+
 ## [0.3.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.2.0...v0.3.0) (2026-09-15)
 
 
