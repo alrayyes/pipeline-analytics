@@ -33,7 +33,7 @@
 ## 5. dashboard-ui
 
 - [x] 5.1 SvelteKit project scaffold under `web/` (bun, TypeScript strict), built output embedded into the Go binary via `go:embed` -- verified via `bun run build` output served by the running binary, plus a footer + release-history page (github.com/alrayyes/pipeline-analytics#16). shadcn-svelte/LayerChart intentionally not installed yet -- nothing to chart until pipeline-metrics (#4) exists; installed alongside 5.3, their first real consumer.
-- [ ] 5.2 WebAuthn login/registration UI flow -- verify end-to-end login against a running server
+- [x] 5.2 WebAuthn login/registration UI flow -- verify end-to-end login against a running server
 - [ ] 5.3 Repo/pipeline overview page (installs shadcn-svelte + LayerChart) -- verify every tracked pipeline's health status is visible without opening it individually
 - [ ] 5.4 Pipeline detail view: duration trend and failure-rate trend charts -- verify a regressed trend is visible in the chart, not only the current aggregate
 - [ ] 5.5 Step breakdown view: duration ranking, queue/exec split, failure rate, flaky callout -- verify flaky and consistently-failing steps are visually distinguishable
