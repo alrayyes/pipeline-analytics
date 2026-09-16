@@ -1,0 +1,21 @@
+name: Release PR auto-merge
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    # release-please's own branch naming, not an actor check -- its PR here
+    # is opened under RELEASE_TOKEN (a PAT), so it's authored as the repo
+    # owner rather than github-actions[bot].
+    if: startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
