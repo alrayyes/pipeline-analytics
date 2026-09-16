@@ -1,5 +1,13 @@
 <script lang="ts">
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
 import { onMount } from 'svelte';
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from '$lib/components/ui/card/index.js';
 
 interface Release {
 	tag_name: string;
@@ -32,35 +40,65 @@ onMount(() => {
 			failed = true;
 		});
 });
+
+// release-please's own body opens with a "## [version](compare-link) (date)"
+// heading -- redundant here since the card header already shows the same
+// version and date structurally, so it's stripped before rendering the rest.
+const LEADING_VERSION_HEADING = /^##\s*\[.*?\]\(.*?\)\s*\(.*?\)\s*\n+/;
+
+function renderBody(body: string): string {
+	const withoutHeading = body.replace(LEADING_VERSION_HEADING, '');
+	return DOMPurify.sanitize(marked.parse(withoutHeading, { async: false }));
+}
 </script>
 
 <svelte:head>
-	<title>Release history</title>
+	<title>Release history · pipeline-analytics</title>
 </svelte:head>
 
-<main>
-	<h1>Release history</h1>
+<main class="mx-auto max-w-3xl px-4 py-8">
+	<h1 class="text-2xl font-semibold">Release history</h1>
 
 	{#if failed}
-		<p>
+		<p role="alert" class="mt-6 text-destructive">
 			Couldn't load releases right now. See the full list on
-			<a href={RELEASES_PAGE_URL}>GitHub</a>.
+			<a href={RELEASES_PAGE_URL} class="underline hover:text-foreground">GitHub</a>.
 		</p>
 	{:else if releases === null}
-		<p>Loading&hellip;</p>
+		<p class="mt-6 text-muted-foreground">Loading&hellip;</p>
 	{:else if releases.length === 0}
-		<p>No releases yet.</p>
+		<p class="mt-6 text-muted-foreground">No releases yet.</p>
 	{:else}
-		<ul>
+		<ul class="mt-6 grid gap-4">
 			{#each releases as release (release.tag_name)}
 				<li>
-					<h2><a href={release.html_url}>{release.name || release.tag_name}</a></h2>
-					<time datetime={release.published_at}>
-						{new Date(release.published_at).toLocaleDateString()}
-					</time>
-					{#if release.body}
-						<p>{release.body}</p>
-					{/if}
+					<Card>
+						<CardHeader class="flex flex-row items-center justify-between">
+							<CardTitle>
+								<h2>
+									<a
+										href={release.html_url}
+										class="hover:underline"
+									>
+										{release.name || release.tag_name}
+									</a>
+								</h2>
+							</CardTitle>
+							<time
+								datetime={release.published_at}
+								class="text-sm text-muted-foreground"
+							>
+								{new Date(release.published_at).toLocaleDateString()}
+							</time>
+						</CardHeader>
+						{#if release.body}
+							<CardContent>
+								<div class="prose prose-sm dark:prose-invert max-w-none">
+									{@html renderBody(release.body)}
+								</div>
+							</CardContent>
+						{/if}
+					</Card>
 				</li>
 			{/each}
 		</ul>

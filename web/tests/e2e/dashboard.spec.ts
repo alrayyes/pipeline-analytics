@@ -281,6 +281,43 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'All pipelines' }).click();
 	await expect(page).toHaveURL('/');
 
+	// Release history (task: footer/releases layout fix) -- the page fetches
+	// GitHub's own releases API directly, no backend proxy, so that's what
+	// gets mocked here rather than an internal endpoint.
+	await page.route(
+		'https://api.github.com/repos/alrayyes/pipeline-analytics/releases',
+		(route) =>
+			route.fulfill({
+				json: [
+					{
+						tag_name: 'v0.10.0',
+						name: 'v0.10.0',
+						html_url:
+							'https://github.com/alrayyes/pipeline-analytics/releases/tag/v0.10.0',
+						published_at: '2026-09-16T00:00:00Z',
+						body: '### Features\n\n* add a dark mode toggle ([#61](https://github.com/alrayyes/pipeline-analytics/issues/61))',
+					},
+				],
+			}),
+	);
+	await page.getByRole('link', { name: 'Release history' }).click();
+	await expect(page).toHaveURL('/releases');
+	await expect(page.getByRole('heading', { name: 'v0.10.0' })).toBeVisible();
+	// The markdown body rendered as real HTML, not raw "### Features" text.
+	await expect(page.getByRole('heading', { name: 'Features' })).toBeVisible();
+	await expect(page.getByRole('link', { name: '#61' })).toBeVisible();
+
+	const releasesScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(releasesScan.violations).toEqual([]);
+
+	await page.unroute(
+		'https://api.github.com/repos/alrayyes/pipeline-analytics/releases',
+	);
+	await page.getByRole('link', { name: 'Pipelines' }).click();
+	await expect(page).toHaveURL('/');
+
 	await page.unroute('**/api/pipelines');
 	await page.getByRole('button', { name: 'Log out' }).click();
 	await expect(page).toHaveURL(/\/login$/);
