@@ -1,8 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import { goto } from '$app/navigation';
 import { Badge } from '$lib/components/ui/badge/index.js';
-import { Button } from '$lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -26,7 +24,6 @@ const SIGNAL_LABELS: Record<string, string> = {
 
 let pipelines = $state<PipelineSummary[] | null>(null);
 let error = $state<string | null>(null);
-let logoutBusy = $state(false);
 
 async function loadPipelines(): Promise<void> {
 	try {
@@ -44,16 +41,6 @@ async function loadPipelines(): Promise<void> {
 
 onMount(loadPipelines);
 
-async function handleLogout(): Promise<void> {
-	logoutBusy = true;
-
-	try {
-		await fetch('/api/auth/logout', { method: 'POST' });
-	} finally {
-		await goto('/login');
-	}
-}
-
 function signalLabel(signal: string): string {
 	return SIGNAL_LABELS[signal] ?? signal;
 }
@@ -64,12 +51,7 @@ function signalLabel(signal: string): string {
 </svelte:head>
 
 <main class="mx-auto max-w-3xl px-4 py-8">
-	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-semibold">Pipelines</h1>
-		<Button variant="outline" onclick={handleLogout} disabled={logoutBusy}>
-			{logoutBusy ? 'Logging out…' : 'Log out'}
-		</Button>
-	</div>
+	<h1 class="text-2xl font-semibold">Pipelines</h1>
 
 	{#if error}
 		<p role="alert" class="mt-6 text-destructive">{error}</p>
@@ -77,8 +59,9 @@ function signalLabel(signal: string): string {
 		<p class="mt-6 text-muted-foreground">Loading…</p>
 	{:else if pipelines.length === 0}
 		<p class="mt-6 text-muted-foreground">
-			No pipelines tracked yet. Register a repository (<code>POST /api/repos</code>) to start
-			ingesting its runs.
+			No pipelines tracked yet. <a href="/repos" class="underline hover:text-foreground"
+				>Register a repository</a
+			> to start ingesting its runs.
 		</p>
 	{:else}
 		<ul class="mt-6 grid gap-4">

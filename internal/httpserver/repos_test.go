@@ -200,6 +200,70 @@ func TestReposRegisterAndList(t *testing.T) {
 	})
 }
 
+func TestReposUntrack(t *testing.T) {
+	t.Parallel()
+
+	t.Run("untracking a repo removes it from the list", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		body, err := json.Marshal(map[string]string{
+			"forge":      "github",
+			"identifier": "alrayyes/pipeline-analytics",
+			"token":      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+
+		postReq := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+		postRec := httptest.NewRecorder()
+		srv.ServeHTTP(postRec, postReq)
+
+		var created map[string]any
+		require.NoError(t, json.Unmarshal(postRec.Body.Bytes(), &created))
+		id, ok := created["id"].(string)
+		require.True(t, ok)
+
+		delReq := srv.authenticated(httptest.NewRequest(http.MethodDelete, "/api/repos/"+id, nil))
+		delRec := httptest.NewRecorder()
+		srv.ServeHTTP(delRec, delReq)
+
+		require.Equal(t, http.StatusNoContent, delRec.Code)
+
+		getReq := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos", nil))
+		getRec := httptest.NewRecorder()
+		srv.ServeHTTP(getRec, getReq)
+
+		var got []map[string]any
+		require.NoError(t, json.Unmarshal(getRec.Body.Bytes(), &got))
+		require.Empty(t, got)
+	})
+
+	t.Run("untracking an unknown repo returns 404", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodDelete, "/api/repos/does-not-exist", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("rejects an unauthenticated request", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/repos/some-id", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}
+
 var errPermissionDenied = permissionDeniedError{}
 
 type permissionDeniedError struct{}

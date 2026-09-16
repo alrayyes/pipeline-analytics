@@ -75,6 +75,25 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/repos/{repoId}:
+    delete:
+      operationId: untrackRepo
+      summary: Stop tracking a repository
+      description: >
+        Removes the repo and cascades to its stored runs, jobs, and steps.
+        Does not attempt to delete the webhook created on the forge at
+        registration time.
+      tags: [repos]
+      parameters:
+        - $ref: "#/components/parameters/RepoId"
+      responses:
+        "204":
+          description: Repository untracked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/repos/{repoId}/usage:
     get:
       operationId: getRepoUsage

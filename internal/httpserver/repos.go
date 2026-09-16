@@ -91,6 +91,16 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toRepoDTO(repo))
 }
 
+func (h *reposHandler) untrack(w http.ResponseWriter, r *http.Request) {
+	if err := h.store.DeleteRepo(r.Context(), r.PathValue("repoId")); err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "repo not found")
+
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
