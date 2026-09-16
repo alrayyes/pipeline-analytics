@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.18.0...v0.19.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** group the Pipelines list by repository ([#106](https://github.com/alrayyes/pipeline-analytics/issues/106)) ([63ebd51](https://github.com/alrayyes/pipeline-analytics/commit/63ebd51a4f436bdc66fc5979eb9570ddaa42edf6)), closes [#102](https://github.com/alrayyes/pipeline-analytics/issues/102)
+
 ## [0.18.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.17.0...v0.18.0) (2026-09-16)
 
 
