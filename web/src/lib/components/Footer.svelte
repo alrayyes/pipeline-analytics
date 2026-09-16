@@ -16,16 +16,23 @@ onMount(() => {
 });
 </script>
 
-<footer>
-	<p>
+<footer class="border-t">
+	<p class="mx-auto max-w-4xl px-4 py-4 text-center text-xs text-muted-foreground">
 		pipeline-analytics
 		{#if version === 'dev'}
 			<span>· dev build</span>
 		{:else if version}
-			<a href="https://github.com/alrayyes/pipeline-analytics/releases/tag/{version}">{version}</a>
+			·
+			<a
+				href="https://github.com/alrayyes/pipeline-analytics/releases/tag/{version}"
+				class="hover:text-foreground hover:underline"
+			>
+				{version}
+			</a>
 		{/if}
 		{#if page.url.pathname !== '/releases'}
-			· <a href="/releases">Release history</a>
+			·
+			<a href="/releases" class="hover:text-foreground hover:underline">Release history</a>
 		{/if}
 	</p>
 </footer>
