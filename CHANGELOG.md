@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.15.1...v0.15.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* **ingestion:** paginate repo discovery, exclude archived/forked repos ([#92](https://github.com/alrayyes/pipeline-analytics/issues/92)) ([c12db45](https://github.com/alrayyes/pipeline-analytics/commit/c12db45b0fa47632abfc5ab4cbba3adb1be596e7)), closes [#74](https://github.com/alrayyes/pipeline-analytics/issues/74)
+
 ## [0.15.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.15.0...v0.15.1) (2026-09-16)
 
 
