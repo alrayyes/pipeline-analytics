@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.8.0...v0.9.0) (2026-09-16)
+
+
+### Features
+
+* repo management UI (register, list, untrack) ([#57](https://github.com/alrayyes/pipeline-analytics/issues/57)) ([1d172e2](https://github.com/alrayyes/pipeline-analytics/commit/1d172e292e8e07b42cba1e0caa97c693199e900b))
+
 ## [0.8.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.7.0...v0.8.0) (2026-09-16)
 
 
