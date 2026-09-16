@@ -13,6 +13,8 @@ link from every finding back to the run on the originating forge.
 Built for a solo developer running their own repos, not a team. One binary,
 one SQLite file, no external services.
 
+![Pipeline overview: each tracked pipeline's health status at a glance](docs/screenshot-overview.png)
+
 ## Requirements
 
 - A GitHub or Forgejo repository to track, and a repo-scoped personal access
