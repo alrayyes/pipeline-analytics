@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.11.0...v0.12.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** render and style the release history page ([#67](https://github.com/alrayyes/pipeline-analytics/issues/67)) ([fed045c](https://github.com/alrayyes/pipeline-analytics/commit/fed045c8a8064de81149bb5583c5749e83d0a274))
+
 ## [0.11.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.10.0...v0.11.0) (2026-09-16)
 
 
