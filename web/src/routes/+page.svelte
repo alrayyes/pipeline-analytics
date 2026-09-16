@@ -84,26 +84,28 @@ function signalLabel(signal: string): string {
 		<ul class="mt-6 grid gap-4">
 			{#each pipelines as pipeline (pipeline.id)}
 				<li>
-					<Card>
-						<CardHeader class="flex flex-row items-center justify-between">
-							<CardTitle class="contents">
-								<h2>{pipeline.name}</h2>
-							</CardTitle>
-							<Badge
-								variant={pipeline.healthStatus === 'healthy' ? 'default' : 'destructive'}
-								class={pipeline.healthStatus === 'unhealthy'
-									? 'bg-destructive text-white'
-									: ''}
-							>
-								{pipeline.healthStatus}
-							</Badge>
-						</CardHeader>
-						{#if pipeline.triggeredSignals?.length}
-							<CardContent class="text-sm text-muted-foreground">
-								{pipeline.triggeredSignals.map(signalLabel).join(', ')}
-							</CardContent>
-						{/if}
-					</Card>
+					<a href="/pipelines/{pipeline.id}" class="block">
+						<Card class="transition-colors hover:border-primary">
+							<CardHeader class="flex flex-row items-center justify-between">
+								<CardTitle class="contents">
+									<h2>{pipeline.name}</h2>
+								</CardTitle>
+								<Badge
+									variant={pipeline.healthStatus === 'healthy' ? 'default' : 'destructive'}
+									class={pipeline.healthStatus === 'unhealthy'
+										? 'bg-destructive text-white'
+										: ''}
+								>
+									{pipeline.healthStatus}
+								</Badge>
+							</CardHeader>
+							{#if pipeline.triggeredSignals?.length}
+								<CardContent class="text-sm text-muted-foreground">
+									{pipeline.triggeredSignals.map(signalLabel).join(', ')}
+								</CardContent>
+							{/if}
+						</Card>
+					</a>
 				</li>
 			{/each}
 		</ul>

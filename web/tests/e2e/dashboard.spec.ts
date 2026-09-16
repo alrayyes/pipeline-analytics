@@ -92,6 +92,54 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(overviewWithDataScan.violations).toEqual([]);
 
+	// Clicking through to a pipeline's detail page: the trend charts (task
+	// 5.4) render duration and failure-rate history, and a regression has
+	// to be visible in the chart itself, not just as a current aggregate
+	// number -- so the fixture below deliberately has the last bucket
+	// spike well above the earlier ones.
+	const timestamps = Array.from({ length: 6 }, (_, i) =>
+		new Date(Date.UTC(2026, 8, 1 + i)).toISOString(),
+	);
+	await page.route('**/api/pipelines/unhealthy-1', (route) =>
+		route.fulfill({
+			json: {
+				id: 'unhealthy-1',
+				repoId: 'repo-1',
+				name: 'Deploy',
+				healthStatus: 'unhealthy',
+				triggeredSignals: ['duration_regression', 'failure_rate'],
+				durationTrend: {
+					timestamps,
+					p50: [300, 305, 295, 300, 600, 650],
+					p90: [420, 430, 410, 425, 900, 980],
+				},
+				failureRateTrend: {
+					timestamps,
+					rate: [0.05, 0.1, 0.05, 0.1, 0.3, 0.35],
+				},
+			},
+		}),
+	);
+	await page.getByRole('link').filter({ hasText: 'Deploy' }).click();
+	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1$/);
+	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
+	await expect(
+		page.getByText('duration regression, elevated failure rate'),
+	).toBeVisible();
+	// The legend confirms both series actually rendered, not just an
+	// empty chart shell.
+	await expect(page.getByText('p50', { exact: true })).toBeVisible();
+	await expect(page.getByText('p90', { exact: true })).toBeVisible();
+
+	const detailScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(detailScan.violations).toEqual([]);
+
+	await page.unroute('**/api/pipelines/unhealthy-1');
+	await page.getByRole('link', { name: 'All pipelines' }).click();
+	await expect(page).toHaveURL('/');
+
 	await page.unroute('**/api/pipelines');
 	await page.getByRole('button', { name: 'Log out' }).click();
 	await expect(page).toHaveURL(/\/login$/);
