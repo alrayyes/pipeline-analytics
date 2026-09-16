@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.23.0...v0.23.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **forgejo:** tolerate the jobs-listing response shape mismatch ([#131](https://github.com/alrayyes/pipeline-analytics/issues/131)) ([653b422](https://github.com/alrayyes/pipeline-analytics/commit/653b4228807c392b05ba6401c966fdaa043bc749))
+
 ## [0.23.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.22.1...v0.23.0) (2026-09-16)
 
 
