@@ -138,5 +138,19 @@ await page.goto(BASE_URL + '/repos/repo-1/usage');
 await page.waitForSelector('table');
 await page.screenshot({ path: OUT_DIR + 'screenshot-usage.png' });
 
+// -- Dark mode (overview + pipeline detail: cards/badges and charts/table,
+// the two most visually distinct surfaces) --
+await page.evaluate(() => localStorage.setItem('theme', 'dark'));
+await page.goto(BASE_URL + '/');
+await page.waitForSelector('text=CI');
+await page.screenshot({ path: OUT_DIR + 'screenshot-overview-dark.png' });
+
+await page.goto(BASE_URL + '/pipelines/deploy');
+await page.waitForSelector('table');
+await page.screenshot({
+	path: OUT_DIR + 'screenshot-pipeline-detail-dark.png',
+	fullPage: true,
+});
+
 console.log('Screenshots captured.');
 await browser.close();

@@ -50,6 +50,23 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(dashboardScan.violations).toEqual([]);
 
+	// Dark mode (cycles system -> light -> dark), persisted across a
+	// reload, and re-scanned since contrast is theme-sensitive.
+	const themeToggle = page.getByRole('button', { name: /Theme:/ });
+	await themeToggle.click();
+	await themeToggle.click();
+	await expect(page.locator('html')).toHaveClass('dark');
+	await page.reload();
+	await expect(page.locator('html')).toHaveClass('dark');
+
+	const darkModeScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(darkModeScan.violations).toEqual([]);
+
+	await page.getByRole('button', { name: /Theme:/ }).click();
+	await expect(page.locator('html')).not.toHaveClass('dark');
+
 	// Repo management (register/list/untrack) is exercised against the
 	// real POST/DELETE /api/repos endpoints, not mocked -- same reasoning
 	// as the login/registration ceremony above: this is what those
@@ -73,6 +90,11 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.filter({ hasText: 'alrayyes/demo-repo' });
 	await expect(repoRow).toBeVisible();
 	await expect(repoRow).toContainText('degraded');
+	// The dialog's own closing animation leaves its (fading, near-invisible)
+	// text in the DOM for a moment after submit -- axe scores that as a
+	// real contrast failure if it catches the page mid-transition, so wait
+	// for the dialog to actually finish closing first.
+	await expect(page.getByText('Register a repository')).not.toBeVisible();
 
 	const reposScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
 	expect(reposScan.violations).toEqual([]);

@@ -23,6 +23,10 @@ one SQLite file, no external services.
 
 ![Usage view: runner-minutes per workflow](docs/screenshot-usage.png)
 
+![Pipeline overview in dark mode](docs/screenshot-overview-dark.png)
+
+![Pipeline detail in dark mode](docs/screenshot-pipeline-detail-dark.png)
+
 </details>
 
 ## Requirements

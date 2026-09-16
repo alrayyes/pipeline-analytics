@@ -1,10 +1,20 @@
 <script lang="ts">
+import MonitorIcon from '@lucide/svelte/icons/monitor';
+import MoonIcon from '@lucide/svelte/icons/moon';
+import SunIcon from '@lucide/svelte/icons/sun';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { Button } from '$lib/components/ui/button/index.js';
+import { cycleTheme, getTheme } from '$lib/theme.svelte.js';
 import { cn } from '$lib/utils.js';
 
 let logoutBusy = $state(false);
+
+const THEME_LABELS = {
+	light: 'Light',
+	dark: 'Dark',
+	system: 'System',
+} as const;
 
 const links = [
 	{ href: '/', label: 'Pipelines' },
@@ -49,8 +59,24 @@ async function handleLogout(): Promise<void> {
 				{/each}
 			</ul>
 		</nav>
-		<Button variant="outline" size="sm" onclick={handleLogout} disabled={logoutBusy}>
-			{logoutBusy ? 'Logging out…' : 'Log out'}
-		</Button>
+		<div class="flex items-center gap-2">
+			<Button
+				variant="outline"
+				size="icon-sm"
+				onclick={cycleTheme}
+				aria-label="Theme: {THEME_LABELS[getTheme()]}. Click to change."
+			>
+				{#if getTheme() === 'light'}
+					<SunIcon />
+				{:else if getTheme() === 'dark'}
+					<MoonIcon />
+				{:else}
+					<MonitorIcon />
+				{/if}
+			</Button>
+			<Button variant="outline" size="sm" onclick={handleLogout} disabled={logoutBusy}>
+				{logoutBusy ? 'Logging out…' : 'Log out'}
+			</Button>
+		</div>
 	</div>
 </header>
