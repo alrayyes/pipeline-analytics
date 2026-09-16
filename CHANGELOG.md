@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.22.0...v0.22.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **forgejo:** make webhook events and reconciliation match a real instance ([#124](https://github.com/alrayyes/pipeline-analytics/issues/124)) ([449e2b3](https://github.com/alrayyes/pipeline-analytics/commit/449e2b3b819c4a91bd5b7cc6f4ac78e09e8d1790))
+
 ## [0.22.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.21.1...v0.22.0) (2026-09-16)
 
 
