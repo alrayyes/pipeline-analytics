@@ -90,6 +90,11 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.filter({ hasText: 'alrayyes/demo-repo' });
 	await expect(repoRow).toBeVisible();
 	await expect(repoRow).toContainText('degraded');
+	// The dialog's own closing animation leaves its (fading, near-invisible)
+	// text in the DOM for a moment after submit -- axe scores that as a
+	// real contrast failure if it catches the page mid-transition, so wait
+	// for the dialog to actually finish closing first.
+	await expect(page.getByText('Register a repository')).not.toBeVisible();
 
 	const reposScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
 	expect(reposScan.violations).toEqual([]);
