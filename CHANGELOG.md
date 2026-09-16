@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.21.1...v0.22.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** one-click saved token, exclude already-tracked repos ([#118](https://github.com/alrayyes/pipeline-analytics/issues/118)) ([739f6f6](https://github.com/alrayyes/pipeline-analytics/commit/739f6f61898d919fee9abd1a529aaa06ac11d0bc))
+
 ## [0.21.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.21.0...v0.21.1) (2026-09-16)
 
 
