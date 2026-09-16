@@ -27,7 +27,7 @@
 		"layerchart": "2.5.0"
 	},
 	"devDependencies": {
-		"@axe-core/playwright": "4.10.2",
+		"@axe-core/playwright": "4.13.0",
 		"@biomejs/biome": "2.5.13",
 		"@fontsource-variable/inter": "5.3.0",
 		"@lucide/svelte": "1.46.0",
