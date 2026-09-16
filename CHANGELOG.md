@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.15.0...v0.15.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **dashboard-ui:** reflect repo-registration status in nav and empty states ([#89](https://github.com/alrayyes/pipeline-analytics/issues/89)) ([20ff445](https://github.com/alrayyes/pipeline-analytics/commit/20ff4455f3151b26e7fc65364e67aa57fc5ceef9)), closes [#71](https://github.com/alrayyes/pipeline-analytics/issues/71)
+
 ## [0.15.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.14.0...v0.15.0) (2026-09-16)
 
 
