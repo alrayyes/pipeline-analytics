@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.22.1...v0.23.0) (2026-09-16)
+
+
+### Features
+
+* **repos:** exclude forks, mirrors, and archived repos from the picker ([#125](https://github.com/alrayyes/pipeline-analytics/issues/125)) ([62c239b](https://github.com/alrayyes/pipeline-analytics/commit/62c239bbbd875b3e8d53bf0d0850c411336aebe6))
+
 ## [0.22.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.22.0...v0.22.1) (2026-09-16)
 
 
