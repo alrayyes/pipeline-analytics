@@ -79,8 +79,9 @@ func (c *Client) CreateWebhook(ctx context.Context, req ingestion.CreateWebhookR
 
 // ListAccessibleRepos implements ingestion.ForgeClient. Returns every repo
 // (owner, collaborator, and organization-member repos) the token can see,
-// newest-pushed first, excluding archived and forked repos -- neither is
-// something the registration UI's picker should ever offer to track.
+// newest-pushed first, excluding archived, forked, and mirror repos -- none
+// of the three is something the registration UI's picker should ever offer
+// to track.
 func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAccessibleReposRequest) ([]string, error) {
 	api := ghapi.NewClient(nil).WithAuthToken(req.Token)
 	if c.baseURL != nil {
@@ -101,7 +102,7 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAcce
 		}
 
 		for _, r := range repos {
-			if r.GetArchived() || r.GetFork() {
+			if r.GetArchived() || r.GetFork() || r.GetMirrorURL() != "" {
 				continue
 			}
 
