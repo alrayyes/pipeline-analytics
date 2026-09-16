@@ -120,6 +120,43 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 			},
 		}),
 	);
+	// Step breakdown (tasks 5.5/5.6): one flaky step and one consistently
+	// failing step, so the two get visibly distinct treatment, and the
+	// flaky step's forgeUrl exercises the deep-link-to-forge requirement.
+	await page.route('**/api/pipelines/unhealthy-1/steps', (route) =>
+		route.fulfill({
+			json: [
+				{
+					id: 'step-1',
+					name: 'run tests',
+					durationContributionSeconds: 420,
+					queueSeconds: 30,
+					execSeconds: 390,
+					failureRate: 0,
+					flaky: false,
+				},
+				{
+					id: 'step-2',
+					name: 'flaky integration test',
+					durationContributionSeconds: 120,
+					queueSeconds: 5,
+					execSeconds: 115,
+					failureRate: 0.3,
+					flaky: true,
+					forgeUrl: 'https://forge.example/owner/repo/actions/runs/1/job/2',
+				},
+				{
+					id: 'step-3',
+					name: 'deploy to prod',
+					durationContributionSeconds: 60,
+					queueSeconds: 2,
+					execSeconds: 58,
+					failureRate: 1,
+					flaky: false,
+				},
+			],
+		}),
+	);
 	await page.getByRole('link').filter({ hasText: 'Deploy' }).click();
 	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1$/);
 	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
@@ -131,12 +168,29 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByText('p50', { exact: true })).toBeVisible();
 	await expect(page.getByText('p90', { exact: true })).toBeVisible();
 
+	// Slowest step first (5.5's duration ranking), and the flaky step is
+	// visually distinguishable from the consistently-failing one.
+	const stepRows = page.getByRole('row');
+	await expect(stepRows.nth(1)).toContainText('run tests');
+	const flakyRow = stepRows.filter({ hasText: 'flaky integration test' });
+	await expect(flakyRow.getByText('flaky', { exact: true })).toBeVisible();
+	const failingRow = stepRows.filter({ hasText: 'deploy to prod' });
+	await expect(failingRow.getByText('failing', { exact: true })).toBeVisible();
+
+	// Deep link to the originating forge (5.6).
+	const forgeLink = page.getByRole('link', { name: 'View on forge' });
+	await expect(forgeLink).toHaveAttribute(
+		'href',
+		'https://forge.example/owner/repo/actions/runs/1/job/2',
+	);
+
 	const detailScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
 		.analyze();
 	expect(detailScan.violations).toEqual([]);
 
 	await page.unroute('**/api/pipelines/unhealthy-1');
+	await page.unroute('**/api/pipelines/unhealthy-1/steps');
 	await page.getByRole('link', { name: 'All pipelines' }).click();
 	await expect(page).toHaveURL('/');
 
