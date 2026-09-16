@@ -77,30 +77,43 @@ func (c *Client) CreateWebhook(ctx context.Context, req ingestion.CreateWebhookR
 	return nil
 }
 
-// ListAccessibleRepos implements ingestion.ForgeClient. Returns the first
-// 100 repos (owner, collaborator, and organization-member repos) the token
-// can see, newest-pushed first -- enough for the registration UI's picker
-// without adding pagination nobody's asked for yet.
+// ListAccessibleRepos implements ingestion.ForgeClient. Returns every repo
+// (owner, collaborator, and organization-member repos) the token can see,
+// newest-pushed first, excluding archived and forked repos -- neither is
+// something the registration UI's picker should ever offer to track.
 func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAccessibleReposRequest) ([]string, error) {
 	api := ghapi.NewClient(nil).WithAuthToken(req.Token)
 	if c.baseURL != nil {
 		api.BaseURL = c.baseURL
 	}
 
-	repos, _, err := api.Repositories.ListByAuthenticatedUser(ctx, &ghapi.RepositoryListByAuthenticatedUserOptions{
+	opts := &ghapi.RepositoryListByAuthenticatedUserOptions{
 		Sort:    "pushed",
 		PerPage: 100,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list accessible github repos: %w", err)
 	}
 
-	identifiers := make([]string, 0, len(repos))
-	for _, r := range repos {
-		identifiers = append(identifiers, r.GetFullName())
-	}
+	var identifiers []string
 
-	return identifiers, nil
+	for {
+		repos, resp, err := api.Repositories.ListByAuthenticatedUser(ctx, opts)
+		if err != nil {
+			return nil, fmt.Errorf("list accessible github repos: %w", err)
+		}
+
+		for _, r := range repos {
+			if r.GetArchived() || r.GetFork() {
+				continue
+			}
+
+			identifiers = append(identifiers, r.GetFullName())
+		}
+
+		if resp.NextPage == 0 {
+			return identifiers, nil
+		}
+
+		opts.Page = resp.NextPage
+	}
 }
 
 // ListRecentRuns implements ingestion.ForgeClient. The run-list request is

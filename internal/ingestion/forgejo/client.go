@@ -63,10 +63,9 @@ func (c *Client) CreateWebhook(ctx context.Context, req ingestion.CreateWebhookR
 	return nil
 }
 
-// ListAccessibleRepos implements ingestion.ForgeClient. Returns the first
-// page (Gitea SDK's default page size) of repos the token can see -- enough
-// for the registration UI's picker without adding pagination nobody's
-// asked for yet.
+// ListAccessibleRepos implements ingestion.ForgeClient. Returns every repo
+// the token can see, excluding archived and forked repos -- neither is
+// something the registration UI's picker should ever offer to track.
 func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAccessibleReposRequest) ([]string, error) {
 	api, err := gitea.NewClient(req.InstanceURL,
 		gitea.SetToken(req.Token),
@@ -77,17 +76,29 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAcce
 		return nil, fmt.Errorf("create forgejo client: %w", err)
 	}
 
-	repos, _, err := api.ListMyRepos(gitea.ListReposOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("list accessible forgejo repos: %w", err)
-	}
+	opts := gitea.ListReposOptions{}
+	var identifiers []string
 
-	identifiers := make([]string, 0, len(repos))
-	for _, r := range repos {
-		identifiers = append(identifiers, r.FullName)
-	}
+	for {
+		repos, resp, err := api.ListMyRepos(opts)
+		if err != nil {
+			return nil, fmt.Errorf("list accessible forgejo repos: %w", err)
+		}
 
-	return identifiers, nil
+		for _, r := range repos {
+			if r.Archived || r.Fork {
+				continue
+			}
+
+			identifiers = append(identifiers, r.FullName)
+		}
+
+		if resp.NextPage == 0 {
+			return identifiers, nil
+		}
+
+		opts.Page = resp.NextPage
+	}
 }
 
 // ListRecentRuns implements ingestion.ForgeClient. Forgejo has no default
