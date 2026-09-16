@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.6.0...v0.7.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** step breakdown with forge deep links ([#48](https://github.com/alrayyes/pipeline-analytics/issues/48)) ([f259323](https://github.com/alrayyes/pipeline-analytics/commit/f2593231853a3a751690325f09fa6a980b491d12))
+
 ## [0.6.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.3...v0.6.0) (2026-09-16)
 
 
