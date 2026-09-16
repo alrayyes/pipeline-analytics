@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import { page } from '$app/state';
 import { Badge } from '$lib/components/ui/badge/index.js';
 import {
 	Card,
@@ -59,9 +60,14 @@ function signalLabel(signal: string): string {
 		<p class="mt-6 text-muted-foreground">Loading…</p>
 	{:else if pipelines.length === 0}
 		<p class="mt-6 text-muted-foreground">
-			No pipelines tracked yet. <a href="/repos" class="underline hover:text-foreground"
-				>Register a repository</a
-			> to start ingesting its runs.
+			{#if page.data.hasRepos}
+				No pipeline runs ingested yet. New runs arrive by webhook, plus a
+				periodic check for anything missed -- this can take a few minutes
+				after registering a repository.
+			{:else}
+				No repositories registered yet -- use "Register a repository" above
+				to start tracking one.
+			{/if}
 		</p>
 	{:else}
 		<ul class="mt-6 grid gap-4">

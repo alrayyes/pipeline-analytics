@@ -7,7 +7,7 @@ import Footer from '$lib/components/Footer.svelte';
 import Nav from '$lib/components/Nav.svelte';
 import { initTheme } from '$lib/theme.svelte.js';
 
-let { children } = $props();
+let { data, children } = $props();
 
 onMount(initTheme);
 </script>
@@ -17,7 +17,7 @@ onMount(initTheme);
 </svelte:head>
 
 {#if page.url.pathname !== '/login'}
-	<Nav />
+	<Nav hasRepos={data.hasRepos} />
 {/if}
 
 {@render children()}

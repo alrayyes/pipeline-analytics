@@ -14,9 +14,14 @@ export const ssr = false;
 // SPA-fallback decision) -- this load function is the client-side redirect
 // that 401 is meant to trigger. It reads `url`, so SvelteKit reruns it on
 // every navigation, catching a session that expired mid-visit too.
+//
+// The same response also answers whether any repo is registered at all
+// (issue #71) -- the nav and the Pipelines empty state both need that to
+// pick the right copy/CTA, and this call already fires on every navigation
+// for the 401 check above, so reading its body costs nothing extra.
 export const load: LayoutLoad = async ({ url, fetch }) => {
 	if (url.pathname === '/login') {
-		return {};
+		return { hasRepos: false };
 	}
 
 	const res = await fetch('/api/repos');
@@ -24,5 +29,11 @@ export const load: LayoutLoad = async ({ url, fetch }) => {
 		redirect(302, '/login');
 	}
 
-	return {};
+	if (!res.ok) {
+		return { hasRepos: false };
+	}
+
+	const repos: unknown[] = await res.json();
+
+	return { hasRepos: repos.length > 0 };
 };
