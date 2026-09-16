@@ -105,7 +105,7 @@ const actionRunsPayload = `{
   ]
 }`
 
-const actionJobsPayload = `{
+const actionJobsPayloadWrapped = `{
   "total_count": 1,
   "jobs": [
     {
@@ -125,37 +125,34 @@ const actionJobsPayload = `{
   ]
 }`
 
+// actionJobsPayloadBareArray is the shape confirmed against a real
+// deployment (github.com/alrayyes/pipeline-analytics#123): the jobs
+// endpoint can return a bare array instead of the {"jobs": [...]} wrapper
+// the Gitea SDK's own ActionWorkflowJobsResponse type expects -- unlike
+// #121, this hits repos with genuine CI history, so it can't be shrugged
+// off as "no pipelines."
+const actionJobsPayloadBareArray = `[
+  {
+    "id": 100,
+    "run_id": 42,
+    "name": "build",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-09-15T09:59:00Z",
+    "started_at": "2026-09-15T10:00:00Z",
+    "completed_at": "2026-09-15T10:04:00Z",
+    "html_url": "https://forgejo.example.com/alrayyes/dotfiles/actions/runs/42/jobs/100",
+    "steps": [
+      {"name": "checkout", "status": "completed", "conclusion": "success", "number": 1}
+    ]
+  }
+]`
+
 func TestClient_ListRecentRuns(t *testing.T) {
 	t.Parallel()
 
-	t.Run("fetches recent runs with their jobs and steps", func(t *testing.T) {
-		t.Parallel()
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-
-			switch r.URL.Path {
-			case "/api/v1/repos/alrayyes/dotfiles/actions/runs":
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(actionRunsPayload))
-			case "/api/v1/repos/alrayyes/dotfiles/actions/runs/42/jobs":
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(actionJobsPayload))
-			default:
-				t.Errorf("unexpected request path: %s", r.URL.Path)
-			}
-		}))
-		defer server.Close()
-
-		client, err := forgejoclient.NewClient()
-		require.NoError(t, err)
-
-		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
-			InstanceURL: server.URL,
-			Identifier:  "alrayyes/dotfiles",
-			Token:       "forgejo_test_token",
-		})
-		require.NoError(t, err)
+	assertParsedJobs := func(t *testing.T, result ingestion.ListRunsResult) {
+		t.Helper()
 
 		require.False(t, result.NotModified)
 		require.Empty(t, result.ETag) // Forgejo has no conditional-request support here
@@ -172,6 +169,99 @@ func TestClient_ListRecentRuns(t *testing.T) {
 		require.Equal(t, "build", job.Name)
 		require.Len(t, job.Steps, 1)
 		require.Equal(t, "checkout", job.Steps[0].Name)
+	}
+
+	t.Run("fetches recent runs with their jobs and steps -- jobs wrapped in {jobs: [...]}", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			switch r.URL.Path {
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(actionRunsPayload))
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs/42/jobs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(actionJobsPayloadWrapped))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/dotfiles",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+		assertParsedJobs(t, result)
+	})
+
+	t.Run("fetches recent runs with their jobs and steps -- jobs as a bare array (#123)", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			switch r.URL.Path {
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(actionRunsPayload))
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs/42/jobs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(actionJobsPayloadBareArray))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/dotfiles",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+		assertParsedJobs(t, result)
+	})
+
+	t.Run("treats a 404 on the jobs endpoint as no job detail, not an error -- not every Forgejo version implements it", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(actionRunsPayload))
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs/42/jobs":
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte("404 page not found"))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/dotfiles",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+		require.Len(t, result.Runs, 1)
+		require.Empty(t, result.Runs[0].Jobs)
 	})
 
 	t.Run("rejects an identifier not in owner/name form", func(t *testing.T) {
