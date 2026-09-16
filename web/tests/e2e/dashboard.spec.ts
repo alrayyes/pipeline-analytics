@@ -117,6 +117,19 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.click();
 	await expect(page.getByText('No repositories tracked yet.')).toBeVisible();
 
+	// Token reuse (#72): the token used above is offered again rather than
+	// having to be retyped, browser-local only.
+	await page.getByRole('button', { name: 'Register repository' }).click();
+	const useSavedToken = page.getByRole('button', {
+		name: 'Use saved token (****1234)',
+	});
+	await expect(useSavedToken).toBeVisible();
+	await useSavedToken.click();
+	await expect(page.getByLabel('Access token')).toHaveValue(
+		'ghp_faketoken1234',
+	);
+	await page.keyboard.press('Escape');
+
 	await page.getByRole('link', { name: 'Pipelines' }).click();
 	await expect(page).toHaveURL('/');
 

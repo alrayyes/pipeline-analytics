@@ -37,6 +37,11 @@ import {
 	TableHeader,
 	TableRow,
 } from '$lib/components/ui/table/index.js';
+import {
+	getRememberedToken,
+	maskToken,
+	rememberToken,
+} from '$lib/rememberedToken.js';
 
 interface Repo {
 	id: string;
@@ -84,6 +89,25 @@ const canDiscover = $derived(
 	token.trim() !== '' &&
 		(forge === 'github' || forgejoInstanceUrl.trim() !== ''),
 );
+
+// A token already used to register a repo on this forge (+ instance, for
+// Forgejo) is offered for reuse rather than requiring it be retyped --
+// browser-local only (issue #72's design decision), so it doesn't survive a
+// cleared browser or carry across devices. A plain $derived here would only
+// re-read localStorage when `forge`/`forgejoInstanceUrl` themselves change
+// value, which they often don't between one dialog open and the next (the
+// default forge is always 'github') -- keying an $effect on `registerOpen`
+// too forces a fresh read every time the dialog opens, picking up a token
+// a previous registration just remembered.
+let rememberedForCurrentForge = $state<string | null>(null);
+
+$effect(() => {
+	[forge, forgejoInstanceUrl, registerOpen];
+	rememberedForCurrentForge = getRememberedToken(
+		forge,
+		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
+	);
+});
 
 // A discovered list only makes sense for the token/forge/instance it was
 // fetched for -- invalidate it the moment any of those change underneath
@@ -184,6 +208,12 @@ async function handleRegister(event: SubmitEvent): Promise<void> {
 			return;
 		}
 
+		rememberToken(
+			forge,
+			forge === 'forgejo' ? forgejoInstanceUrl : undefined,
+			token,
+		);
+
 		registerOpen = false;
 		resetForm();
 		await loadRepos();
@@ -264,6 +294,15 @@ async function handleUntrack(): Promise<void> {
 						<div class="grid gap-2">
 							<Label for="token">Access token</Label>
 							<Input id="token" type="password" bind:value={token} required />
+							{#if rememberedForCurrentForge && token !== rememberedForCurrentForge}
+								<button
+									type="button"
+									class="w-fit text-xs text-muted-foreground underline hover:text-foreground"
+									onclick={() => (token = rememberedForCurrentForge ?? '')}
+								>
+									Use saved token ({maskToken(rememberedForCurrentForge)})
+								</button>
+							{/if}
 							<p class="text-xs text-muted-foreground">{TOKEN_HELP[forge]}</p>
 						</div>
 
