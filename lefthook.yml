@@ -1,0 +1,91 @@
+# pre-commit fixes and restages; pre-push checks the whole tree and never
+# writes -- go-lint.md/go-mod.md/linting.md's split. Go commands run
+# through Docker so the host's go/golangci-lint installs never drift from
+# what CI pins (go-mod.md).
+pre-commit:
+  parallel: true
+  commands:
+    go-fmt:
+      glob: "*.go"
+      run: >
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        golang:1.27.1-bookworm gofmt -w {staged_files}
+      stage_fixed: true
+    go-mod-fmt:
+      glob: "go.mod"
+      run: >
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
+        golang:1.27.1-bookworm go mod edit -fmt go.mod
+      stage_fixed: true
+    biome:
+      root: "web/"
+      glob: "web/**/*.{js,ts,svelte,json,css}"
+      run: bunx biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: bunx commitlint --edit {1}
+
+# Never writes. Whole-tree checks, same commands CI runs, so a mistake
+# costs a local run instead of a full CI round trip.
+pre-push:
+  parallel: true
+  commands:
+    go-vet:
+      glob: "*.go"
+      run: >
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
+        golang:1.27.1-bookworm go vet ./...
+    go-test:
+      glob: "*.go"
+      run: >
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
+        golang:1.27.1-bookworm go test -race -cover ./...
+    go-mod-tidy:
+      glob: "go.mod"
+      run: >
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
+        golang:1.27.1-bookworm go mod tidy -diff
+    golangci-lint:
+      glob: "*.go"
+      run: >
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
+        golangci/golangci-lint:v2.13.2 golangci-lint run ./...
+    frontend-check:
+      root: "web/"
+      glob: "web/**/*"
+      run: bun run check
+    frontend-lint:
+      root: "web/"
+      glob: "web/**/*"
+      run: bun run lint
+    # Scoped to what the Docker image actually depends on -- go-releases.md:
+    # the Dockerfile only COPYs a prebuilt binary, so this rebuilds that
+    # binary itself before building the image, same shape as ci.yml's
+    # docker job.
+    docker-build:
+      glob:
+        - "Dockerfile"
+        - "**/*.go"
+        - "go.mod"
+        - "go.sum"
+      run: go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics

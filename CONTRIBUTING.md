@@ -13,7 +13,9 @@ usable if you want to run it locally, poke at the code, or send a fix.
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - [Playwright](https://playwright.dev) needs a Chromium download the first
   time you run the E2E suite: `cd web && bunx playwright install --with-deps chromium`.
-- Docker, only if you're building or testing the container image.
+- Docker — used to build or test the container image, and to run every Go
+  git hook below against a pinned `go`/`golangci-lint`, not whatever's on
+  your `PATH`.
 
 ## Building
 
@@ -57,9 +59,26 @@ bunx @redocly/cli lint
 Run the same commands CI runs — [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 is the source of truth if anything here drifts from it.
 
-There are no local git hooks yet (tracked in
-[#34](https://github.com/alrayyes/pipeline-analytics/issues/34)) — run the
-checks above yourself before pushing.
+## Local hooks
+
+`bun install` at the repo root (`prepare` script) installs
+[lefthook](https://github.com/evilmartians/lefthook)'s git hooks; run
+`bunx lefthook install` yourself if you skipped that step. What each hook
+runs, straight from [`lefthook.yml`](lefthook.yml):
+
+- **`pre-commit`** (staged files only, fixes and restages): `gofmt`,
+  `go mod edit -fmt go.mod`, `biome check --write` for `web/`.
+- **`commit-msg`**: [commitlint](https://commitlint.js.org) against
+  `@commitlint/config-conventional`.
+- **`pre-push`** (whole tree, never writes): `go vet`, `go test -race
+  -cover`, `go mod tidy -diff`, `golangci-lint run` -- the Go commands run
+  through Docker (`golang:<go.mod's version>-bookworm`,
+  `golangci/golangci-lint:<CI's pin>`) so the version checking your push
+  is always the one the repo declares, not whatever your package manager
+  last updated -- plus `bun run check`, `bun run lint`, and a scoped
+  `docker build` when the Dockerfile or Go sources changed.
+
+No hook reaches for a linter CI doesn't also run.
 
 ## Commit messages
 
@@ -78,9 +97,10 @@ reads these to compute the next version.
   gets the addition, reviewed on its own, before the handler.
 - CI has to be green (build/vet/test, golangci-lint, redocly-lint, frontend,
   e2e, docker build — all required checks on `main`) before a PR merges.
-- The design this project follows lives in
-  [`openspec/changes/add-pipeline-dashboard`](openspec/changes/add-pipeline-dashboard/proposal.md)
-  until that change is fully implemented and archived.
+- The project's current capabilities are specced under
+  [`openspec/specs/`](openspec/specs/); a new one goes through
+  [OpenSpec](https://github.com/Fission-AI/OpenSpec)'s
+  `openspec/changes/` proposal flow before it's implemented.
 
 ## Releases
 
