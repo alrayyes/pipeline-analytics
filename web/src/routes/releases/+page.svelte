@@ -56,7 +56,7 @@ function renderBody(body: string): string {
 	<title>Release history · pipeline-analytics</title>
 </svelte:head>
 
-<main class="mx-auto max-w-3xl px-4 py-8">
+<main class="mx-auto max-w-4xl px-4 py-8">
 	<h1 class="text-2xl font-semibold">Release history</h1>
 
 	{#if failed}

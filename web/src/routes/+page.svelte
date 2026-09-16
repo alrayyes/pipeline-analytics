@@ -50,7 +50,7 @@ function signalLabel(signal: string): string {
 	<title>pipeline-analytics</title>
 </svelte:head>
 
-<main class="mx-auto max-w-3xl px-4 py-8">
+<main class="mx-auto max-w-4xl px-4 py-8">
 	<h1 class="text-2xl font-semibold">Pipelines</h1>
 
 	{#if error}
