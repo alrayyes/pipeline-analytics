@@ -4,6 +4,7 @@ import MoonIcon from '@lucide/svelte/icons/moon';
 import SunIcon from '@lucide/svelte/icons/sun';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
+import logo from '$lib/assets/favicon.svg';
 import { Button } from '$lib/components/ui/button/index.js';
 import { cycleTheme, getTheme } from '$lib/theme.svelte.js';
 import { cn } from '$lib/utils.js';
@@ -41,9 +42,12 @@ async function handleLogout(): Promise<void> {
 </script>
 
 <header class="border-b">
-	<div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+	<div class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-y-2 px-4 py-3">
 		<nav class="flex items-center gap-6">
-			<span class="font-semibold">pipeline-analytics</span>
+			<span class="flex items-center gap-2 font-semibold">
+				<img src={logo} alt="" class="size-5" />
+				Pipeline Analytics
+			</span>
 			<ul class="flex items-center gap-4 text-sm">
 				{#each links as link (link.href)}
 					<li>
