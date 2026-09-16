@@ -75,20 +75,46 @@ let error = $state<string | null>(null);
 
 let registerOpen = $state(false);
 let registerBusy = $state(false);
-let registerError = $state<string | null>(null);
+
+// Two explicit steps (#103): connect a token, then pick which repos to
+// follow with it -- rather than one repo per dialog session, tied to a
+// single-select identifier field.
+let step = $state<'token' | 'select'>('token');
+
 let forge = $state<'github' | 'forgejo'>('github');
-let identifier = $state('');
 let forgejoInstanceUrl = $state('');
 let token = $state('');
 
 let discoveredRepos = $state<string[] | null>(null);
 let discoverBusy = $state(false);
 let discoverError = $state<string | null>(null);
-let manualEntry = $state(false);
+
+let selected = $state<Set<string>>(new Set());
+let manualIdentifier = $state('');
+
+interface RegisterResult {
+	identifier: string;
+	ok: boolean;
+	message?: string;
+}
+
+let batchResults = $state<RegisterResult[] | null>(null);
 
 const canDiscover = $derived(
 	token.trim() !== '' &&
 		(forge === 'github' || forgejoInstanceUrl.trim() !== ''),
+);
+
+const allDiscoveredSelected = $derived(
+	(discoveredRepos?.length ?? 0) > 0 &&
+		(discoveredRepos ?? []).every((id) => selected.has(id)),
+);
+
+// Manually-added identifiers aren't necessarily in discoveredRepos (the
+// whole point of "add another by name" is covering what discovery didn't
+// return), so they need their own list to render.
+const manualOnlySelected = $derived(
+	[...selected].filter((id) => !discoveredRepos?.includes(id)),
 );
 
 // A token already used to register a repo on this forge (+ instance, for
@@ -111,14 +137,15 @@ $effect(() => {
 });
 
 // A discovered list only makes sense for the token/forge/instance it was
-// fetched for -- invalidate it the moment any of those change underneath
-// it, rather than letting a stale picker suggest repos the current token
-// might not even reach.
+// fetched for -- invalidate it (and the selection, which was picked from
+// it) the moment any of those change underneath it, rather than letting a
+// stale picker suggest repos the current token might not even reach.
 $effect(() => {
 	[forge, token, forgejoInstanceUrl];
 	discoveredRepos = null;
 	discoverError = null;
-	manualEntry = false;
+	selected = new Set();
+	batchResults = null;
 });
 
 let untrackTarget = $state<Repo | null>(null);
@@ -143,17 +170,19 @@ async function loadRepos(): Promise<void> {
 onMount(loadRepos);
 
 function resetForm(): void {
+	step = 'token';
 	forge = 'github';
-	identifier = '';
 	forgejoInstanceUrl = '';
 	token = '';
-	registerError = null;
 	discoveredRepos = null;
 	discoverError = null;
-	manualEntry = false;
+	selected = new Set();
+	manualIdentifier = '';
+	batchResults = null;
 }
 
-async function handleDiscover(): Promise<void> {
+async function handleDiscover(event: SubmitEvent): Promise<void> {
+	event.preventDefault();
 	discoverBusy = true;
 	discoverError = null;
 
@@ -177,7 +206,7 @@ async function handleDiscover(): Promise<void> {
 		}
 
 		discoveredRepos = await res.json();
-		identifier = discoveredRepos?.[0] ?? '';
+		step = 'select';
 	} catch {
 		discoverError = 'Could not reach the server.';
 	} finally {
@@ -185,46 +214,108 @@ async function handleDiscover(): Promise<void> {
 	}
 }
 
-async function handleRegister(event: SubmitEvent): Promise<void> {
+function toggleSelected(identifier: string): void {
+	const next = new Set(selected);
+
+	if (next.has(identifier)) {
+		next.delete(identifier);
+	} else {
+		next.add(identifier);
+	}
+
+	selected = next;
+}
+
+function toggleSelectAllDiscovered(): void {
+	if (!discoveredRepos) return;
+
+	if (allDiscoveredSelected) {
+		const next = new Set(selected);
+		for (const id of discoveredRepos) next.delete(id);
+		selected = next;
+	} else {
+		selected = new Set([...selected, ...discoveredRepos]);
+	}
+}
+
+function addManualIdentifier(): void {
+	const id = manualIdentifier.trim();
+	if (!id) return;
+
+	selected = new Set([...selected, id]);
+	manualIdentifier = '';
+}
+
+async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 	event.preventDefault();
+	if (selected.size === 0) return;
+
 	registerBusy = true;
-	registerError = null;
 
-	try {
-		const res = await fetch('/api/repos', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				forge,
+	const results: RegisterResult[] = [];
+
+	// Sequential, not parallel -- registering N repos at once shouldn't
+	// hammer the forge API with N concurrent webhook-creation calls.
+	for (const identifier of selected) {
+		try {
+			const res = await fetch('/api/repos', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					forge,
+					identifier,
+					token,
+					...(forge === 'forgejo' ? { forgejoInstanceUrl } : {}),
+				}),
+			});
+
+			if (res.ok) {
+				results.push({ identifier, ok: true });
+			} else {
+				const body = await res.json().catch(() => null);
+				results.push({
+					identifier,
+					ok: false,
+					message: body?.message ?? 'Could not register.',
+				});
+			}
+		} catch {
+			results.push({
 				identifier,
-				token,
-				...(forge === 'forgejo' ? { forgejoInstanceUrl } : {}),
-			}),
-		});
-
-		if (!res.ok) {
-			const body = await res.json().catch(() => null);
-			registerError = body?.message ?? 'Could not register the repository.';
-
-			return;
+				ok: false,
+				message: 'Could not reach the server.',
+			});
 		}
+	}
 
-		rememberToken(
-			forge,
-			forge === 'forgejo' ? forgejoInstanceUrl : undefined,
-			token,
-		);
+	batchResults = results;
+	registerBusy = false;
 
+	// A degraded-but-persisted repo (Registrar.degrade -- its webhook
+	// creation failed, but the repo itself is still tracked) still counts
+	// as a real POST success here, same as the single-repo flow always
+	// treated it.
+	rememberToken(
+		forge,
+		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
+		token,
+	);
+
+	// The layout's own load -- which the nav's hasRepos-gated links and the
+	// Pipelines empty state (#71) both read -- only reruns on navigation by
+	// default; this registration didn't navigate anywhere.
+	await Promise.all([loadRepos(), invalidateAll()]);
+
+	if (results.every((r) => r.ok)) {
+		// Not resetForm() here -- it flips `step` back to 'token', which
+		// would swap the dialog's content out from under its own closing
+		// animation (step 2's markup replaced by step 1's while still
+		// fading out). onOpenChange already resets on the next open.
 		registerOpen = false;
-		resetForm();
-		// The layout's own load -- which the nav's hasRepos-gated links and
-		// the Pipelines empty state (#71) both read -- only reruns on
-		// navigation by default; this registration didn't navigate anywhere.
-		await Promise.all([loadRepos(), invalidateAll()]);
-	} catch {
-		registerError = 'Could not reach the server.';
-	} finally {
-		registerBusy = false;
+	} else {
+		// Keep only what failed selected, so retrying the batch doesn't
+		// re-submit repos that already registered successfully.
+		selected = new Set(results.filter((r) => !r.ok).map((r) => r.identifier));
 	}
 }
 
@@ -273,104 +364,54 @@ async function handleUntrack(): Promise<void> {
 				{/snippet}
 			</DialogTrigger>
 			<DialogContent>
-				<form onsubmit={handleRegister}>
-					<DialogHeader>
-						<DialogTitle>Register a repository</DialogTitle>
-						<DialogDescription>
-							Starts tracking a GitHub or Forgejo repository's Actions runs.
-						</DialogDescription>
-					</DialogHeader>
+				{#if step === 'token'}
+					<form onsubmit={handleDiscover}>
+						<DialogHeader>
+							<DialogTitle>Connect a token</DialogTitle>
+							<DialogDescription>
+								Then pick which of its repositories to follow.
+							</DialogDescription>
+						</DialogHeader>
 
-					<div class="grid gap-4 py-4">
-						<div class="grid gap-2">
-							<Label for="forge">Forge</Label>
-							<Select type="single" bind:value={forge}>
-								<SelectTrigger id="forge" class="w-full">
-									{FORGE_LABELS[forge]}
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="github" label="GitHub">GitHub</SelectItem>
-									<SelectItem value="forgejo" label="Forgejo">Forgejo</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-
-						<div class="grid gap-2">
-							<Label for="token">Access token</Label>
-							<Input id="token" type="password" bind:value={token} required />
-							{#if rememberedForCurrentForge && token !== rememberedForCurrentForge}
-								<button
-									type="button"
-									class="w-fit text-xs text-muted-foreground underline hover:text-foreground"
-									onclick={() => (token = rememberedForCurrentForge ?? '')}
-								>
-									Use saved token ({maskToken(rememberedForCurrentForge)})
-								</button>
-							{/if}
-							<p class="text-xs text-muted-foreground">{TOKEN_HELP[forge]}</p>
-						</div>
-
-						{#if forge === 'forgejo'}
+						<div class="grid gap-4 py-4">
 							<div class="grid gap-2">
-								<Label for="instance-url">Forgejo instance URL</Label>
-								<Input
-									id="instance-url"
-									type="url"
-									bind:value={forgejoInstanceUrl}
-									placeholder="https://forgejo.example.com"
-									required
-								/>
+								<Label for="forge">Forge</Label>
+								<Select type="single" bind:value={forge}>
+									<SelectTrigger id="forge" class="w-full">
+										{FORGE_LABELS[forge]}
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="github" label="GitHub">GitHub</SelectItem>
+										<SelectItem value="forgejo" label="Forgejo">Forgejo</SelectItem>
+									</SelectContent>
+								</Select>
 							</div>
-						{/if}
 
-						<div class="grid gap-2">
-							<div class="flex items-center justify-between">
-								<Label for="identifier">Repository</Label>
-								{#if discoveredRepos !== null && !manualEntry}
+							<div class="grid gap-2">
+								<Label for="token">Access token</Label>
+								<Input id="token" type="password" bind:value={token} required />
+								{#if rememberedForCurrentForge && token !== rememberedForCurrentForge}
 									<button
 										type="button"
-										class="text-xs text-muted-foreground underline hover:text-foreground"
-										onclick={() => (manualEntry = true)}
+										class="w-fit text-xs text-muted-foreground underline hover:text-foreground"
+										onclick={() => (token = rememberedForCurrentForge ?? '')}
 									>
-										Enter manually instead
+										Use saved token ({maskToken(rememberedForCurrentForge)})
 									</button>
 								{/if}
+								<p class="text-xs text-muted-foreground">{TOKEN_HELP[forge]}</p>
 							</div>
 
-							{#if discoveredRepos !== null && !manualEntry}
-								{#if discoveredRepos.length === 0}
-									<p class="text-sm text-muted-foreground">
-										That token can't see any repositories.
-									</p>
-								{:else}
-									<Select type="single" bind:value={identifier}>
-										<SelectTrigger id="identifier" class="w-full">
-											{identifier || 'Select a repository'}
-										</SelectTrigger>
-										<SelectContent>
-											{#each discoveredRepos as repoId (repoId)}
-												<SelectItem value={repoId} label={repoId}>{repoId}</SelectItem>
-											{/each}
-										</SelectContent>
-									</Select>
-								{/if}
-							{:else}
-								<div class="flex gap-2">
+							{#if forge === 'forgejo'}
+								<div class="grid gap-2">
+									<Label for="instance-url">Forgejo instance URL</Label>
 									<Input
-										id="identifier"
-										bind:value={identifier}
-										placeholder="owner/name"
+										id="instance-url"
+										type="url"
+										bind:value={forgejoInstanceUrl}
+										placeholder="https://forgejo.example.com"
 										required
-										class="flex-1"
 									/>
-									<Button
-										type="button"
-										variant="outline"
-										disabled={!canDiscover || discoverBusy}
-										onclick={handleDiscover}
-									>
-										{discoverBusy ? 'Finding…' : 'Find repositories'}
-									</Button>
 								</div>
 							{/if}
 
@@ -379,17 +420,126 @@ async function handleUntrack(): Promise<void> {
 							{/if}
 						</div>
 
-						{#if registerError}
-							<p role="alert" class="text-sm text-destructive">{registerError}</p>
-						{/if}
-					</div>
+						<DialogFooter>
+							<Button type="submit" disabled={!canDiscover || discoverBusy}>
+								{discoverBusy ? 'Finding…' : 'Find repositories'}
+							</Button>
+						</DialogFooter>
+					</form>
+				{:else}
+					<form onsubmit={handleFollowSelected}>
+						<DialogHeader>
+							<DialogTitle>Select repositories to follow</DialogTitle>
+							<DialogDescription>
+								{FORGE_LABELS[forge]} · token ending {maskToken(token)}
+							</DialogDescription>
+						</DialogHeader>
 
-					<DialogFooter>
-						<Button type="submit" disabled={registerBusy}>
-							{registerBusy ? 'Registering…' : 'Register'}
-						</Button>
-					</DialogFooter>
-				</form>
+						<div class="grid gap-3 py-4">
+							{#if discoveredRepos && discoveredRepos.length > 0}
+								<div class="flex items-center justify-between">
+									<span class="text-sm text-muted-foreground">
+										{selected.size} selected
+									</span>
+									<button
+										type="button"
+										class="text-xs text-muted-foreground underline hover:text-foreground"
+										onclick={toggleSelectAllDiscovered}
+									>
+										{allDiscoveredSelected ? 'Deselect all' : 'Select all'}
+									</button>
+								</div>
+								<ul class="grid max-h-64 gap-1 overflow-y-auto rounded-md border p-2">
+									{#each discoveredRepos as repoId (repoId)}
+										<li>
+											<label
+												class="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+											>
+												<input
+													type="checkbox"
+													class="size-4"
+													checked={selected.has(repoId)}
+													onchange={() => toggleSelected(repoId)}
+												/>
+												{repoId}
+											</label>
+										</li>
+									{/each}
+								</ul>
+							{:else}
+								<p class="text-sm text-muted-foreground">
+									That token can't see any repositories.
+								</p>
+							{/if}
+
+							{#if manualOnlySelected.length > 0}
+								<ul class="grid gap-1">
+									{#each manualOnlySelected as id (id)}
+										<li
+											class="flex items-center justify-between rounded border px-2 py-1.5 text-sm"
+										>
+											{id}
+											<button
+												type="button"
+												class="text-muted-foreground hover:text-foreground"
+												aria-label="Remove {id}"
+												onclick={() => toggleSelected(id)}
+											>
+												×
+											</button>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+
+							<div class="grid gap-2">
+								<Label for="manual-identifier">Add another by name</Label>
+								<div class="flex gap-2">
+									<Input
+										id="manual-identifier"
+										bind:value={manualIdentifier}
+										placeholder="owner/name"
+										class="flex-1"
+										onkeydown={(event) => {
+											if (event.key !== 'Enter') return;
+											event.preventDefault();
+											addManualIdentifier();
+										}}
+									/>
+									<Button
+										type="button"
+										variant="outline"
+										disabled={!manualIdentifier.trim()}
+										onclick={addManualIdentifier}
+									>
+										Add
+									</Button>
+								</div>
+							</div>
+
+							{#if batchResults}
+								<ul class="grid gap-1 text-sm">
+									{#each batchResults as result (result.identifier)}
+										<li class={result.ok ? 'text-muted-foreground' : 'text-destructive'}>
+											{result.identifier}: {result.ok ? 'registered' : result.message}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+
+						<DialogFooter class="sm:justify-between">
+							<Button type="button" variant="ghost" onclick={() => (step = 'token')}>
+								Back
+							</Button>
+							<Button type="submit" disabled={selected.size === 0 || registerBusy}>
+								{registerBusy
+									? 'Registering…'
+									: `Follow ${selected.size} ${selected.size === 1 ? 'repository' : 'repositories'}`}
+							</Button>
+						</DialogFooter>
+					</form>
+				{/if}
 			</DialogContent>
 		</Dialog>
 	</div>
