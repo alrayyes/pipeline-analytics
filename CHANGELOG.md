@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.16.0...v0.16.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* embed the real git tag in version, not goreleaser's bare semver ([#97](https://github.com/alrayyes/pipeline-analytics/issues/97)) ([30eefc7](https://github.com/alrayyes/pipeline-analytics/commit/30eefc7124989b57d0f0ba41a1c3cb2d8bcda2a3)), closes [#95](https://github.com/alrayyes/pipeline-analytics/issues/95)
+
 ## [0.16.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.15.2...v0.16.0) (2026-09-16)
 
 
