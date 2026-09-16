@@ -18,7 +18,12 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      # .Tag, not .Version -- .Version is the bare semver (0.15.1) with no
+      # "v", but every tag this repo actually cuts (release-please's format)
+      # is "v0.15.1". The footer links to
+      # /releases/tag/{version}, so a bare semver here 404s every single
+      # version link (confirmed live).
+      - -s -w -X main.version={{.Tag}}
 
 archives:
   - formats: [tar.gz]
