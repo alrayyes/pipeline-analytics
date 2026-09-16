@@ -10,6 +10,12 @@ export const badgeVariants = tv({
 				'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
 			destructive:
 				'bg-destructive/10 [a]:hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive dark:bg-destructive/20',
+			// text-green-700 measured 4.41:1 against the composited badge
+			// background -- short of WCAG AA's 4.5:1 floor -- caught live by
+			// axe-core on the first page that actually rendered it as text.
+			// Darkened to green-800, which clears it with room to spare.
+			success:
+				'bg-green-600/10 text-green-800 [a]:hover:bg-green-600/20 dark:bg-green-500/20 dark:text-green-400',
 			outline:
 				'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
 			ghost:
