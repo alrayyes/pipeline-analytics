@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -74,6 +75,10 @@ func newServeCmd() *cobra.Command {
 	}
 
 	viper.SetEnvPrefix("PIPELINE_ANALYTICS")
+	// A flag like "callback-url" otherwise maps to the literal env var name
+	// PIPELINE_ANALYTICS_CALLBACK-URL, which no shell, Docker, or systemd
+	// unit can set -- environment variable names can't contain a hyphen.
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
 	return cmd

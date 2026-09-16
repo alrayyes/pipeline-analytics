@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.1...v0.5.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* hyphenated CLI flags weren't reachable via env vars ([#33](https://github.com/alrayyes/pipeline-analytics/issues/33)) ([c3dbe61](https://github.com/alrayyes/pipeline-analytics/commit/c3dbe61dac391a9c103fc9d61296669b5864dd75))
+
 ## [0.5.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.0...v0.5.1) (2026-09-16)
 
 
