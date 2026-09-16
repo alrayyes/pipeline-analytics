@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.2...v0.5.3) (2026-09-16)
+
+
+### Bug Fixes
+
+* release job's bun needs to read both lockfile formats ([#42](https://github.com/alrayyes/pipeline-analytics/issues/42)) ([f59145a](https://github.com/alrayyes/pipeline-analytics/commit/f59145a9c36c4a77dba7e0cd5691496adcaf4187))
+
 ## [0.5.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.1...v0.5.2) (2026-09-16)
 
 
