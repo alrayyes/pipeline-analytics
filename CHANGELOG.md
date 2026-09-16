@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.21.0...v0.21.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **dashboard-ui:** fix horizontal page overflow on the pipeline detail and nav ([#115](https://github.com/alrayyes/pipeline-analytics/issues/115)) ([8b8d3ce](https://github.com/alrayyes/pipeline-analytics/commit/8b8d3ce6657eda075bc0acafb11de69318f3b6ff))
+
 ## [0.21.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.20.0...v0.21.0) (2026-09-16)
 
 
