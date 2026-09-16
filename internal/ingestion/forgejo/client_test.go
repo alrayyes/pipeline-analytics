@@ -292,16 +292,17 @@ func TestClient_ListAccessibleRepos(t *testing.T) {
 		require.Equal(t, []string{"alrayyes/page-one-repo", "alrayyes/page-two-repo"}, repos)
 	})
 
-	t.Run("excludes archived and forked repos", func(t *testing.T) {
+	t.Run("excludes archived, forked, and mirror repos", func(t *testing.T) {
 		t.Parallel()
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`[
-				{"full_name": "alrayyes/normal-repo", "archived": false, "fork": false},
-				{"full_name": "alrayyes/archived-repo", "archived": true, "fork": false},
-				{"full_name": "alrayyes/forked-repo", "archived": false, "fork": true}
+				{"full_name": "alrayyes/normal-repo", "archived": false, "fork": false, "mirror": false},
+				{"full_name": "alrayyes/archived-repo", "archived": true, "fork": false, "mirror": false},
+				{"full_name": "alrayyes/forked-repo", "archived": false, "fork": true, "mirror": false},
+				{"full_name": "alrayyes/mirrored-repo", "archived": false, "fork": false, "mirror": true}
 			]`))
 		}))
 		defer server.Close()

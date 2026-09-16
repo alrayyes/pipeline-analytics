@@ -64,8 +64,10 @@ func (c *Client) CreateWebhook(ctx context.Context, req ingestion.CreateWebhookR
 }
 
 // ListAccessibleRepos implements ingestion.ForgeClient. Returns every repo
-// the token can see, excluding archived and forked repos -- neither is
-// something the registration UI's picker should ever offer to track.
+// the token can see, excluding archived, forked, and mirror repos -- none
+// of the three is something the registration UI's picker should ever offer
+// to track (a mirror commonly has no Actions runs of its own to reconcile,
+// e.g. a Forgejo repo that just mirrors a GitHub one).
 func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAccessibleReposRequest) ([]string, error) {
 	api, err := gitea.NewClient(req.InstanceURL,
 		gitea.SetToken(req.Token),
@@ -86,7 +88,7 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAcce
 		}
 
 		for _, r := range repos {
-			if r.Archived || r.Fork {
+			if r.Archived || r.Fork || r.Mirror {
 				continue
 			}
 
