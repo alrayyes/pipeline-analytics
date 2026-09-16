@@ -1,6 +1,7 @@
 # pipeline-analytics
 
 [![CI](https://github.com/alrayyes/pipeline-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/alrayyes/pipeline-analytics/actions/workflows/ci.yml)
+[![Codecov](https://codecov.io/gh/alrayyes/pipeline-analytics/graph/badge.svg)](https://codecov.io/gh/alrayyes/pipeline-analytics)
 [![Release](https://img.shields.io/github/v/release/alrayyes/pipeline-analytics)](https://github.com/alrayyes/pipeline-analytics/releases)
 [![License](https://img.shields.io/github/license/alrayyes/pipeline-analytics)](LICENSE)
 [![Go Reference](https://pkg.go.dev/badge/github.com/alrayyes/pipeline-analytics.svg)](https://pkg.go.dev/github.com/alrayyes/pipeline-analytics)
