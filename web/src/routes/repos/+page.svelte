@@ -110,6 +110,21 @@ const allDiscoveredSelected = $derived(
 		(discoveredRepos ?? []).every((id) => selected.has(id)),
 );
 
+// Repos already tracked on this exact forge (+ instance, for Forgejo)
+// don't belong in the picker at all -- there's nothing to do with one a
+// second time.
+const trackedIdentifiers = $derived(
+	new Set(
+		(repos ?? [])
+			.filter(
+				(r) =>
+					r.forge === forge &&
+					(forge !== 'forgejo' || r.forgejoInstanceUrl === forgejoInstanceUrl),
+			)
+			.map((r) => r.identifier),
+	),
+);
+
 // Manually-added identifiers aren't necessarily in discoveredRepos (the
 // whole point of "add another by name" is covering what discovery didn't
 // return), so they need their own list to render.
@@ -181,8 +196,7 @@ function resetForm(): void {
 	batchResults = null;
 }
 
-async function handleDiscover(event: SubmitEvent): Promise<void> {
-	event.preventDefault();
+async function discoverRepos(): Promise<void> {
 	discoverBusy = true;
 	discoverError = null;
 
@@ -205,13 +219,29 @@ async function handleDiscover(event: SubmitEvent): Promise<void> {
 			return;
 		}
 
-		discoveredRepos = await res.json();
+		const found: string[] = await res.json();
+		discoveredRepos = found.filter((id) => !trackedIdentifiers.has(id));
 		step = 'select';
 	} catch {
 		discoverError = 'Could not reach the server.';
 	} finally {
 		discoverBusy = false;
 	}
+}
+
+function handleDiscover(event: SubmitEvent): void {
+	event.preventDefault();
+	discoverRepos();
+}
+
+// One click, not two (previously: fill the token, then separately click
+// "Find repositories") -- the whole point of remembering a token is not
+// having to redo the rest of the ceremony to add one more repo.
+function useSavedTokenAndDiscover(): void {
+	if (!rememberedForCurrentForge) return;
+
+	token = rememberedForCurrentForge;
+	discoverRepos();
 }
 
 function toggleSelected(identifier: string): void {
@@ -394,9 +424,12 @@ async function handleUntrack(): Promise<void> {
 									<button
 										type="button"
 										class="w-fit text-xs text-muted-foreground underline hover:text-foreground"
-										onclick={() => (token = rememberedForCurrentForge ?? '')}
+										onclick={useSavedTokenAndDiscover}
+										disabled={discoverBusy}
 									>
-										Use saved token ({maskToken(rememberedForCurrentForge)})
+										{discoverBusy
+											? 'Finding…'
+											: `Use saved token (${maskToken(rememberedForCurrentForge)})`}
 									</button>
 								{/if}
 								<p class="text-xs text-muted-foreground">{TOKEN_HELP[forge]}</p>

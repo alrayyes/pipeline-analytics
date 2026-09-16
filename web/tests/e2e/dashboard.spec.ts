@@ -165,11 +165,16 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		name: 'Use saved token (****1234)',
 	});
 	await expect(useSavedToken).toBeVisible();
+	// One click, not two (#117): filling the token and finding repositories
+	// used to be two separate actions; using a saved token now goes straight
+	// to the repo picker.
 	await useSavedToken.click();
 	await expect(page.getByLabel('Access token')).toHaveValue(
 		'ghp_faketoken1234',
 	);
-	await page.getByRole('button', { name: 'Find repositories' }).click();
+	await expect(
+		page.getByRole('heading', { name: 'Select repositories to follow' }),
+	).toBeVisible();
 
 	// Registering more than one repo in a single batch (#103): one checked
 	// from the discovered list, one added by name -- both land in the same
@@ -184,6 +189,22 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(
 		page.getByRole('row').filter({ hasText: 'alrayyes/manual-repo' }),
 	).toBeVisible();
+
+	// Already-tracked repos (#117) don't belong in the picker a second
+	// time -- demo-repo is tracked now, so re-discovering only offers
+	// dotfiles.
+	await page.getByRole('button', { name: 'Register repository' }).click();
+	await page
+		.getByRole('button', { name: 'Use saved token (****1234)' })
+		.click();
+	await expect(
+		page.getByRole('checkbox', { name: 'alrayyes/dotfiles' }),
+	).toBeVisible();
+	await expect(
+		page.getByRole('checkbox', { name: 'alrayyes/demo-repo' }),
+	).toHaveCount(0);
+	await page.keyboard.press('Escape');
+
 	await page.unroute('**/api/repos/discover');
 
 	await page.getByRole('link', { name: 'Pipelines' }).click();
