@@ -160,6 +160,12 @@ function failureRateSeries(trend: Trend) {
 				{detail.triggeredSignals.map(signalLabel).join(', ')}
 			</p>
 		{/if}
+		<a
+			href="/repos/{detail.repoId}/usage"
+			class="mt-1 inline-block text-sm text-muted-foreground hover:underline"
+		>
+			Runner-minutes usage &rarr;
+		</a>
 
 		<div class="mt-8 grid gap-6">
 			<Card>

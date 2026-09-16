@@ -189,8 +189,25 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(detailScan.violations).toEqual([]);
 
-	await page.unroute('**/api/pipelines/unhealthy-1');
-	await page.unroute('**/api/pipelines/unhealthy-1/steps');
+	// Usage view (task 5.7), reached from the pipeline detail page's repoId.
+	await page.route('**/api/repos/repo-1/usage', (route) =>
+		route.fulfill({
+			json: [
+				{ workflow: 'CI', runnerMinutes: 842.5 },
+				{ workflow: 'Deploy', runnerMinutes: 120.2 },
+			],
+		}),
+	);
+	await page.getByRole('link', { name: 'Runner-minutes usage' }).click();
+	await expect(page).toHaveURL('/repos/repo-1/usage');
+	const usageRows = page.getByRole('row');
+	await expect(usageRows.filter({ hasText: 'CI' })).toContainText('842.5');
+	await expect(usageRows.filter({ hasText: 'Deploy' })).toContainText('120.2');
+
+	const usageScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(usageScan.violations).toEqual([]);
+
+	await page.unroute('**/api/repos/repo-1/usage');
 	await page.getByRole('link', { name: 'All pipelines' }).click();
 	await expect(page).toHaveURL('/');
 
