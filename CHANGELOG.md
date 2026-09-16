@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.17.0...v0.18.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** color-code health status and default to unhealthy-only ([#104](https://github.com/alrayyes/pipeline-analytics/issues/104)) ([08a8295](https://github.com/alrayyes/pipeline-analytics/commit/08a8295cdef30251b9c9bbeeeb34e71e662888a6)), closes [#101](https://github.com/alrayyes/pipeline-analytics/issues/101)
+
 ## [0.17.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.16.1...v0.17.0) (2026-09-16)
 
 
