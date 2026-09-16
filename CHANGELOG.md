@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.3...v0.6.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** pipeline detail view with trend charts ([#46](https://github.com/alrayyes/pipeline-analytics/issues/46)) ([12f8ba9](https://github.com/alrayyes/pipeline-analytics/commit/12f8ba956b6ad4fd476a524724734855e3a7715f))
+
 ## [0.5.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.2...v0.5.3) (2026-09-16)
 
 
