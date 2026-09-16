@@ -50,6 +50,23 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(dashboardScan.violations).toEqual([]);
 
+	// Dark mode (cycles system -> light -> dark), persisted across a
+	// reload, and re-scanned since contrast is theme-sensitive.
+	const themeToggle = page.getByRole('button', { name: /Theme:/ });
+	await themeToggle.click();
+	await themeToggle.click();
+	await expect(page.locator('html')).toHaveClass('dark');
+	await page.reload();
+	await expect(page.locator('html')).toHaveClass('dark');
+
+	const darkModeScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(darkModeScan.violations).toEqual([]);
+
+	await page.getByRole('button', { name: /Theme:/ }).click();
+	await expect(page.locator('html')).not.toHaveClass('dark');
+
 	// Repo management (register/list/untrack) is exercised against the
 	// real POST/DELETE /api/repos endpoints, not mocked -- same reasoning
 	// as the login/registration ceremony above: this is what those
