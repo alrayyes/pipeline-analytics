@@ -273,4 +273,64 @@ func TestClient_ListAccessibleRepos(t *testing.T) {
 		_, err = client.ListAccessibleRepos(context.Background(), ingestion.ListAccessibleReposRequest{Token: "bad"})
 		require.Error(t, err)
 	})
+
+	t.Run("follows pagination across multiple pages", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if r.URL.Query().Get("page") == "2" {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`[{"full_name": "alrayyes/page-two-repo"}]`))
+
+				return
+			}
+
+			// Rewrite (not append to) the query so this doesn't produce a
+			// second, shadowed "page" param if the request already carried
+			// one. Headers also have to be set before WriteHeader -- once
+			// that's called, the response is flushed and a later
+			// Header().Set is silently ignored.
+			nextURL := *r.URL
+			q := nextURL.Query()
+			q.Set("page", "2")
+			nextURL.RawQuery = q.Encode()
+			w.Header().Set("Link", `<`+nextURL.String()+`>; rel="next"`)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[{"full_name": "alrayyes/page-one-repo"}]`))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		repos, err := client.ListAccessibleRepos(context.Background(), ingestion.ListAccessibleReposRequest{Token: "ghp_test"})
+		require.NoError(t, err)
+
+		require.Equal(t, []string{"alrayyes/page-one-repo", "alrayyes/page-two-repo"}, repos)
+	})
+
+	t.Run("excludes archived and forked repos", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[
+				{"full_name": "alrayyes/normal-repo", "archived": false, "fork": false},
+				{"full_name": "alrayyes/archived-repo", "archived": true, "fork": false},
+				{"full_name": "alrayyes/forked-repo", "archived": false, "fork": true}
+			]`))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		repos, err := client.ListAccessibleRepos(context.Background(), ingestion.ListAccessibleReposRequest{Token: "ghp_test"})
+		require.NoError(t, err)
+
+		require.Equal(t, []string{"alrayyes/normal-repo"}, repos)
+	})
 }
