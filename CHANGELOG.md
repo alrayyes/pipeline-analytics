@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.5.0...v0.5.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* pin bun below 1.4 and downgrade lockfiles to v1 ([#31](https://github.com/alrayyes/pipeline-analytics/issues/31)) ([2f7de37](https://github.com/alrayyes/pipeline-analytics/commit/2f7de37b46d0aaf1bee16df73897d6a6923a00ed))
+
 ## [0.5.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.4.0...v0.5.0) (2026-09-15)
 
 
