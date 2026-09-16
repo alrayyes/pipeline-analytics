@@ -357,6 +357,8 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// The markdown body rendered as real HTML, not raw "### Features" text.
 	await expect(page.getByRole('heading', { name: 'Features' })).toBeVisible();
 	await expect(page.getByRole('link', { name: '#61' })).toBeVisible();
+	// Long-form date (#73), matching forge-dashboard's own release history.
+	await expect(page.getByText('September 16, 2026')).toBeVisible();
 
 	const releasesScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)

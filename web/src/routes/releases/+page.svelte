@@ -69,10 +69,10 @@ function renderBody(body: string): string {
 	{:else if releases.length === 0}
 		<p class="mt-6 text-muted-foreground">No releases yet.</p>
 	{:else}
-		<ul class="mt-6 grid gap-4">
+		<ul class="mt-6 grid gap-3">
 			{#each releases as release (release.tag_name)}
 				<li>
-					<Card>
+					<Card size="sm">
 						<CardHeader class="flex flex-row items-center justify-between">
 							<CardTitle>
 								<h2>
@@ -88,12 +88,18 @@ function renderBody(body: string): string {
 								datetime={release.published_at}
 								class="text-sm text-muted-foreground"
 							>
-								{new Date(release.published_at).toLocaleDateString()}
+								{new Date(release.published_at).toLocaleDateString(undefined, {
+									year: 'numeric',
+									month: 'long',
+									day: 'numeric',
+								})}
 							</time>
 						</CardHeader>
 						{#if release.body}
 							<CardContent>
-								<div class="prose prose-sm dark:prose-invert max-w-none">
+								<div
+									class="prose prose-sm dark:prose-invert max-w-none prose-h3:mt-3 prose-h3:mb-1.5 prose-h3:text-[11px] prose-h3:font-semibold prose-h3:tracking-wide prose-h3:text-muted-foreground prose-h3:uppercase first:prose-h3:mt-0"
+								>
 									{@html renderBody(release.body)}
 								</div>
 							</CardContent>
