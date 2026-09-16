@@ -44,10 +44,9 @@ async function handleLogout(): Promise<void> {
 <header class="border-b">
 	<div class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-y-2 px-4 py-3">
 		<nav class="flex items-center gap-6">
-			<span class="flex items-center gap-2 font-semibold">
-				<img src={logo} alt="" class="size-5" />
-				Pipeline Analytics
-			</span>
+			<a href="/" aria-label="Pipeline Analytics home" class="flex items-center">
+				<img src={logo} alt="" class="size-6" />
+			</a>
 			<ul class="flex items-center gap-4 text-sm">
 				{#each links as link (link.href)}
 					<li>
