@@ -11,6 +11,11 @@ import {
 	CardTitle,
 } from '$lib/components/ui/card/index.js';
 import {
+	type ChartConfig,
+	ChartContainer,
+	ChartTooltip,
+} from '$lib/components/ui/chart/index.js';
+import {
 	Table,
 	TableBody,
 	TableCell,
@@ -18,6 +23,19 @@ import {
 	TableHeader,
 	TableRow,
 } from '$lib/components/ui/table/index.js';
+
+// Categorical slots 1/2/8 of the validated default data-viz palette
+// (light/dark both fully specified, adjacent pairs pre-validated for CVD
+// separation) -- the previous --chart-1/--chart-2 CSS variables are the
+// shadcn scaffold's own placeholder values (pure grayscale, zero chroma),
+// never actually replaced.
+const DURATION_CHART_CONFIG: ChartConfig = {
+	p50: { label: 'p50', theme: { light: '#2a78d6', dark: '#3987e5' } },
+	p90: { label: 'p90', theme: { light: '#eb6834', dark: '#d95926' } },
+};
+const FAILURE_RATE_CHART_CONFIG: ChartConfig = {
+	rate: { label: 'Failure rate', theme: { light: '#e34948', dark: '#e66767' } },
+};
 
 interface Trend {
 	timestamps: string[];
@@ -116,18 +134,21 @@ function formatRate(rate: number): string {
 
 // LayerChart takes one row per point; the API returns parallel arrays, one
 // value per bucket in each of timestamps/p50/p90/rate.
+// Rounded to a sane display precision -- otherwise the tooltip shows a raw
+// floating-point minute value (5.083333333333333) instead of something
+// readable.
 function durationSeries(trend: Trend) {
 	return trend.timestamps.map((ts, i) => ({
 		ts: new Date(ts),
-		p50: trend.p50 ? trend.p50[i] / 60 : null,
-		p90: trend.p90 ? trend.p90[i] / 60 : null,
+		p50: trend.p50 ? Math.round((trend.p50[i] / 60) * 10) / 10 : null,
+		p90: trend.p90 ? Math.round((trend.p90[i] / 60) * 10) / 10 : null,
 	}));
 }
 
 function failureRateSeries(trend: Trend) {
 	return trend.timestamps.map((ts, i) => ({
 		ts: new Date(ts),
-		rate: trend.rate ? trend.rate[i] * 100 : null,
+		rate: trend.rate ? Math.round(trend.rate[i] * 1000) / 10 : null,
 	}));
 }
 </script>
@@ -176,18 +197,22 @@ function failureRateSeries(trend: Trend) {
 					{#if detail.durationTrend.timestamps.length === 0}
 						<p class="text-sm text-muted-foreground">Not enough run history yet.</p>
 					{:else}
-						<div class="h-[240px]">
+						<ChartContainer config={DURATION_CHART_CONFIG} class="aspect-auto h-[240px] w-full">
 							<LineChart
 								data={durationSeries(detail.durationTrend)}
 								x="ts"
 								series={[
-									{ key: 'p50', label: 'p50', color: 'var(--chart-1)' },
-									{ key: 'p90', label: 'p90', color: 'var(--chart-2)' },
+									{ key: 'p50', label: 'p50', color: 'var(--color-p50)' },
+									{ key: 'p90', label: 'p90', color: 'var(--color-p90)' },
 								]}
 								padding={defaultChartPadding({ legend: true })}
 								legend
-							/>
-						</div>
+							>
+								{#snippet tooltip()}
+									<ChartTooltip labelFormatter={(value) => value.toLocaleDateString()} />
+								{/snippet}
+							</LineChart>
+						</ChartContainer>
 					{/if}
 				</CardContent>
 			</Card>
@@ -200,13 +225,20 @@ function failureRateSeries(trend: Trend) {
 					{#if detail.failureRateTrend.timestamps.length === 0}
 						<p class="text-sm text-muted-foreground">Not enough run history yet.</p>
 					{:else}
-						<div class="h-[240px]">
+						<ChartContainer
+							config={FAILURE_RATE_CHART_CONFIG}
+							class="aspect-auto h-[240px] w-full"
+						>
 							<LineChart
 								data={failureRateSeries(detail.failureRateTrend)}
 								x="ts"
-								series={[{ key: 'rate', color: 'var(--chart-3)' }]}
-							/>
-						</div>
+								series={[{ key: 'rate', color: 'var(--color-rate)' }]}
+							>
+								{#snippet tooltip()}
+									<ChartTooltip labelFormatter={(value) => value.toLocaleDateString()} />
+								{/snippet}
+							</LineChart>
+						</ChartContainer>
 					{/if}
 				</CardContent>
 			</Card>
