@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.15.2...v0.16.0) (2026-09-16)
+
+
+### Features
+
+* add a configurable log level ([#94](https://github.com/alrayyes/pipeline-analytics/issues/94)) ([0e088d3](https://github.com/alrayyes/pipeline-analytics/commit/0e088d385aed894f97aa929553583a1ebe07cca6)), closes [#75](https://github.com/alrayyes/pipeline-analytics/issues/75)
+
 ## [0.15.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.15.1...v0.15.2) (2026-09-16)
 
 
