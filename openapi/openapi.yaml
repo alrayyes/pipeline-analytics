@@ -75,6 +75,38 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/repos/discover:
+    post:
+      operationId: discoverRepos
+      summary: List repositories a not-yet-registered token can access
+      description: >
+        Lets the registration UI offer a picker instead of asking the user
+        to type "owner/name" by hand. The token is used for this one lookup
+        and never stored.
+      tags: [repos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepoDiscoveryRequest"
+      responses:
+        "200":
+          description: Repositories accessible to the token
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: ["alrayyes/pipeline-analytics"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+
   /api/repos/{repoId}:
     delete:
       operationId: untrackRepo
@@ -415,6 +447,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    BadGateway:
+      description: The originating forge rejected the request or couldn't be reached
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
   schemas:
     Error:
@@ -480,6 +518,19 @@ components:
         token:
           type: string
           description: Repo-scoped personal access token. Never echoed back.
+
+    RepoDiscoveryRequest:
+      type: object
+      required: [forge, token]
+      properties:
+        forge:
+          $ref: "#/components/schemas/Forge"
+        forgejoInstanceUrl:
+          type: string
+          format: uri
+        token:
+          type: string
+          description: Never stored -- used for this one lookup only.
 
     HealthStatus:
       type: string

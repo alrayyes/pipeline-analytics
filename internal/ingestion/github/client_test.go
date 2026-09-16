@@ -225,3 +225,52 @@ func TestClient_ListRecentRuns(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestClient_ListAccessibleRepos(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sends an authenticated request and returns full_name identifiers", func(t *testing.T) {
+		t.Parallel()
+
+		var gotPath, gotAuth, gotQuery string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotAuth = r.Header.Get("Authorization")
+			gotQuery = r.URL.RawQuery
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[{"full_name": "alrayyes/pipeline-analytics"}, {"full_name": "alrayyes/dotfiles"}]`))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		repos, err := client.ListAccessibleRepos(context.Background(), ingestion.ListAccessibleReposRequest{
+			Token: "ghp_test",
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, "/user/repos", gotPath)
+		require.Equal(t, "Bearer ghp_test", gotAuth)
+		require.Contains(t, gotQuery, "sort=pushed")
+		require.Equal(t, []string{"alrayyes/pipeline-analytics", "alrayyes/dotfiles"}, repos)
+	})
+
+	t.Run("wraps a forge-side failure", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		_, err = client.ListAccessibleRepos(context.Background(), ingestion.ListAccessibleReposRequest{Token: "bad"})
+		require.Error(t, err)
+	})
+}

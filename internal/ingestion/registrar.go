@@ -2,8 +2,13 @@ package ingestion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
+
+// ErrNoForgeClient is returned when Discover is asked about a forge this
+// server has no client configured for.
+var ErrNoForgeClient = errors.New("no client configured for forge")
 
 // Registrar orchestrates repo registration: persist the repo, then create
 // its webhook on the forge, degrading rather than failing when the webhook
@@ -54,6 +59,25 @@ func (r *Registrar) Register(ctx context.Context, in NewRepo) (Repo, error) {
 	repo.IngestionStatusReason = ""
 
 	return repo, nil
+}
+
+// Discover lists the "owner/name" repos a not-yet-registered token can
+// access, for the registration UI's repo picker. Never persists anything.
+func (r *Registrar) Discover(ctx context.Context, forge Forge, instanceURL, token string) ([]string, error) {
+	client, ok := r.clients[forge]
+	if !ok {
+		return nil, fmt.Errorf("%w: %q", ErrNoForgeClient, forge)
+	}
+
+	repos, err := client.ListAccessibleRepos(ctx, ListAccessibleReposRequest{
+		InstanceURL: instanceURL,
+		Token:       token,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("discover repos: %w", err)
+	}
+
+	return repos, nil
 }
 
 func (r *Registrar) degrade(ctx context.Context, repo Repo, reason string) (Repo, error) {

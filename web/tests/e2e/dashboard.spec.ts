@@ -79,10 +79,20 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByText('No repositories tracked yet.')).toBeVisible();
 
 	await page.getByRole('button', { name: 'Register repository' }).click();
-	await page
-		.getByLabel('Repository', { exact: true })
-		.fill('alrayyes/demo-repo');
 	await page.getByLabel('Access token').fill('ghp_faketoken1234');
+
+	// The repo picker (discover-then-select) is exercised against a mocked
+	// response -- the real GitHub/Forgejo API call it wraps is already
+	// covered by the ListAccessibleRepos client tests.
+	await page.route('**/api/repos/discover', (route) =>
+		route.fulfill({
+			json: ['alrayyes/demo-repo', 'alrayyes/dotfiles'],
+		}),
+	);
+	await page.getByRole('button', { name: 'Find repositories' }).click();
+	await expect(page.getByText('alrayyes/demo-repo')).toBeVisible();
+	await page.unroute('**/api/repos/discover');
+
 	await page.getByRole('button', { name: 'Register', exact: true }).click();
 
 	const repoRow = page

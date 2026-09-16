@@ -117,8 +117,9 @@ func (f *fakeStore) SetReconcileETag(_ context.Context, id string, etag string) 
 }
 
 type fakeForgeClient struct {
-	err          error
-	listRunsFunc func(context.Context, ingestion.ListRunsRequest) (ingestion.ListRunsResult, error)
+	err             error
+	listRunsFunc    func(context.Context, ingestion.ListRunsRequest) (ingestion.ListRunsResult, error)
+	discoveredRepos []string
 }
 
 func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhookRequest) error {
@@ -131,6 +132,10 @@ func (f *fakeForgeClient) ListRecentRuns(ctx context.Context, req ingestion.List
 	}
 
 	return ingestion.ListRunsResult{}, nil
+}
+
+func (f *fakeForgeClient) ListAccessibleRepos(context.Context, ingestion.ListAccessibleReposRequest) ([]string, error) {
+	return f.discoveredRepos, f.err
 }
 
 func TestRegistrar_Register(t *testing.T) {
@@ -184,5 +189,44 @@ func TestRegistrar_Register(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, ingestion.StatusDegraded, repo.IngestionStatus)
+	})
+}
+
+func TestRegistrar_Discover(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the repos the client discovers", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{discoveredRepos: []string{"alrayyes/pipeline-analytics"}},
+		}, "https://example.com")
+
+		repos, err := registrar.Discover(context.Background(), ingestion.ForgeGitHub, "", "ghp_test")
+		require.NoError(t, err)
+		require.Equal(t, []string{"alrayyes/pipeline-analytics"}, repos)
+	})
+
+	t.Run("propagates a forge error", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{err: errInsufficientScope},
+		}, "https://example.com")
+
+		_, err := registrar.Discover(context.Background(), ingestion.ForgeGitHub, "", "ghp_test")
+		require.ErrorIs(t, err, errInsufficientScope)
+	})
+
+	t.Run("errors when no client is configured for the forge", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{}, "https://example.com")
+
+		_, err := registrar.Discover(context.Background(), ingestion.ForgeGitHub, "", "ghp_test")
+		require.Error(t, err)
 	})
 }
