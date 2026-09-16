@@ -167,11 +167,9 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(useSavedToken).toBeVisible();
 	// One click, not two (#117): filling the token and finding repositories
 	// used to be two separate actions; using a saved token now goes straight
-	// to the repo picker.
+	// to the repo picker, replacing the token step's markup (including the
+	// "Access token" field) with the picker's.
 	await useSavedToken.click();
-	await expect(page.getByLabel('Access token')).toHaveValue(
-		'ghp_faketoken1234',
-	);
 	await expect(
 		page.getByRole('heading', { name: 'Select repositories to follow' }),
 	).toBeVisible();
