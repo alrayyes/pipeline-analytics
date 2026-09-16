@@ -3,6 +3,7 @@ package config
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 )
 
@@ -31,6 +32,8 @@ type Config struct {
 	// every tracked repo (forge-ingestion/spec.md requires at least
 	// hourly).
 	ReconcileInterval time.Duration
+	// LogLevel is the minimum slog level the server logs at.
+	LogLevel slog.Level
 }
 
 // Validate reports the first invalid or missing required field, if any.

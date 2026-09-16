@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 )
 
 // ErrNoForgeClient is returned when Discover is asked about a forge this
@@ -64,6 +65,8 @@ func (r *Registrar) Register(ctx context.Context, in NewRepo) (Repo, error) {
 // Discover lists the "owner/name" repos a not-yet-registered token can
 // access, for the registration UI's repo picker. Never persists anything.
 func (r *Registrar) Discover(ctx context.Context, forge Forge, instanceURL, token string) ([]string, error) {
+	slog.DebugContext(ctx, "repo discovery requested", "forge", forge)
+
 	client, ok := r.clients[forge]
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrNoForgeClient, forge)
@@ -76,6 +79,8 @@ func (r *Registrar) Discover(ctx context.Context, forge Forge, instanceURL, toke
 	if err != nil {
 		return nil, fmt.Errorf("discover repos: %w", err)
 	}
+
+	slog.DebugContext(ctx, "repo discovery completed", "forge", forge, "repos", len(repos))
 
 	return repos, nil
 }

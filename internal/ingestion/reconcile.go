@@ -50,6 +50,8 @@ func (r *Reconciler) ReconcileAll(ctx context.Context) {
 		return
 	}
 
+	slog.DebugContext(ctx, "reconciliation poll started", "repos", len(repos))
+
 	for _, repo := range repos {
 		if err := r.ReconcileRepo(ctx, repo); err != nil {
 			slog.ErrorContext(ctx, "reconcile repo", "repo", repo.Identifier, "error", err)
@@ -83,8 +85,12 @@ func (r *Reconciler) ReconcileRepo(ctx context.Context, repo Repo) error {
 	}
 
 	if result.NotModified {
+		slog.DebugContext(ctx, "reconcile: not modified", "repo", repo.Identifier)
+
 		return nil
 	}
+
+	slog.DebugContext(ctx, "reconcile: runs fetched", "repo", repo.Identifier, "runs", len(result.Runs))
 
 	for _, snapshot := range result.Runs {
 		if err := r.storeRunSnapshot(ctx, repo, snapshot); err != nil {
@@ -117,6 +123,8 @@ func (r *Reconciler) storeRunSnapshot(ctx context.Context, repo Repo, snapshot R
 	if err != nil {
 		return fmt.Errorf("upsert run: %w", err)
 	}
+
+	slog.DebugContext(ctx, "run upserted", "repo", repo.Identifier, "run", run.ForgeRunID, "status", run.Status)
 
 	for _, job := range snapshot.Jobs {
 		if err := r.storeJobSnapshot(ctx, run.ID, job); err != nil {

@@ -67,8 +67,9 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("callback-url", "", "this server's own public base URL, used for forge webhook callbacks")
 	cmd.Flags().String("encryption-key", "", "hex-encoded 32-byte key repo tokens are encrypted under at rest")
 	cmd.Flags().Duration("reconcile-interval", time.Hour, "how often to poll tracked repos for reconciliation (forge-ingestion/spec.md requires at least hourly)")
+	cmd.Flags().String("log-level", "info", "log verbosity: debug, info, warn, or error")
 
-	for _, name := range []string{"addr", "db", "callback-url", "encryption-key", "reconcile-interval"} {
+	for _, name := range []string{"addr", "db", "callback-url", "encryption-key", "reconcile-interval", "log-level"} {
 		if err := viper.BindPFlag(name, cmd.Flags().Lookup(name)); err != nil {
 			panic(err)
 		}
@@ -89,6 +90,8 @@ func runServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})))
 
 	conn, err := db.Open(cfg.DBPath)
 	if err != nil {
@@ -158,18 +161,38 @@ func loadConfig() (config.Config, error) {
 		return config.Config{}, fmt.Errorf("decode encryption key: %w", err)
 	}
 
+	logLevel, err := parseLogLevel(viper.GetString("log-level"))
+	if err != nil {
+		return config.Config{}, err
+	}
+
 	cfg := config.Config{
 		Addr:              viper.GetString("addr"),
 		DBPath:            viper.GetString("db"),
 		CallbackURL:       viper.GetString("callback-url"),
 		EncryptionKey:     encryptionKey,
 		ReconcileInterval: viper.GetDuration("reconcile-interval"),
+		LogLevel:          logLevel,
 	}
 	if err := cfg.Validate(); err != nil {
 		return config.Config{}, fmt.Errorf("invalid config: %w", err)
 	}
 
 	return cfg, nil
+}
+
+// parseLogLevel parses the --log-level flag's value into a slog.Level.
+// slog.Level's own UnmarshalText already accepts "debug"/"info"/"warn"/
+// "error" case-insensitively (and a "level+offset" form, e.g. "info+2") --
+// this just gives an invalid value a clearer error than the raw parse
+// failure would.
+func parseLogLevel(s string) (slog.Level, error) {
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(s)); err != nil {
+		return 0, fmt.Errorf("invalid log level %q (want debug, info, warn, or error): %w", s, err)
+	}
+
+	return level, nil
 }
 
 func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqlite.Store, forgeClients map[ingestion.Forge]ingestion.ForgeClient) (http.Handler, error) {
