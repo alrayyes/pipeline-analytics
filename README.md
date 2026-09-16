@@ -76,6 +76,13 @@ pipeline-analytics serve \
 Then open `--callback-url` in a browser to register your passkey (first
 run) or log in, and register a repo to track from the dashboard.
 
+The dashboard is installable as its own app — most browsers offer an
+installation prompt automatically, or use the browser's menu (Chrome/Edge:
+"Install pipeline-analytics…"; Safari: "Add to Dock"). It opens in its own
+window with no browser chrome, same as any other installed PWA. This is
+a live-data dashboard, not an offline app — installing it doesn't cache
+pipeline data for offline use, only the app shell itself.
+
 ### Running via Docker
 
 ```sh
