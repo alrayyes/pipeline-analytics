@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import { invalidateAll } from '$app/navigation';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -216,7 +217,10 @@ async function handleRegister(event: SubmitEvent): Promise<void> {
 
 		registerOpen = false;
 		resetForm();
-		await loadRepos();
+		// The layout's own load -- which the nav's hasRepos-gated links and
+		// the Pipelines empty state (#71) both read -- only reruns on
+		// navigation by default; this registration didn't navigate anywhere.
+		await Promise.all([loadRepos(), invalidateAll()]);
 	} catch {
 		registerError = 'Could not reach the server.';
 	} finally {
@@ -241,7 +245,7 @@ async function handleUntrack(): Promise<void> {
 		}
 
 		untrackTarget = null;
-		await loadRepos();
+		await Promise.all([loadRepos(), invalidateAll()]);
 	} catch {
 		untrackError = 'Could not reach the server.';
 	} finally {

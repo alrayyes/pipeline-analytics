@@ -43,7 +43,25 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	await expect(page).toHaveURL('/');
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
-	await expect(page.getByText('No pipelines tracked yet.')).toBeVisible();
+	await expect(page.getByText('No repositories registered yet')).toBeVisible();
+
+	// Empty states by repo-registration status (#71): with zero repos
+	// registered, the Pipelines/Repositories nav links are disabled (still
+	// role="link" for assistive tech, matching Button.svelte's own disabled-
+	// link convention -- distinguished here by aria-disabled/no href rather
+	// than by role) and a single "Register a repository" CTA takes their
+	// place. Scoped to <header> since the page itself also has a "Pipelines"
+	// heading.
+	const nav = page.locator('header');
+	const disabledPipelinesLink = nav.getByText('Pipelines', { exact: true });
+	const disabledReposLink = nav.getByText('Repositories', { exact: true });
+	await expect(disabledPipelinesLink).toHaveAttribute('aria-disabled', 'true');
+	await expect(disabledPipelinesLink).not.toHaveAttribute('href');
+	await expect(disabledReposLink).toHaveAttribute('aria-disabled', 'true');
+	await expect(disabledReposLink).not.toHaveAttribute('href');
+	await expect(
+		page.getByRole('link', { name: 'Register a repository' }),
+	).toBeVisible();
 
 	const dashboardScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
@@ -109,6 +127,19 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	const reposScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
 	expect(reposScan.violations).toEqual([]);
 
+	// Empty states by repo-registration status (#71), the other half: a repo
+	// is registered now, but nothing's been ingested yet -- the nav links go
+	// back to normal, and the Pipelines page says so without telling the
+	// user to register a repository again.
+	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
+	await expect(page).toHaveURL('/');
+	await expect(
+		page.getByRole('link', { name: 'Register a repository' }),
+	).toHaveCount(0);
+	await expect(page.getByText('No pipeline runs ingested yet')).toBeVisible();
+	await page.getByRole('link', { name: 'Repositories', exact: true }).click();
+	await expect(page).toHaveURL('/repos');
+
 	await repoRow.getByRole('button', { name: 'Untrack' }).click();
 	await expect(page.getByText('Untrack alrayyes/demo-repo?')).toBeVisible();
 	await page
@@ -118,7 +149,10 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByText('No repositories tracked yet.')).toBeVisible();
 
 	// Token reuse (#72): the token used above is offered again rather than
-	// having to be retyped, browser-local only.
+	// having to be retyped, browser-local only. Registering for real here
+	// (rather than abandoning the dialog) also puts a repo back so the rest
+	// of this test's nav clicks -- disabled while zero repos are registered
+	// (#71) -- keep working.
 	await page.getByRole('button', { name: 'Register repository' }).click();
 	const useSavedToken = page.getByRole('button', {
 		name: 'Use saved token (****1234)',
@@ -128,7 +162,11 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByLabel('Access token')).toHaveValue(
 		'ghp_faketoken1234',
 	);
-	await page.keyboard.press('Escape');
+	await page
+		.getByLabel('Repository', { exact: true })
+		.fill('alrayyes/demo-repo');
+	await page.getByRole('button', { name: 'Register', exact: true }).click();
+	await expect(repoRow).toBeVisible();
 
 	await page.getByRole('link', { name: 'Pipelines' }).click();
 	await expect(page).toHaveURL('/');

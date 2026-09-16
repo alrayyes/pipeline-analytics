@@ -8,6 +8,8 @@ import { Button } from '$lib/components/ui/button/index.js';
 import { cycleTheme, getTheme } from '$lib/theme.svelte.js';
 import { cn } from '$lib/utils.js';
 
+let { hasRepos }: { hasRepos: boolean } = $props();
+
 let logoutBusy = $state(false);
 
 const THEME_LABELS = {
@@ -45,19 +47,33 @@ async function handleLogout(): Promise<void> {
 			<ul class="flex items-center gap-4 text-sm">
 				{#each links as link (link.href)}
 					<li>
-						<a
-							href={link.href}
-							class={cn(
-								'text-muted-foreground hover:text-foreground',
-								isActive(link.href) && 'font-medium text-foreground',
-							)}
-							aria-current={isActive(link.href) ? 'page' : undefined}
-						>
-							{link.label}
-						</a>
+						{#if hasRepos}
+							<a
+								href={link.href}
+								class={cn(
+									'text-muted-foreground hover:text-foreground',
+									isActive(link.href) && 'font-medium text-foreground',
+								)}
+								aria-current={isActive(link.href) ? 'page' : undefined}
+							>
+								{link.label}
+							</a>
+						{:else}
+							<span
+								aria-disabled="true"
+								role="link"
+								tabindex="-1"
+								class="cursor-not-allowed text-muted-foreground/50"
+							>
+								{link.label}
+							</span>
+						{/if}
 					</li>
 				{/each}
 			</ul>
+			{#if !hasRepos}
+				<Button href="/repos" size="sm">Register a repository</Button>
+			{/if}
 		</nav>
 		<div class="flex items-center gap-2">
 			<Button
