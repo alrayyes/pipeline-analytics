@@ -108,6 +108,16 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+  goreleaser-check:
+    name: goreleaser check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          args: check
+
   docker:
     name: docker build
     runs-on: ubuntu-latest
