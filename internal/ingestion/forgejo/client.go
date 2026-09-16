@@ -4,8 +4,10 @@ package forgejo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"strconv"
@@ -18,6 +20,10 @@ import (
 
 // ErrInvalidIdentifier is returned when a repo identifier isn't "owner/name".
 var ErrInvalidIdentifier = errors.New("identifier must be in owner/name form")
+
+// ErrUnexpectedStatus is returned when a Forgejo API response's status code
+// is neither success nor a recognized "nothing to report" case.
+var ErrUnexpectedStatus = errors.New("unexpected status")
 
 // Client is the Forgejo-backed ingestion.ForgeClient. A single Client
 // serves any Forgejo instance URL, since each request carries its own.
@@ -156,7 +162,7 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 	runs := make([]ingestion.RunSnapshot, 0, len(runsResp.WorkflowRuns))
 
 	for _, run := range runsResp.WorkflowRuns {
-		jobs, err := c.listWorkflowJobs(api, owner, name, run.ID)
+		jobs, err := c.listWorkflowJobs(ctx, req.InstanceURL, req.Token, owner, name, run.ID)
 		if err != nil {
 			return ingestion.ListRunsResult{}, err
 		}
@@ -176,41 +182,110 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 	return ingestion.ListRunsResult{Runs: runs}, nil
 }
 
-func (c *Client) listWorkflowJobs(api *gitea.Client, owner, name string, runID int64) ([]ingestion.JobSnapshot, error) {
-	jobsResp, _, err := api.ListRepoActionRunJobs(owner, name, runID, gitea.ListRepoActionJobsOptions{})
+// listWorkflowJobs fetches a run's jobs with a raw HTTP request rather than
+// the Gitea SDK's typed ListRepoActionRunJobs -- that method decodes into
+// ActionWorkflowJobsResponse ({"jobs": [...]}), a shape confirmed against a
+// real deployment to not match what Forgejo actually returns there (a bare
+// array, github.com/alrayyes/pipeline-analytics#123). parseWorkflowJobs
+// accepts either shape, so this works whichever one a given Forgejo version
+// sends. Also confirmed empirically (Forgejo 11 through 14, every currently
+// tagged release) that this endpoint isn't registered at all on some
+// versions -- a 404 there is treated as "no job detail available" rather
+// than failing the whole run, same spirit as the runs-endpoint 404 handling
+// above (#121).
+func (c *Client) listWorkflowJobs(ctx context.Context, instanceURL, token, owner, name string, runID int64) ([]ingestion.JobSnapshot, error) {
+	jobsResp, err := fetchWorkflowJobs(ctx, instanceURL, token, owner, name, runID)
 	if err != nil {
-		return nil, fmt.Errorf("list forgejo workflow jobs for run %d: %w", runID, err)
+		return nil, err
 	}
 
-	jobs := make([]ingestion.JobSnapshot, 0, len(jobsResp.Jobs))
-
-	for _, job := range jobsResp.Jobs {
-		steps := make([]ingestion.StepSnapshot, 0, len(job.Steps))
-		for _, step := range job.Steps {
-			steps = append(steps, ingestion.StepSnapshot{
-				Number:      int(step.Number),
-				Name:        step.Name,
-				Status:      step.Status,
-				Conclusion:  step.Conclusion,
-				StartedAt:   nonZeroTime(step.StartedAt),
-				CompletedAt: nonZeroTime(step.CompletedAt),
-			})
-		}
-
-		jobs = append(jobs, ingestion.JobSnapshot{
-			ForgeJobID:  strconv.FormatInt(job.ID, 10),
-			Name:        job.Name,
-			Status:      job.Status,
-			Conclusion:  job.Conclusion,
-			QueuedAt:    nonZeroTime(job.CreatedAt),
-			StartedAt:   nonZeroTime(job.StartedAt),
-			CompletedAt: nonZeroTime(job.CompletedAt),
-			ForgeURL:    job.HTMLURL,
-			Steps:       steps,
-		})
+	jobs := make([]ingestion.JobSnapshot, 0, len(jobsResp))
+	for _, job := range jobsResp {
+		jobs = append(jobs, convertWorkflowJob(job))
 	}
 
 	return jobs, nil
+}
+
+func fetchWorkflowJobs(ctx context.Context, instanceURL, token, owner, name string, runID int64) ([]*gitea.ActionWorkflowJob, error) {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs/%d/jobs", strings.TrimRight(instanceURL, "/"), owner, name, runID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build forgejo jobs request for run %d: %w", runID, err)
+	}
+
+	httpReq.Header.Set("Authorization", "token "+token)
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("list forgejo workflow jobs for run %d: %w", runID, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read forgejo workflow jobs response for run %d: %w", runID, err)
+	}
+
+	if resp.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("list forgejo workflow jobs for run %d: %w: %d: %s", runID, ErrUnexpectedStatus, resp.StatusCode, body)
+	}
+
+	jobs, err := parseWorkflowJobs(body)
+	if err != nil {
+		return nil, fmt.Errorf("parse forgejo workflow jobs response for run %d: %w", runID, err)
+	}
+
+	return jobs, nil
+}
+
+// parseWorkflowJobs accepts either shape a Forgejo instance's jobs-listing
+// endpoint might return: a bare array (confirmed against a real deployment,
+// #123) or the {"jobs": [...]} wrapper the Gitea SDK's own
+// ActionWorkflowJobsResponse type expects and upstream Gitea documents.
+func parseWorkflowJobs(body []byte) ([]*gitea.ActionWorkflowJob, error) {
+	var bare []*gitea.ActionWorkflowJob
+	if err := json.Unmarshal(body, &bare); err == nil {
+		return bare, nil
+	}
+
+	var wrapped gitea.ActionWorkflowJobsResponse
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("unmarshal forgejo workflow jobs: %w", err)
+	}
+
+	return wrapped.Jobs, nil
+}
+
+func convertWorkflowJob(job *gitea.ActionWorkflowJob) ingestion.JobSnapshot {
+	steps := make([]ingestion.StepSnapshot, 0, len(job.Steps))
+	for _, step := range job.Steps {
+		steps = append(steps, ingestion.StepSnapshot{
+			Number:      int(step.Number),
+			Name:        step.Name,
+			Status:      step.Status,
+			Conclusion:  step.Conclusion,
+			StartedAt:   nonZeroTime(step.StartedAt),
+			CompletedAt: nonZeroTime(step.CompletedAt),
+		})
+	}
+
+	return ingestion.JobSnapshot{
+		ForgeJobID:  strconv.FormatInt(job.ID, 10),
+		Name:        job.Name,
+		Status:      job.Status,
+		Conclusion:  job.Conclusion,
+		QueuedAt:    nonZeroTime(job.CreatedAt),
+		StartedAt:   nonZeroTime(job.StartedAt),
+		CompletedAt: nonZeroTime(job.CompletedAt),
+		ForgeURL:    job.HTMLURL,
+		Steps:       steps,
+	}
 }
 
 // workflowNameFromPath derives a display name from a workflow file's
