@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path"
 	"strconv"
 	"strings"
@@ -50,10 +51,23 @@ func (c *Client) CreateWebhook(ctx context.Context, req ingestion.CreateWebhookR
 			"content_type": "json",
 			"secret":       req.Secret,
 		},
-		// Forgejo Actions mirrors GitHub's workflow_run/workflow_job event
-		// naming; unverified against a live instance (design.md's
-		// "Gitea SDK's Forgejo Actions endpoint coverage is unverified" risk).
-		Events: []string{"workflow_run", "workflow_job"},
+		// Forgejo has no webhook event for Actions run/job status changes
+		// as of 11.0.16+gitea-1.22.0 -- confirmed empirically, not just
+		// undocumented: walked the live "new hook" form's checkbox names
+		// (the full vocabulary is create/delete/fork/issues/issue_assign/
+		// issue_comment/issue_label/issue_milestone/package/pull_request/
+		// pull_request_assign/pull_request_comment/pull_request_label/
+		// pull_request_milestone/pull_request_review/
+		// pull_request_review_request/pull_request_sync/push/release/
+		// repository/wiki, nothing Actions-related), and separately
+		// confirmed "workflow_run"/"workflow_job" both silently drop from
+		// a created hook's events (github.com/alrayyes/pipeline-analytics
+		// #120, citing alrayyes/forge-dashboard#177's earlier finding on
+		// a different instance). "push" is the closest available signal
+		// that a workflow run may be starting; ingestion.ProcessForgejoEvent
+		// treats delivery as a cue to reconcile the repo immediately
+		// rather than parsed run data, since a push payload carries none.
+		Events: []string{"push"},
 		Active: true,
 	})
 	if err != nil {
@@ -120,8 +134,20 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 		return ingestion.ListRunsResult{}, fmt.Errorf("create forgejo client: %w", err)
 	}
 
-	runsResp, _, err := api.ListRepoActionRuns(owner, name, gitea.ListRepoActionRunsOptions{})
+	runsResp, resp, err := api.ListRepoActionRuns(owner, name, gitea.ListRepoActionRunsOptions{})
 	if err != nil {
+		// Forgejo 404s this whole route -- "The target couldn't be
+		// found." -- for a repo with Actions disabled or that has never
+		// had a workflow run, rather than returning a 200 with an empty
+		// list (confirmed against real deployments,
+		// github.com/alrayyes/pipeline-analytics#121). That's not a
+		// reconciliation failure worth an error log every poll; it's a
+		// legitimate "nothing to reconcile" for a repo someone tracked
+		// that simply has no pipelines (yet).
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return ingestion.ListRunsResult{}, nil
+		}
+
 		return ingestion.ListRunsResult{}, fmt.Errorf("list forgejo workflow runs: %w", err)
 	}
 

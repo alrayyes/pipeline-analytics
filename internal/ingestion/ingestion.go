@@ -74,6 +74,14 @@ type Store interface {
 	SetReconcileETag(ctx context.Context, id string, etag string) error
 }
 
+// RepoReconciler is the port webhook ingestion calls to trigger an
+// immediate reconciliation poll for one repo, for a forge whose webhook
+// delivery carries no usable run data of its own -- Forgejo, see
+// ProcessForgejoEvent.
+type RepoReconciler interface {
+	ReconcileRepo(ctx context.Context, repo Repo) error
+}
+
 // CreateWebhookRequest is what a ForgeClient needs to register a webhook on
 // a tracked repo.
 type CreateWebhookRequest struct {

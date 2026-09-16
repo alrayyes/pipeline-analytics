@@ -16,7 +16,7 @@ import (
 func TestClient_CreateWebhook(t *testing.T) {
 	t.Parallel()
 
-	t.Run("sends an authenticated request creating a workflow webhook", func(t *testing.T) {
+	t.Run("sends an authenticated request creating a push webhook", func(t *testing.T) {
 		t.Parallel()
 
 		var gotMethod, gotPath, gotAuth, gotBody string
@@ -51,7 +51,7 @@ func TestClient_CreateWebhook(t *testing.T) {
 		require.Equal(t, http.MethodPost, gotMethod)
 		require.Equal(t, "/api/v1/repos/alrayyes/dotfiles/hooks", gotPath)
 		require.Equal(t, "token forgejo_test_token", gotAuth)
-		require.Contains(t, gotBody, "workflow_job")
+		require.Contains(t, gotBody, `"events":["push"]`)
 		require.Contains(t, gotBody, "https://example.com/webhooks/forgejo")
 	})
 
@@ -182,6 +182,28 @@ func TestClient_ListRecentRuns(t *testing.T) {
 
 		_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{InstanceURL: "https://example.com", Identifier: "not-owner-slash-name"})
 		require.ErrorIs(t, err, forgejoclient.ErrInvalidIdentifier)
+	})
+
+	t.Run("treats a 404 on the runs endpoint as no runs, not an error -- Forgejo 404s a repo with no Actions configured", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message": "The target couldn't be found."}`))
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/thinkpad-nixos",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+		require.Empty(t, result.Runs)
 	})
 
 	t.Run("wraps a forge-side failure", func(t *testing.T) {

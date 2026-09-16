@@ -9,9 +9,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
+	authsqlite "github.com/alrayyes/pipeline-analytics/internal/auth/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/db"
+	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
+	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/metrics"
+	metricssqlite "github.com/alrayyes/pipeline-analytics/internal/metrics/sqlite"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,6 +70,72 @@ func registerTestRepo(t *testing.T, srv testServer, forge string) string {
 	require.NoError(t, err)
 
 	return repo.WebhookSecret
+}
+
+type fakeReconciler struct {
+	mu    sync.Mutex
+	calls []string // repo identifiers reconciled
+}
+
+func (f *fakeReconciler) ReconcileRepo(_ context.Context, repo ingestion.Repo) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.calls = append(f.calls, repo.Identifier)
+
+	return nil
+}
+
+func (f *fakeReconciler) identifiersReconciled() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.calls
+}
+
+// newTestServerWithReconciler is newTestServer plus a Reconciler dep, for
+// the tests that need to observe a Forgejo push delivery triggering one.
+func newTestServerWithReconciler(t *testing.T, reconciler ingestion.RepoReconciler) testServer {
+	t.Helper()
+
+	conn, err := db.Open(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	require.NoError(t, db.Migrate(context.Background(), conn))
+
+	ingestionStore := ingestionsqlite.NewStore(conn, make([]byte, 32))
+	registrar := ingestion.NewRegistrar(ingestionStore, map[ingestion.Forge]ingestion.ForgeClient{
+		ingestion.ForgeGitHub:  &fakeForgeClient{},
+		ingestion.ForgeForgejo: &fakeForgeClient{},
+	}, "https://example.com")
+
+	authStore := authsqlite.NewStore(conn)
+	ctx := context.Background()
+	user, err := authStore.CreateUser(ctx, []byte("test-handle"), "admin")
+	require.NoError(t, err)
+	sessionID, err := authStore.CreateSession(ctx, user.ID)
+	require.NoError(t, err)
+
+	handler := httpserver.New(httpserver.Deps{
+		Registrar:      registrar,
+		IngestionStore: ingestionStore,
+		RunStore:       ingestionStore,
+		Reconciler:     reconciler,
+		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
+		AuthStore:      authStore,
+		Version:        "test-version",
+		Assets:         testAssets,
+	})
+
+	cookie := &http.Cookie{
+		Name:     "session",
+		Value:    sessionID,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	return testServer{Handler: handler, sessionCookie: cookie, runStore: ingestionStore}
 }
 
 func TestWebhookReceiver(t *testing.T) {
@@ -134,7 +207,7 @@ func TestWebhookReceiver(t *testing.T) {
 		secret := registerTestRepo(t, srv, "forgejo")
 
 		req := httptest.NewRequest(http.MethodPost, "/webhooks/forgejo", strings.NewReader(webhookTestPayload))
-		req.Header.Set("X-Forgejo-Event", "workflow_run")
+		req.Header.Set("X-Forgejo-Event", "issues") // any non-push event -- this test is only about header routing
 
 		mac := hmac.New(sha256.New, []byte(secret))
 		mac.Write([]byte(webhookTestPayload))
@@ -144,5 +217,47 @@ func TestWebhookReceiver(t *testing.T) {
 		srv.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusAccepted, rec.Code)
+	})
+
+	t.Run("a forgejo push delivery triggers an immediate reconciliation poll for the repo", func(t *testing.T) {
+		t.Parallel()
+
+		reconciler := &fakeReconciler{}
+		srv := newTestServerWithReconciler(t, reconciler)
+		secret := registerTestRepo(t, srv, "forgejo")
+
+		req := httptest.NewRequest(http.MethodPost, "/webhooks/forgejo", strings.NewReader(webhookTestPayload))
+		req.Header.Set("X-Forgejo-Event", "push")
+
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write([]byte(webhookTestPayload))
+		req.Header.Set("X-Forgejo-Signature", hex.EncodeToString(mac.Sum(nil)))
+
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusAccepted, rec.Code)
+		require.Equal(t, []string{webhookTestRepoIdentifier}, reconciler.identifiersReconciled())
+	})
+
+	t.Run("a forgejo non-push delivery is accepted but doesn't trigger a reconciliation poll", func(t *testing.T) {
+		t.Parallel()
+
+		reconciler := &fakeReconciler{}
+		srv := newTestServerWithReconciler(t, reconciler)
+		secret := registerTestRepo(t, srv, "forgejo")
+
+		req := httptest.NewRequest(http.MethodPost, "/webhooks/forgejo", strings.NewReader(webhookTestPayload))
+		req.Header.Set("X-Forgejo-Event", "issues")
+
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write([]byte(webhookTestPayload))
+		req.Header.Set("X-Forgejo-Signature", hex.EncodeToString(mac.Sum(nil)))
+
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusAccepted, rec.Code)
+		require.Empty(t, reconciler.identifiersReconciled())
 	})
 }
