@@ -243,6 +243,105 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.reload();
 	await expect(page.locator('html')).not.toHaveClass('dark');
 
+	// Grouped by repo (#102): a pipeline name alone ("CI") is ambiguous
+	// across more than one tracked repo, so a second repo with its own "CI"
+	// has to land in its own section, never merged with the first repo's.
+	await page.route('**/api/repos', (route) =>
+		route.fulfill({
+			json: [
+				{
+					id: 'repo-1',
+					forge: 'github',
+					identifier: 'alrayyes/demo-repo',
+					tokenMasked: '****1234',
+					ingestionStatus: 'degraded',
+				},
+				{
+					id: 'repo-2',
+					forge: 'forgejo',
+					identifier: 'alrayyes/other-repo',
+					tokenMasked: '****5678',
+					ingestionStatus: 'active',
+				},
+			],
+		}),
+	);
+	await page.route('**/api/pipelines', (route) =>
+		route.fulfill({
+			json: [
+				{
+					id: 'healthy-1',
+					repoId: 'repo-1',
+					name: 'CI',
+					healthStatus: 'healthy',
+				},
+				{
+					id: 'unhealthy-1',
+					repoId: 'repo-1',
+					name: 'Deploy',
+					healthStatus: 'unhealthy',
+					triggeredSignals: ['failure_rate', 'flaky_step'],
+				},
+				{
+					id: 'other-ci',
+					repoId: 'repo-2',
+					name: 'CI',
+					healthStatus: 'unhealthy',
+				},
+			],
+		}),
+	);
+	await page.reload();
+
+	await expect(
+		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
+	).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'alrayyes/other-repo' }),
+	).toBeVisible();
+	// Unhealthy-only by default: both repos' "Deploy"/"CI" show, but
+	// repo-1's healthy "CI" stays hidden -- exactly one "CI" heading, not
+	// two, confirming the two same-named pipelines didn't merge into one.
+	await expect(
+		page.getByRole('heading', { name: 'CI', exact: true }),
+	).toHaveCount(1);
+	const otherRepoSection = page.locator('section', {
+		hasText: 'alrayyes/other-repo',
+	});
+	await expect(
+		otherRepoSection.getByRole('heading', { name: 'CI' }),
+	).toBeVisible();
+
+	const groupingScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(groupingScan.violations).toEqual([]);
+
+	// Restore the original two-pipeline fixture the rest of this journey
+	// (including the /api/pipelines/unhealthy-1 detail mock below) expects.
+	await page.unroute('**/api/repos');
+	await page.route('**/api/pipelines', (route) =>
+		route.fulfill({
+			json: [
+				{
+					id: 'healthy-1',
+					repoId: 'repo-1',
+					name: 'CI',
+					healthStatus: 'healthy',
+				},
+				{
+					id: 'unhealthy-1',
+					repoId: 'repo-1',
+					name: 'Deploy',
+					healthStatus: 'unhealthy',
+					triggeredSignals: ['failure_rate', 'flaky_step'],
+				},
+			],
+		}),
+	);
+	await page.reload();
+	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
+
 	// Clicking through to a pipeline's detail page: the trend charts (task
 	// 5.4) render duration and failure-rate history, and a regression has
 	// to be visible in the chart itself, not just as a current aggregate
