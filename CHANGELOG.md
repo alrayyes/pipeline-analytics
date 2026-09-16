@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.14.0...v0.15.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** add a privacy & disclaimer page, linked from the footer ([#87](https://github.com/alrayyes/pipeline-analytics/issues/87)) ([7c520cb](https://github.com/alrayyes/pipeline-analytics/commit/7c520cba8f41e5522fa45f2441a717fcbf90a143)), closes [#78](https://github.com/alrayyes/pipeline-analytics/issues/78)
+
 ## [0.14.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.13.0...v0.14.0) (2026-09-16)
 
 
