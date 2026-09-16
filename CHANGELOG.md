@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.12.0...v0.12.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **dashboard-ui:** align page containers to max-w-4xl ([#79](https://github.com/alrayyes/pipeline-analytics/issues/79)) ([8056227](https://github.com/alrayyes/pipeline-analytics/commit/8056227d6402c480588d187f0289e63272ff38cd)), closes [#69](https://github.com/alrayyes/pipeline-analytics/issues/69)
+
 ## [0.12.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.11.0...v0.12.0) (2026-09-16)
 
 
