@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.19.0...v0.20.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** connect a token once, then multi-select repos to follow ([#108](https://github.com/alrayyes/pipeline-analytics/issues/108)) ([ed1c78c](https://github.com/alrayyes/pipeline-analytics/commit/ed1c78ca3d6665f4a5f245c1b5dd6a02ea08ee68)), closes [#103](https://github.com/alrayyes/pipeline-analytics/issues/103)
+
 ## [0.19.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.18.0...v0.19.0) (2026-09-16)
 
 
