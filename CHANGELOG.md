@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.13.0...v0.14.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** replace the placeholder favicon with a real logo ([#85](https://github.com/alrayyes/pipeline-analytics/issues/85)) ([2928e41](https://github.com/alrayyes/pipeline-analytics/commit/2928e4101329c15ef571a081848b52f23bbe6c84)), closes [#76](https://github.com/alrayyes/pipeline-analytics/issues/76)
+
 ## [0.13.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.12.1...v0.13.0) (2026-09-16)
 
 
