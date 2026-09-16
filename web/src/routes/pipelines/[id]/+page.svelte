@@ -243,7 +243,7 @@ function failureRateSeries(trend: Trend) {
 				</CardContent>
 			</Card>
 
-			<Card>
+			<Card class="min-w-0">
 				<CardHeader>
 					<CardTitle>Steps</CardTitle>
 				</CardHeader>
@@ -309,10 +309,11 @@ function failureRateSeries(trend: Trend) {
 													href={step.forgeUrl}
 													target="_blank"
 													rel="noreferrer"
-													class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+													aria-label="View on forge"
+													title="View on forge"
+													class="inline-flex items-center text-muted-foreground hover:text-foreground"
 												>
-													<ExternalLinkIcon class="size-3.5" aria-hidden="true" />
-													<span>View on forge</span>
+													<ExternalLinkIcon class="size-4" aria-hidden="true" />
 												</a>
 											{/if}
 										</TableCell>
