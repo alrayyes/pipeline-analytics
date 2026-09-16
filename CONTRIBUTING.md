@@ -70,8 +70,8 @@ runs, straight from [`lefthook.yml`](lefthook.yml):
   `go mod edit -fmt go.mod`, `biome check --write` for `web/`.
 - **`commit-msg`**: [commitlint](https://commitlint.js.org) against
   `@commitlint/config-conventional`.
-- **`pre-push`** (whole tree, never writes): `go vet`, `go test -race
-  -cover`, `go mod tidy -diff`, `golangci-lint run` -- the Go commands run
+- **`pre-push`** (whole tree, never writes): `go vet`, `go test -race -cover`,
+  `go mod tidy -diff`, `golangci-lint run` -- the Go commands run
   through Docker (`golang:<go.mod's version>-bookworm`,
   `golangci/golangci-lint:<CI's pin>`) so the version checking your push
   is always the one the repo declares, not whatever your package manager
@@ -95,8 +95,9 @@ reads these to compute the next version.
   `main`.
 - Spec-first for any new HTTP endpoint: [`openapi/openapi.yaml`](openapi/openapi.yaml)
   gets the addition, reviewed on its own, before the handler.
-- CI has to be green (build/vet/test, golangci-lint, redocly-lint, frontend,
-  e2e, docker build — all required checks on `main`) before a PR merges.
+- CI has to be green (`build, vet, test`, `golangci-lint`, `redocly-lint`,
+  `frontend`, `e2e`, `docker build` — all required checks on `main`) before a
+  PR merges.
 - The project's current capabilities are specced under
   [`openspec/specs/`](openspec/specs/); a new one goes through
   [OpenSpec](https://github.com/Fission-AI/OpenSpec)'s

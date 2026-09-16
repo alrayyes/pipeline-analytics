@@ -1,0 +1,31 @@
+config:
+  extends: "markdownlint/style/prettier"
+  line-length:
+    line_length: 100
+    tables: false
+  no-inline-html:
+    allowed_elements: ["details", "summary"]
+
+ignores:
+  - "node_modules/**"
+  - "web/node_modules/**"
+  - "CHANGELOG.md"
+  - "openspec/changes/**"
+  - ".claude/**"
+  - "styles/Google/**"
+  - "styles/proselint/**"
+
+# .github/PULL_REQUEST_TEMPLATE.md conventionally opens with "## Summary",
+# not an h1 -- GitHub renders it inline in the PR compose box, where a
+# title is redundant. openspec/specs/ is OpenSpec's own generated,
+# single-line-per-scenario format, not hand-wrapped prose -- line-length
+# doesn't apply to it the way it does to something a person wrapped by hand.
+overrides:
+  - filter: [".github/**/*.md"]
+    config:
+      first-line-heading: false
+    combine: "merge"
+  - filter: ["openspec/specs/**/*.md"]
+    config:
+      line-length: false
+    combine: "merge"

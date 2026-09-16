@@ -98,17 +98,17 @@ with `-` replaced by `_`) are both read, flags winning. There's no config
 file — this runs as a long-lived service behind Docker or systemd, not an
 interactive CLI a human persists a preference for:
 
-| Flag                  | Environment variable                    | Default                  | Required |
-| ---------------------- | ----------------------------------------- | ------------------------- | -------- |
-| `--addr`               | `PIPELINE_ANALYTICS_ADDR`                 | `:8080`                   | no       |
-| `--db`                 | `PIPELINE_ANALYTICS_DB`                   | `pipeline-analytics.db`   | no       |
-| `--callback-url`       | `PIPELINE_ANALYTICS_CALLBACK_URL`         | —                          | **yes**  |
-| `--encryption-key`     | `PIPELINE_ANALYTICS_ENCRYPTION_KEY`       | —                          | **yes**  |
-| `--reconcile-interval` | `PIPELINE_ANALYTICS_RECONCILE_INTERVAL`   | `1h`                      | no       |
+| Flag                   | Environment variable                    | Default                 | Required |
+| ---------------------- | --------------------------------------- | ----------------------- | -------- |
+| `--addr`               | `PIPELINE_ANALYTICS_ADDR`               | `:8080`                 | no       |
+| `--db`                 | `PIPELINE_ANALYTICS_DB`                 | `pipeline-analytics.db` | no       |
+| `--callback-url`       | `PIPELINE_ANALYTICS_CALLBACK_URL`       | —                       | **yes**  |
+| `--encryption-key`     | `PIPELINE_ANALYTICS_ENCRYPTION_KEY`     | —                       | **yes**  |
+| `--reconcile-interval` | `PIPELINE_ANALYTICS_RECONCILE_INTERVAL` | `1h`                    | no       |
 
-- `--callback-url` is this server's own public base URL — the WebAuthn
-  Relying Party origin and the base the forge webhook callback path is
-  built from. It has to match what a browser and GitHub/Forgejo actually
+- `--callback-url` is this server's own public base URL. It's used as the
+  WebAuthn relying party origin and the base the forge webhook callback path
+  is built from. It has to match what a browser and GitHub/Forgejo actually
   reach the server at.
 - `--encryption-key` is a hex-encoded 32-byte (AES-256) key that repo
   access tokens are encrypted under at rest. Generate one with

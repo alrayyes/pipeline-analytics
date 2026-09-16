@@ -31,7 +31,7 @@ The system SHALL visually distinguish a step flagged as flaky from a step that i
 
 #### Scenario: Flaky step is distinguishable from a broken step
 - **WHEN** a pipeline has both a flaky step and a consistently failing step
-- **THEN** the system displays them with distinct visual treatment so the user does not have to inspect run history to tell them apart
+- **THEN** the system displays them with distinct visual treatment, so the user does not have to inspect run history to tell them apart
 
 ### Requirement: Deep link to originating run
 The system SHALL provide, for every displayed run, job, or step, a link to that item's page on the originating GitHub or Forgejo instance.
