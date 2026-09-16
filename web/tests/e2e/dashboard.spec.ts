@@ -199,19 +199,49 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	);
 	await page.reload();
 
-	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
-	const ciItem = page.getByRole('listitem').filter({ hasText: 'CI' });
-	await expect(ciItem).toContainText('healthy');
-
+	// Unhealthy-only by default (#101): the healthy "CI" pipeline is hidden
+	// until "Show all" is toggled.
+	await expect(page.getByRole('heading', { name: 'CI' })).not.toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
 	const deployItem = page.getByRole('listitem').filter({ hasText: 'Deploy' });
 	await expect(deployItem).toContainText('unhealthy');
 	await expect(deployItem).toContainText('elevated failure rate, flaky step');
 
+	const filteredOverviewScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(filteredOverviewScan.violations).toEqual([]);
+
+	await page.getByRole('button', { name: 'Show all' }).click();
+	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
+	const ciItem = page.getByRole('listitem').filter({ hasText: 'CI' });
+	await expect(ciItem).toContainText('healthy');
+
 	const overviewWithDataScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
 		.analyze();
 	expect(overviewWithDataScan.violations).toEqual([]);
+
+	// The new success/destructive health badges are theme-sensitive colors
+	// (#101) -- the earlier dark-mode scan ran before any pipeline data
+	// existed, so it never actually rendered one. Set the theme directly
+	// (rather than clicking the cycling toggle, whose position at this
+	// point in the flow isn't guaranteed) and reload, then revert the same
+	// way for the rest of the flow.
+	await page.evaluate(() => localStorage.setItem('theme', 'dark'));
+	await page.reload();
+	await expect(page.locator('html')).toHaveClass('dark');
+	// A reload is a fresh page load, so the unhealthy-only filter is back to
+	// its default -- toggle it again to get both badge colors on screen.
+	await page.getByRole('button', { name: 'Show all' }).click();
+	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
+	const overviewDarkScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(overviewDarkScan.violations).toEqual([]);
+	await page.evaluate(() => localStorage.setItem('theme', 'light'));
+	await page.reload();
+	await expect(page.locator('html')).not.toHaveClass('dark');
 
 	// Clicking through to a pipeline's detail page: the trend charts (task
 	// 5.4) render duration and failure-rate history, and a regression has
@@ -297,6 +327,10 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(flakyRow.getByText('flaky', { exact: true })).toBeVisible();
 	const failingRow = stepRows.filter({ hasText: 'deploy to prod' });
 	await expect(failingRow.getByText('failing', { exact: true })).toBeVisible();
+	// A step that's neither flaky nor failing gets its own "passing" badge
+	// rather than an empty Status cell (#101).
+	const passingRow = stepRows.filter({ hasText: 'run tests' });
+	await expect(passingRow.getByText('passing', { exact: true })).toBeVisible();
 
 	// Deep link to the originating forge (5.6).
 	const forgeLink = page.getByRole('link', { name: 'View on forge' });
@@ -304,6 +338,28 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		'href',
 		'https://forge.example/owner/repo/actions/runs/1/job/2',
 	);
+
+	// The whole row is clickable through to the forge, not just the small
+	// link (#101) -- click near the row's start, away from the link itself.
+	// Stubbing window.open rather than letting a real popup navigate to
+	// forge.example, which isn't a real reachable host.
+	await page.evaluate(() => {
+		(window as unknown as { __openedUrls: string[] }).__openedUrls = [];
+		window.open = (url) => {
+			(window as unknown as { __openedUrls: string[] }).__openedUrls.push(
+				String(url),
+			);
+
+			return null;
+		};
+	});
+	await flakyRow.click({ position: { x: 10, y: 10 } });
+	const openedUrls = await page.evaluate(
+		() => (window as unknown as { __openedUrls: string[] }).__openedUrls,
+	);
+	expect(openedUrls).toEqual([
+		'https://forge.example/owner/repo/actions/runs/1/job/2',
+	]);
 
 	const detailScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)

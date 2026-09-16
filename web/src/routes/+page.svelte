@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 import { page } from '$app/state';
 import { Badge } from '$lib/components/ui/badge/index.js';
+import { Button } from '$lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -25,6 +26,17 @@ const SIGNAL_LABELS: Record<string, string> = {
 
 let pipelines = $state<PipelineSummary[] | null>(null);
 let error = $state<string | null>(null);
+
+// Defaults to unhealthy-only (#101): this is a monitoring dashboard, so
+// leading with what needs attention beats an everything-at-once list --
+// per dashboard filtering research, surfacing only what needs attention
+// first reads better on load than mixing it into everything that's fine.
+let showAll = $state(false);
+
+const unhealthyPipelines = $derived(
+	pipelines?.filter((p) => p.healthStatus === 'unhealthy') ?? null,
+);
+const visiblePipelines = $derived(showAll ? pipelines : unhealthyPipelines);
 
 async function loadPipelines(): Promise<void> {
 	try {
@@ -70,33 +82,53 @@ function signalLabel(signal: string): string {
 			{/if}
 		</p>
 	{:else}
-		<ul class="mt-6 grid gap-4">
-			{#each pipelines as pipeline (pipeline.id)}
-				<li>
-					<a href="/pipelines/{pipeline.id}" class="block">
-						<Card class="transition-colors hover:border-primary">
-							<CardHeader class="flex flex-row items-center justify-between">
-								<CardTitle class="contents">
-									<h2>{pipeline.name}</h2>
-								</CardTitle>
-								<Badge
-									variant={pipeline.healthStatus === 'healthy' ? 'default' : 'destructive'}
-									class={pipeline.healthStatus === 'unhealthy'
-										? 'bg-destructive text-white'
-										: ''}
-								>
-									{pipeline.healthStatus}
-								</Badge>
-							</CardHeader>
-							{#if pipeline.triggeredSignals?.length}
-								<CardContent class="text-sm text-muted-foreground">
-									{pipeline.triggeredSignals.map(signalLabel).join(', ')}
-								</CardContent>
-							{/if}
-						</Card>
-					</a>
-				</li>
-			{/each}
-		</ul>
+		<div class="mt-6 flex items-center justify-between">
+			<p class="text-sm text-muted-foreground">
+				{#if showAll}
+					Showing all {pipelines.length}
+					{pipelines.length === 1 ? 'pipeline' : 'pipelines'}.
+				{:else}
+					Showing {unhealthyPipelines?.length ?? 0} unhealthy of {pipelines.length}.
+				{/if}
+			</p>
+			<Button variant="outline" size="sm" onclick={() => (showAll = !showAll)}>
+				{showAll ? 'Show unhealthy only' : 'Show all'}
+			</Button>
+		</div>
+
+		{#if !showAll && unhealthyPipelines?.length === 0}
+			<p class="mt-4 text-muted-foreground">
+				All {pipelines.length} {pipelines.length === 1 ? 'pipeline is' : 'pipelines are'} healthy.
+			</p>
+		{:else}
+			<ul class="mt-4 grid gap-4">
+				{#each visiblePipelines ?? [] as pipeline (pipeline.id)}
+					<li>
+						<a href="/pipelines/{pipeline.id}" class="block">
+							<Card class="transition-colors hover:border-primary">
+								<CardHeader class="flex flex-row items-center justify-between">
+									<CardTitle class="contents">
+										<h2>{pipeline.name}</h2>
+									</CardTitle>
+									<Badge
+										variant={pipeline.healthStatus === 'healthy' ? 'success' : 'destructive'}
+										class={pipeline.healthStatus === 'unhealthy'
+											? 'bg-destructive text-white'
+											: ''}
+									>
+										{pipeline.healthStatus}
+									</Badge>
+								</CardHeader>
+								{#if pipeline.triggeredSignals?.length}
+									<CardContent class="text-sm text-muted-foreground">
+										{pipeline.triggeredSignals.map(signalLabel).join(', ')}
+									</CardContent>
+								{/if}
+							</Card>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 	{/if}
 </main>

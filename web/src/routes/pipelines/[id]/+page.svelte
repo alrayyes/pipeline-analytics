@@ -149,7 +149,7 @@ function failureRateSeries(trend: Trend) {
 		<div class="mt-4 flex items-center justify-between">
 			<h1 class="text-2xl font-semibold">{detail.name}</h1>
 			<Badge
-				variant={detail.healthStatus === 'healthy' ? 'default' : 'destructive'}
+				variant={detail.healthStatus === 'healthy' ? 'success' : 'destructive'}
 				class={detail.healthStatus === 'unhealthy' ? 'bg-destructive text-white' : ''}
 			>
 				{detail.healthStatus}
@@ -236,7 +236,19 @@ function failureRateSeries(trend: Trend) {
 							</TableHeader>
 							<TableBody>
 								{#each steps as step (step.id)}
-									<TableRow>
+									<TableRow
+										class={step.forgeUrl ? 'cursor-pointer' : ''}
+										onclick={step.forgeUrl
+											? (event: MouseEvent) => {
+													// Skip when the click already came from the real
+													// "View on forge" link -- it already navigated, so
+													// opening a second tab here would be a duplicate.
+													if ((event.target as HTMLElement).closest('a')) return;
+
+													window.open(step.forgeUrl, '_blank', 'noopener,noreferrer');
+												}
+											: undefined}
+									>
 										<TableCell class="font-medium">{step.name}</TableCell>
 										<TableCell>{formatSeconds(step.durationContributionSeconds)}</TableCell>
 										<TableCell>
@@ -255,6 +267,8 @@ function failureRateSeries(trend: Trend) {
 												<Badge variant="destructive" class="bg-destructive text-white">
 													failing
 												</Badge>
+											{:else}
+												<Badge variant="success">passing</Badge>
 											{/if}
 										</TableCell>
 										<TableCell>
