@@ -62,9 +62,10 @@ async function handleLogout(): Promise<void> {
 		<div class="flex items-center gap-2">
 			<Button
 				variant="outline"
-				size="icon-sm"
+				size="icon"
 				onclick={cycleTheme}
 				aria-label="Theme: {THEME_LABELS[getTheme()]}. Click to change."
+				title="Theme: {THEME_LABELS[getTheme()]}. Click to change."
 			>
 				{#if getTheme() === 'light'}
 					<SunIcon />
