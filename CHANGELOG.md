@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.20.0...v0.21.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** color the performance-history charts, wire up their tooltip ([#111](https://github.com/alrayyes/pipeline-analytics/issues/111)) ([e5e09f7](https://github.com/alrayyes/pipeline-analytics/commit/e5e09f772e8987d8d59d999fa0ea75877110c883)), closes [#110](https://github.com/alrayyes/pipeline-analytics/issues/110)
+
 ## [0.20.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.19.0...v0.20.0) (2026-09-16)
 
 
