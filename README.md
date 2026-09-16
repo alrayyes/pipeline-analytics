@@ -15,6 +15,15 @@ one SQLite file, no external services.
 
 ![Pipeline overview: each tracked pipeline's health status at a glance](docs/screenshot-overview.png)
 
+<details>
+<summary>More screenshots</summary>
+
+![Pipeline detail: duration/failure-rate trend charts, step breakdown, and forge deep links](docs/screenshot-pipeline-detail.png)
+
+![Usage view: runner-minutes per workflow](docs/screenshot-usage.png)
+
+</details>
+
 ## Requirements
 
 - A GitHub or Forgejo repository to track, and a repo-scoped personal access
