@@ -110,3 +110,10 @@ next version from Conventional Commits on `main` and keeps a release pull
 request open; merging it tags the release, and
 [goreleaser](https://goreleaser.com) cross-compiles the binaries and builds
 the multi-arch Docker image. Nobody picks a version by hand.
+
+The release workflow's `screenshots` job then recaptures README.md's
+screenshots against the new build and opens a PR with the diff for review.
+That step needs the repo's Settings → Actions → General → "Allow GitHub
+Actions to create and approve pull requests" enabled -- GitHub's default
+`GITHUB_TOKEN` can't open a PR without it, and the job fails silently on
+`gh pr create` otherwise.
