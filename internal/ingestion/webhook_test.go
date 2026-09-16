@@ -218,3 +218,61 @@ func TestProcessGitHubEvent_UnknownEventType(t *testing.T) {
 	require.NoError(t, err) // ignored, not an error
 	require.Empty(t, store.runs)
 }
+
+type fakeReconciler struct {
+	mu    sync.Mutex
+	calls []ingestion.Repo
+	err   error
+}
+
+func (f *fakeReconciler) ReconcileRepo(_ context.Context, repo ingestion.Repo) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.calls = append(f.calls, repo)
+
+	return f.err
+}
+
+func TestProcessForgejoEvent(t *testing.T) {
+	t.Parallel()
+
+	repo := ingestion.Repo{ID: "repo-1", Forge: ingestion.ForgeForgejo, Identifier: "alrayyes/dotfiles"}
+
+	t.Run("a push delivery triggers an immediate reconciliation poll", func(t *testing.T) {
+		t.Parallel()
+
+		reconciler := &fakeReconciler{}
+
+		err := ingestion.ProcessForgejoEvent(context.Background(), reconciler, repo, "push")
+		require.NoError(t, err)
+
+		require.Equal(t, []ingestion.Repo{repo}, reconciler.calls)
+	})
+
+	t.Run("a non-push delivery is ignored -- Forgejo's webhook only ever subscribes to push", func(t *testing.T) {
+		t.Parallel()
+
+		reconciler := &fakeReconciler{}
+
+		err := ingestion.ProcessForgejoEvent(context.Background(), reconciler, repo, "issues")
+		require.NoError(t, err)
+
+		require.Empty(t, reconciler.calls)
+	})
+
+	t.Run("propagates a reconciliation failure", func(t *testing.T) {
+		t.Parallel()
+
+		reconciler := &fakeReconciler{err: errReconcileFake}
+
+		err := ingestion.ProcessForgejoEvent(context.Background(), reconciler, repo, "push")
+		require.ErrorIs(t, err, errReconcileFake)
+	})
+}
+
+var errReconcileFake = reconcileFakeError{}
+
+type reconcileFakeError struct{}
+
+func (reconcileFakeError) Error() string { return "reconcile failed" }

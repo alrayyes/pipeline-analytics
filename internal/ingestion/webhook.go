@@ -49,14 +49,25 @@ func ProcessGitHubEvent(ctx context.Context, store RunStore, repo Repo, eventTyp
 	}
 }
 
-// ProcessForgejoEvent updates run/job/step storage for a single Forgejo
-// Actions webhook delivery already verified and resolved to repo. Forgejo
-// Actions mirrors GitHub Actions' webhook event shape closely by design, so
-// this reuses the same payload parsing -- unverified against a live
-// Forgejo instance (design.md's "Gitea SDK's Forgejo Actions endpoint
-// coverage is unverified" risk applies here too).
-func ProcessForgejoEvent(ctx context.Context, store RunStore, repo Repo, eventType string, payload []byte) error {
-	return ProcessGitHubEvent(ctx, store, repo, eventType, payload)
+// ProcessForgejoEvent handles a single Forgejo webhook delivery already
+// verified and resolved to repo. Forgejo has no webhook event for Actions
+// run/job status changes as of 11.0.16+gitea-1.22.0 -- confirmed
+// empirically against a live container (github.com/alrayyes/pipeline-
+// analytics#120), not just undocumented, so unlike GitHub there's no
+// run/job payload to parse here. The webhook forgejoclient.CreateWebhook
+// registers subscribes to "push" only, the closest available signal that a
+// workflow run may be starting; delivery of one triggers an immediate
+// reconciliation poll for the repo instead.
+func ProcessForgejoEvent(ctx context.Context, reconciler RepoReconciler, repo Repo, eventType string) error {
+	if eventType != "push" {
+		return nil
+	}
+
+	if err := reconciler.ReconcileRepo(ctx, repo); err != nil {
+		return fmt.Errorf("reconcile repo: %w", err)
+	}
+
+	return nil
 }
 
 type githubWorkflowRunEvent struct {
