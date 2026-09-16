@@ -12,3 +12,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # The redocly-only root package.json has its own entry above; the real
+  # frontend (SvelteKit, shadcn-svelte, LayerChart, Playwright, ...) lives
+  # in web/ and was otherwise invisible to Dependabot.
+  - package-ecosystem: bun
+    directory: /web
+    schedule:
+      interval: weekly

@@ -4,3 +4,5 @@
 *.jpg binary
 *.ico binary
 go.sum -diff linguist-generated
+bun.lock -diff linguist-generated
+web/bun.lock -diff linguist-generated
