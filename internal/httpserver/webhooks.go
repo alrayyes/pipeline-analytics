@@ -11,18 +11,25 @@ import (
 )
 
 type webhooksHandler struct {
-	store ingestion.RunStore
+	store      ingestion.RunStore
+	reconciler ingestion.RepoReconciler
 }
 
 func (h *webhooksHandler) github(w http.ResponseWriter, r *http.Request) {
-	h.receive(w, r, ingestion.ForgeGitHub, "X-Hub-Signature-256", "X-GitHub-Event", ingestion.ProcessGitHubEvent)
+	h.receive(w, r, ingestion.ForgeGitHub, "X-Hub-Signature-256", "X-GitHub-Event",
+		func(ctx context.Context, repo ingestion.Repo, eventType string, payload []byte) error {
+			return ingestion.ProcessGitHubEvent(ctx, h.store, repo, eventType, payload)
+		})
 }
 
 func (h *webhooksHandler) forgejo(w http.ResponseWriter, r *http.Request) {
-	h.receive(w, r, ingestion.ForgeForgejo, "X-Forgejo-Signature", "X-Forgejo-Event", ingestion.ProcessForgejoEvent)
+	h.receive(w, r, ingestion.ForgeForgejo, "X-Forgejo-Signature", "X-Forgejo-Event",
+		func(ctx context.Context, repo ingestion.Repo, eventType string, _ []byte) error {
+			return ingestion.ProcessForgejoEvent(ctx, h.reconciler, repo, eventType)
+		})
 }
 
-type eventProcessor func(ctx context.Context, store ingestion.RunStore, repo ingestion.Repo, eventType string, payload []byte) error
+type eventProcessor func(ctx context.Context, repo ingestion.Repo, eventType string, payload []byte) error
 
 // receive handles a webhook delivery: read the body, resolve which tracked
 // repo it's for, verify the signature against that repo's secret, then
@@ -71,7 +78,7 @@ func (h *webhooksHandler) receive(w http.ResponseWriter, r *http.Request, forge 
 		return
 	}
 
-	if err := process(ctx, h.store, repo, eventType, body); err != nil {
+	if err := process(ctx, repo, eventType, body); err != nil {
 		slog.ErrorContext(ctx, "process webhook event", "forge", forge, "repo", repo.Identifier, "event", eventType, "error", err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "process webhook event")
 

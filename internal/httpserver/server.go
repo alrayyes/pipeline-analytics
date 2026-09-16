@@ -15,9 +15,12 @@ type Deps struct {
 	Registrar      *ingestion.Registrar
 	IngestionStore ingestion.Store
 	RunStore       ingestion.RunStore
-	Metrics        *metrics.Service
-	Auth           *auth.Service
-	AuthStore      auth.Store
+	// Reconciler is called to poll a repo immediately when a Forgejo
+	// webhook fires -- see webhooksHandler.forgejo.
+	Reconciler ingestion.RepoReconciler
+	Metrics    *metrics.Service
+	Auth       *auth.Service
+	AuthStore  auth.Store
 	// Version is reported by GET /api/version -- the build's tagged
 	// version, or "dev" for a local build.
 	Version string
@@ -57,7 +60,7 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("POST /api/auth/login", authH.login)
 	mux.HandleFunc("POST /api/auth/logout", authH.logout)
 
-	webhooks := &webhooksHandler{store: deps.RunStore}
+	webhooks := &webhooksHandler{store: deps.RunStore, reconciler: deps.Reconciler}
 	mux.HandleFunc("POST /webhooks/github", webhooks.github)
 	mux.HandleFunc("POST /webhooks/forgejo", webhooks.forgejo)
 

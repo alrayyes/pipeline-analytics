@@ -118,7 +118,9 @@ func runServe(ctx context.Context) error {
 		return err
 	}
 
-	handler, err := buildHandler(cfg, conn, ingestionStore, forgeClients)
+	reconciler := ingestion.NewReconciler(ingestionStore, ingestionStore, forgeClients)
+
+	handler, err := buildHandler(cfg, conn, ingestionStore, forgeClients, reconciler)
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,6 @@ func runServe(ctx context.Context) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	reconciler := ingestion.NewReconciler(ingestionStore, ingestionStore, forgeClients)
 	go reconciler.Run(ctx, cfg.ReconcileInterval)
 
 	return serveUntilDone(ctx, srv)
@@ -198,7 +199,7 @@ func parseLogLevel(s string) (slog.Level, error) {
 	return level, nil
 }
 
-func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqlite.Store, forgeClients map[ingestion.Forge]ingestion.ForgeClient) (http.Handler, error) {
+func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqlite.Store, forgeClients map[ingestion.Forge]ingestion.ForgeClient, reconciler ingestion.RepoReconciler) (http.Handler, error) {
 	registrar := ingestion.NewRegistrar(ingestionStore, forgeClients, cfg.CallbackURL)
 
 	authStore := authsqlite.NewStore(conn)
@@ -217,6 +218,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		Registrar:      registrar,
 		IngestionStore: ingestionStore,
 		RunStore:       ingestionStore,
+		Reconciler:     reconciler,
 		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
 		Auth:           auth.NewService(webAuthn, authStore),
 		AuthStore:      authStore,
