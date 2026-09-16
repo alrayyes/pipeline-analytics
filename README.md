@@ -105,6 +105,7 @@ interactive CLI a human persists a preference for:
 | `--callback-url`       | `PIPELINE_ANALYTICS_CALLBACK_URL`       | —                       | **yes**  |
 | `--encryption-key`     | `PIPELINE_ANALYTICS_ENCRYPTION_KEY`     | —                       | **yes**  |
 | `--reconcile-interval` | `PIPELINE_ANALYTICS_RECONCILE_INTERVAL` | `1h`                    | no       |
+| `--log-level`          | `PIPELINE_ANALYTICS_LOG_LEVEL`          | `info`                  | no       |
 
 - `--callback-url` is this server's own public base URL. It's used as the
   WebAuthn relying party origin and the base the forge webhook callback path
@@ -118,6 +119,10 @@ interactive CLI a human persists a preference for:
   repo to backfill history and catch a webhook delivery that was missed.
   Webhooks carry the real-time load; this is the fallback, not the
   primary path.
+- `--log-level` is `debug`, `info`, `warn`, or `error`. `debug` adds a line
+  for each webhook received/rejected/processed, each reconciliation poll,
+  and each repo discovery request — useful when a repo's stuck at
+  "degraded" and the reason isn't obvious from the dashboard alone.
 
 ## Contributing
 
