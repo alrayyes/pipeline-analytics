@@ -36,6 +36,6 @@
 - [x] 5.2 WebAuthn login/registration UI flow -- verify end-to-end login against a running server
 - [x] 5.3 Repo/pipeline overview page (installs shadcn-svelte + LayerChart) -- verify every tracked pipeline's health status is visible without opening it individually
 - [x] 5.4 Pipeline detail view: duration trend and failure-rate trend charts -- verify a regressed trend is visible in the chart, not only the current aggregate (github.com/alrayyes/pipeline-analytics#46)
-- [x] 5.5 Step breakdown view: duration ranking, queue/exec split, failure rate, flaky callout -- verify flaky and consistently-failing steps are visually distinguishable
-- [x] 5.6 Deep links from every displayed run/job/step to its page on the originating forge -- verify the link opens the correct forge URL
-- [ ] 5.7 Usage view: runner-minutes per workflow -- verify displayed broken down by workflow
+- [x] 5.5 Step breakdown view: duration ranking, queue/exec split, failure rate, flaky callout -- verify flaky and consistently-failing steps are visually distinguishable (github.com/alrayyes/pipeline-analytics#48)
+- [x] 5.6 Deep links from every displayed run/job/step to its page on the originating forge -- verify the link opens the correct forge URL (github.com/alrayyes/pipeline-analytics#48)
+- [x] 5.7 Usage view: runner-minutes per workflow -- verify displayed broken down by workflow
