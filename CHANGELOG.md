@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.16.1...v0.17.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** make the dashboard installable as a PWA ([#99](https://github.com/alrayyes/pipeline-analytics/issues/99)) ([def3669](https://github.com/alrayyes/pipeline-analytics/commit/def3669f6e1437c86649aff6be67dce928377d49)), closes [#77](https://github.com/alrayyes/pipeline-analytics/issues/77)
+
 ## [0.16.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.16.0...v0.16.1) (2026-09-16)
 
 
