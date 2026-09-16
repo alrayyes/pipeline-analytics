@@ -34,5 +34,9 @@ onMount(() => {
 			·
 			<a href="/releases" class="hover:text-foreground hover:underline">Release history</a>
 		{/if}
+		{#if page.url.pathname !== '/legal'}
+			·
+			<a href="/legal" class="hover:text-foreground hover:underline">Privacy &amp; disclaimer</a>
+		{/if}
 	</p>
 </footer>

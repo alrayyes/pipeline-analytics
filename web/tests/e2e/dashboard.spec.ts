@@ -328,6 +328,20 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.unroute(
 		'https://api.github.com/repos/alrayyes/pipeline-analytics/releases',
 	);
+
+	// Privacy & disclaimer (#78), reached from the footer everywhere else is.
+	await page.getByRole('link', { name: 'Privacy & disclaimer' }).click();
+	await expect(page).toHaveURL('/legal');
+	await expect(
+		page.getByRole('heading', { name: 'Privacy & disclaimer' }),
+	).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'Disclaimer', exact: true }),
+	).toBeVisible();
+
+	const legalScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(legalScan.violations).toEqual([]);
+
 	await page.getByRole('link', { name: 'Pipelines' }).click();
 	await expect(page).toHaveURL('/');
 
