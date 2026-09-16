@@ -165,7 +165,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		name: 'Use saved token (****1234)',
 	});
 	await expect(useSavedToken).toBeVisible();
-	// One click, not two (#116): filling the token and finding repositories
+	// One click, not two (#117): filling the token and finding repositories
 	// used to be two separate actions; using a saved token now goes straight
 	// to the repo picker.
 	await useSavedToken.click();
@@ -190,7 +190,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		page.getByRole('row').filter({ hasText: 'alrayyes/manual-repo' }),
 	).toBeVisible();
 
-	// Already-tracked repos (#116) don't belong in the picker a second
+	// Already-tracked repos (#117) don't belong in the picker a second
 	// time -- demo-repo is tracked now, so re-discovering only offers
 	// dotfiles.
 	await page.getByRole('button', { name: 'Register repository' }).click();
