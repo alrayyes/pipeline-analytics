@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.9.0...v0.10.0) (2026-09-16)
+
+
+### Features
+
+* add a dark mode toggle ([#61](https://github.com/alrayyes/pipeline-analytics/issues/61)) ([9c4942a](https://github.com/alrayyes/pipeline-analytics/commit/9c4942ad7782631ea7a509ce30dc31ecfc8320d6))
+
 ## [0.9.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.8.0...v0.9.0) (2026-09-16)
 
 
