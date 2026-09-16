@@ -77,6 +77,32 @@ func (c *Client) CreateWebhook(ctx context.Context, req ingestion.CreateWebhookR
 	return nil
 }
 
+// ListAccessibleRepos implements ingestion.ForgeClient. Returns the first
+// 100 repos (owner, collaborator, and organization-member repos) the token
+// can see, newest-pushed first -- enough for the registration UI's picker
+// without adding pagination nobody's asked for yet.
+func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAccessibleReposRequest) ([]string, error) {
+	api := ghapi.NewClient(nil).WithAuthToken(req.Token)
+	if c.baseURL != nil {
+		api.BaseURL = c.baseURL
+	}
+
+	repos, _, err := api.Repositories.ListByAuthenticatedUser(ctx, &ghapi.RepositoryListByAuthenticatedUserOptions{
+		Sort:    "pushed",
+		PerPage: 100,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list accessible github repos: %w", err)
+	}
+
+	identifiers := make([]string, 0, len(repos))
+	for _, r := range repos {
+		identifiers = append(identifiers, r.GetFullName())
+	}
+
+	return identifiers, nil
+}
+
 // ListRecentRuns implements ingestion.ForgeClient. The run-list request is
 // conditional (If-None-Match/ETag); a 304 short-circuits before any jobs
 // are fetched, since nothing about the run list changed. go-github's typed

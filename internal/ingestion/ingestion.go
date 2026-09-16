@@ -95,6 +95,18 @@ type ForgeClient interface {
 	// sent as If-None-Match; ListRunsResult.NotModified is true when the
 	// forge reports nothing changed, costing no rate-limit budget.
 	ListRecentRuns(ctx context.Context, req ListRunsRequest) (ListRunsResult, error)
+	// ListAccessibleRepos lists "owner/name" identifiers the given token can
+	// access, for the registration UI's repo picker. Called with a token
+	// that hasn't been stored yet -- never persisted or logged.
+	ListAccessibleRepos(ctx context.Context, req ListAccessibleReposRequest) ([]string, error)
+}
+
+// ListAccessibleReposRequest is what ListAccessibleRepos needs to ask a
+// forge which repos a token can reach.
+type ListAccessibleReposRequest struct {
+	// InstanceURL is set for Forgejo, empty for GitHub.
+	InstanceURL string
+	Token       string
 }
 
 // ListRunsRequest is what ListRecentRuns needs to poll a tracked repo.

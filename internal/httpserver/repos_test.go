@@ -21,7 +21,9 @@ import (
 )
 
 type fakeForgeClient struct {
-	err error
+	err             error
+	discoveredRepos []string
+	discoverErr     error
 }
 
 func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhookRequest) error {
@@ -30,6 +32,10 @@ func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhook
 
 func (f *fakeForgeClient) ListRecentRuns(context.Context, ingestion.ListRunsRequest) (ingestion.ListRunsResult, error) {
 	return ingestion.ListRunsResult{}, nil
+}
+
+func (f *fakeForgeClient) ListAccessibleRepos(context.Context, ingestion.ListAccessibleReposRequest) ([]string, error) {
+	return f.discoveredRepos, f.discoverErr
 }
 
 var testAssets fs.FS = fstest.MapFS{"index.html": {Data: []byte("<html></html>")}}
@@ -95,6 +101,117 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testSer
 	}
 
 	return testServer{Handler: handler, sessionCookie: cookie, runStore: ingestionStore}
+}
+
+func newTestServerWithDiscovery(t *testing.T, discoveredRepos []string, discoverErr error) testServer {
+	t.Helper()
+
+	conn, err := db.Open(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	require.NoError(t, db.Migrate(context.Background(), conn))
+
+	ingestionStore := ingestionsqlite.NewStore(conn, make([]byte, 32))
+	client := &fakeForgeClient{discoveredRepos: discoveredRepos, discoverErr: discoverErr}
+	registrar := ingestion.NewRegistrar(ingestionStore, map[ingestion.Forge]ingestion.ForgeClient{
+		ingestion.ForgeGitHub:  client,
+		ingestion.ForgeForgejo: client,
+	}, "https://example.com")
+
+	authStore := authsqlite.NewStore(conn)
+	ctx := context.Background()
+	user, err := authStore.CreateUser(ctx, []byte("test-handle"), "admin")
+	require.NoError(t, err)
+	sessionID, err := authStore.CreateSession(ctx, user.ID)
+	require.NoError(t, err)
+
+	handler := httpserver.New(httpserver.Deps{
+		Registrar:      registrar,
+		IngestionStore: ingestionStore,
+		RunStore:       ingestionStore,
+		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
+		AuthStore:      authStore,
+		Version:        "test-version",
+		Assets:         testAssets,
+	})
+
+	cookie := &http.Cookie{
+		Name:     "session",
+		Value:    sessionID,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	return testServer{Handler: handler, sessionCookie: cookie, runStore: ingestionStore}
+}
+
+func TestReposDiscover(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the repos the token can access", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithDiscovery(t, []string{"alrayyes/pipeline-analytics", "alrayyes/dotfiles"}, nil)
+
+		body, err := json.Marshal(map[string]string{
+			"forge": "github",
+			"token": "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos/discover", bytes.NewReader(body)))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got []string
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Equal(t, []string{"alrayyes/pipeline-analytics", "alrayyes/dotfiles"}, got)
+	})
+
+	t.Run("surfaces a forge error as 502", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithDiscovery(t, nil, errPermissionDenied)
+
+		body, err := json.Marshal(map[string]string{ //nolint:gosec // test fixture value, not a real credential
+			"forge": "github",
+			"token": "ghp_badtoken",
+		})
+		require.NoError(t, err)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos/discover", bytes.NewReader(body)))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusBadGateway, rec.Code)
+	})
+
+	t.Run("rejects a request missing the token", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithDiscovery(t, nil, nil)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos/discover", bytes.NewReader([]byte(`{"forge":"github"}`))))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("rejects an unauthenticated request", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithDiscovery(t, nil, nil)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/repos/discover", bytes.NewReader([]byte(`{}`)))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
 }
 
 func TestReposRegisterAndList(t *testing.T) {

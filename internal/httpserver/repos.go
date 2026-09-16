@@ -24,6 +24,12 @@ type repoRegistrationDTO struct {
 	Token              string `json:"token"`
 }
 
+type repoDiscoveryDTO struct {
+	Forge              string `json:"forge"`
+	ForgejoInstanceURL string `json:"forgejoInstanceUrl,omitempty"`
+	Token              string `json:"token"`
+}
+
 type errorDTO struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
@@ -89,6 +95,30 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, toRepoDTO(repo))
+}
+
+func (h *reposHandler) discover(w http.ResponseWriter, r *http.Request) {
+	var in repoDiscoveryDTO
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+
+		return
+	}
+
+	if in.Token == "" || (in.Forge != string(ingestion.ForgeGitHub) && in.Forge != string(ingestion.ForgeForgejo)) {
+		writeError(w, http.StatusBadRequest, "invalid_body", "forge and token are required")
+
+		return
+	}
+
+	repos, err := h.registrar.Discover(r.Context(), ingestion.Forge(in.Forge), in.ForgejoInstanceURL, in.Token)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "forge_error", "could not list repositories: "+err.Error())
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, repos)
 }
 
 func (h *reposHandler) untrack(w http.ResponseWriter, r *http.Request) {

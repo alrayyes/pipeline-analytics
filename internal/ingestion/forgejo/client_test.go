@@ -200,3 +200,54 @@ func TestClient_ListRecentRuns(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestClient_ListAccessibleRepos(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sends an authenticated request and returns full_name identifiers", func(t *testing.T) {
+		t.Parallel()
+
+		var gotPath, gotAuth string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotAuth = r.Header.Get("Authorization")
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[{"full_name": "alrayyes/dotfiles"}, {"full_name": "alrayyes/pipeline-analytics"}]`))
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		repos, err := client.ListAccessibleRepos(context.Background(), ingestion.ListAccessibleReposRequest{
+			InstanceURL: server.URL,
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, "/api/v1/user/repos", gotPath)
+		require.Equal(t, "token forgejo_test_token", gotAuth)
+		require.Equal(t, []string{"alrayyes/dotfiles", "alrayyes/pipeline-analytics"}, repos)
+	})
+
+	t.Run("wraps a forge-side failure", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		_, err = client.ListAccessibleRepos(context.Background(), ingestion.ListAccessibleReposRequest{
+			InstanceURL: server.URL,
+			Token:       "bad",
+		})
+		require.Error(t, err)
+	})
+}

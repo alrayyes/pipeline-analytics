@@ -63,6 +63,33 @@ func (c *Client) CreateWebhook(ctx context.Context, req ingestion.CreateWebhookR
 	return nil
 }
 
+// ListAccessibleRepos implements ingestion.ForgeClient. Returns the first
+// page (Gitea SDK's default page size) of repos the token can see -- enough
+// for the registration UI's picker without adding pagination nobody's
+// asked for yet.
+func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAccessibleReposRequest) ([]string, error) {
+	api, err := gitea.NewClient(req.InstanceURL,
+		gitea.SetToken(req.Token),
+		gitea.SetContext(ctx),
+		gitea.SetGiteaVersion(""), // skip the live version-check request
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create forgejo client: %w", err)
+	}
+
+	repos, _, err := api.ListMyRepos(gitea.ListReposOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list accessible forgejo repos: %w", err)
+	}
+
+	identifiers := make([]string, 0, len(repos))
+	for _, r := range repos {
+		identifiers = append(identifiers, r.FullName)
+	}
+
+	return identifiers, nil
+}
+
 // ListRecentRuns implements ingestion.ForgeClient. Forgejo has no default
 // rate limit and no documented conditional-request support for this
 // endpoint (design.md's "Ingestion" decision), so every poll fetches the
