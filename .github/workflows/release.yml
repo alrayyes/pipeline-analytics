@@ -3,6 +3,20 @@ name: Release
 on:
   push:
     branches: [main]
+  # Escape hatch for a release whose goreleaser run never fired --
+  # release-please's own job can succeed (or even fail outright) without
+  # release_created ever coming back "true" on a transient error right
+  # after it creates the tag/release, and since the release then already
+  # exists, no later push ever retries it (confirmed live: v0.3.0 and
+  # v0.4.0 both shipped a tagged GitHub release with zero binaries and no
+  # GHCR image). This reruns just the goreleaser job against an existing
+  # tag, without needing release-please to report anything.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build artifacts for, e.g. v0.4.0"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,6 +25,7 @@ permissions:
 jobs:
   release-please:
     name: release-please
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -27,7 +42,9 @@ jobs:
   goreleaser:
     name: goreleaser
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: |
+      always() &&
+      (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -38,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag_name }}
           fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
