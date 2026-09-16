@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.7.0...v0.8.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** repo usage view ([#50](https://github.com/alrayyes/pipeline-analytics/issues/50)) ([360797a](https://github.com/alrayyes/pipeline-analytics/commit/360797a77a4450ce29de7c2d30b543fb43347d57))
+
 ## [0.7.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.6.0...v0.7.0) (2026-09-16)
 
 
