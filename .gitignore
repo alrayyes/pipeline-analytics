@@ -1,3 +1,7 @@
 node_modules/
 *.db
 coverage.out
+
+# Vale's synced style packages -- fetched by `vale sync`, not committed.
+styles/Google/
+styles/proselint/

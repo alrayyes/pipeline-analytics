@@ -1,0 +1,47 @@
+{
+	"ltex.dictionary": {
+		"en-US": [
+			"pipeline-analytics",
+			"WebAuthn",
+			"goreleaser",
+			"release-please",
+			"Codecov",
+			"lefthook",
+			"commitlint",
+			"OpenSpec",
+			"Forgejo",
+			"SvelteKit",
+			"shadcn-svelte",
+			"LayerChart",
+			"sqlite",
+			"GHCR",
+			"AGPL",
+			"golangci-lint",
+			"repo",
+			"repos",
+			"lockfile",
+			"Caddy",
+			"Tailscale",
+			"systemd",
+			"Dependabot",
+			"restages",
+			"Dockerfile",
+			"specced",
+			"OpenAPI",
+			"Toolchain",
+			"dashboard-ui",
+			"forge-ingestion",
+			"pipeline-metrics",
+			"dashboard-auth",
+			"ETag"
+		]
+	},
+	"ltex.disabledRules": {
+		"en-US": [
+			"PASSIVE_VOICE",
+			"UPPERCASE_SENTENCE_START",
+			"RELY_ON",
+			"THE_SUPERLATIVE"
+		]
+	}
+}

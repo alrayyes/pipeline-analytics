@@ -27,6 +27,20 @@ pre-commit:
       glob: "web/**/*.{js,ts,svelte,json,css}"
       run: bunx biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    # Prettier decides layout; markdownlint then judges what it produced --
+    # never the other order (markdown.md).
+    prettier-md:
+      glob: "*.md"
+      run: bunx prettier --write {staged_files}
+      stage_fixed: true
+    markdownlint:
+      glob: "*.md"
+      run: bunx markdownlint-cli2 --fix {staged_files}
+      stage_fixed: true
+    # Style advice, not a gate -- reports, doesn't block a commit.
+    vale:
+      glob: "*.md"
+      run: vale {staged_files} || true
 
 commit-msg:
   commands:
@@ -89,3 +103,20 @@ pre-push:
         - "go.mod"
         - "go.sum"
       run: go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics
+    markdown-format:
+      glob: "*.md"
+      run: >
+        bunx prettier --check README.md CONTRIBUTING.md SECURITY.md
+        .github/PULL_REQUEST_TEMPLATE.md
+    markdown-lint:
+      glob: "*.md"
+      run: bunx markdownlint-cli2 "**/*.md"
+    # LTeX in pre-push too, not just CI (markdown.md) -- same image CI
+    # pulls, so nothing new to keep current on a contributor's machine.
+    prose-mechanics:
+      glob: "*.md"
+      run: >
+        docker run --rm -v "$(pwd):/data" -w /data
+        ghcr.io/alrayyes/ltex-cli-plus@sha256:00c30809802234d6c43b0ce0b295075bd0aff9c576aaba57433bc8baf314398c
+        --client-configuration=/data/.ltex.json
+        README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md openspec/specs

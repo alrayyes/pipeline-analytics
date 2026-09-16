@@ -1,0 +1,8 @@
+node_modules/
+web/node_modules/
+CHANGELOG.md
+openspec/changes/
+openspec/specs/
+.claude/
+styles/Google/
+styles/proselint/
