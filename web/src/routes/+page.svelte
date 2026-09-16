@@ -18,13 +18,31 @@ interface PipelineSummary {
 	triggeredSignals?: string[];
 }
 
+interface Repo {
+	id: string;
+	forge: 'github' | 'forgejo';
+	identifier: string;
+}
+
+interface PipelineGroup {
+	repoId: string;
+	label: string;
+	forge?: 'github' | 'forgejo';
+	pipelines: PipelineSummary[];
+}
+
 const SIGNAL_LABELS: Record<string, string> = {
 	failure_rate: 'elevated failure rate',
 	duration_regression: 'duration regression',
 	flaky_step: 'flaky step',
 };
+const FORGE_LABELS: Record<string, string> = {
+	github: 'GitHub',
+	forgejo: 'Forgejo',
+};
 
 let pipelines = $state<PipelineSummary[] | null>(null);
+let repos = $state<Repo[] | null>(null);
 let error = $state<string | null>(null);
 
 // Defaults to unhealthy-only (#101): this is a monitoring dashboard, so
@@ -37,6 +55,36 @@ const unhealthyPipelines = $derived(
 	pipelines?.filter((p) => p.healthStatus === 'unhealthy') ?? null,
 );
 const visiblePipelines = $derived(showAll ? pipelines : unhealthyPipelines);
+
+// Grouped by repo (#102) -- a pipeline name alone ("CI") is ambiguous
+// across more than one tracked repo, so each repo's pipelines get their
+// own section rather than one flat list. Falls back to the bare repoId as
+// the label if /api/repos hasn't loaded (or failed) -- grouping still
+// works, it just can't show a human-readable name yet.
+const repoById = $derived(new Map((repos ?? []).map((r) => [r.id, r])));
+
+const groupedPipelines = $derived.by(() => {
+	const groups = new Map<string, PipelineGroup>();
+
+	for (const pipeline of visiblePipelines ?? []) {
+		let group = groups.get(pipeline.repoId);
+
+		if (!group) {
+			const repo = repoById.get(pipeline.repoId);
+			group = {
+				repoId: pipeline.repoId,
+				label: repo?.identifier ?? pipeline.repoId,
+				forge: repo?.forge,
+				pipelines: [],
+			};
+			groups.set(pipeline.repoId, group);
+		}
+
+		group.pipelines.push(pipeline);
+	}
+
+	return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
+});
 
 async function loadPipelines(): Promise<void> {
 	try {
@@ -52,7 +100,21 @@ async function loadPipelines(): Promise<void> {
 	}
 }
 
-onMount(loadPipelines);
+async function loadRepos(): Promise<void> {
+	try {
+		const res = await fetch('/api/repos');
+		if (!res.ok) return;
+
+		repos = await res.json();
+	} catch {
+		// Best effort -- grouping still works, just with repoId as the label.
+	}
+}
+
+onMount(() => {
+	loadPipelines();
+	loadRepos();
+});
 
 function signalLabel(signal: string): string {
 	return SIGNAL_LABELS[signal] ?? signal;
@@ -101,34 +163,48 @@ function signalLabel(signal: string): string {
 				All {pipelines.length} {pipelines.length === 1 ? 'pipeline is' : 'pipelines are'} healthy.
 			</p>
 		{:else}
-			<ul class="mt-4 grid gap-4">
-				{#each visiblePipelines ?? [] as pipeline (pipeline.id)}
-					<li>
-						<a href="/pipelines/{pipeline.id}" class="block">
-							<Card class="transition-colors hover:border-primary">
-								<CardHeader class="flex flex-row items-center justify-between">
-									<CardTitle class="contents">
-										<h2>{pipeline.name}</h2>
-									</CardTitle>
-									<Badge
-										variant={pipeline.healthStatus === 'healthy' ? 'success' : 'destructive'}
-										class={pipeline.healthStatus === 'unhealthy'
-											? 'bg-destructive text-white'
-											: ''}
-									>
-										{pipeline.healthStatus}
-									</Badge>
-								</CardHeader>
-								{#if pipeline.triggeredSignals?.length}
-									<CardContent class="text-sm text-muted-foreground">
-										{pipeline.triggeredSignals.map(signalLabel).join(', ')}
-									</CardContent>
-								{/if}
-							</Card>
-						</a>
-					</li>
+			<div class="mt-4 grid gap-8">
+				{#each groupedPipelines as group (group.repoId)}
+					<section>
+						<div class="mb-3 flex items-center gap-2">
+							<h2 class="text-sm font-semibold text-muted-foreground">{group.label}</h2>
+							{#if group.forge}
+								<Badge variant="outline">{FORGE_LABELS[group.forge] ?? group.forge}</Badge>
+							{/if}
+						</div>
+						<ul class="grid gap-4">
+							{#each group.pipelines as pipeline (pipeline.id)}
+								<li>
+									<a href="/pipelines/{pipeline.id}" class="block">
+										<Card class="transition-colors hover:border-primary">
+											<CardHeader class="flex flex-row items-center justify-between">
+												<CardTitle class="contents">
+													<h3>{pipeline.name}</h3>
+												</CardTitle>
+												<Badge
+													variant={pipeline.healthStatus === 'healthy'
+														? 'success'
+														: 'destructive'}
+													class={pipeline.healthStatus === 'unhealthy'
+														? 'bg-destructive text-white'
+														: ''}
+												>
+													{pipeline.healthStatus}
+												</Badge>
+											</CardHeader>
+											{#if pipeline.triggeredSignals?.length}
+												<CardContent class="text-sm text-muted-foreground">
+													{pipeline.triggeredSignals.map(signalLabel).join(', ')}
+												</CardContent>
+											{/if}
+										</Card>
+									</a>
+								</li>
+							{/each}
+						</ul>
+					</section>
 				{/each}
-			</ul>
+			</div>
 		{/if}
 	{/if}
 </main>
