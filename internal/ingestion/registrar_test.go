@@ -72,6 +72,19 @@ func (f *fakeStore) RepoToken(context.Context, string) (string, error) {
 	return "", nil
 }
 
+func (f *fakeStore) DeleteRepo(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if _, ok := f.repos[id]; !ok {
+		return errRepoNotFound
+	}
+
+	delete(f.repos, id)
+
+	return nil
+}
+
 func (f *fakeStore) SetIngestionStatus(_ context.Context, id string, status ingestion.Status, reason string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

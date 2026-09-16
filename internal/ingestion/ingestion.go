@@ -58,6 +58,11 @@ type Store interface {
 	CreateRepo(ctx context.Context, repo NewRepo) (Repo, error)
 	ListRepos(ctx context.Context) ([]Repo, error)
 	GetRepo(ctx context.Context, id string) (Repo, error)
+	// DeleteRepo stops tracking a repo. The schema's ON DELETE CASCADE
+	// removes its stored runs, jobs, and steps along with it -- it does
+	// not attempt to delete the webhook created on the forge, since no
+	// webhook ID is stored at registration time to delete it by.
+	DeleteRepo(ctx context.Context, id string) error
 	// RepoToken returns the decrypted token for internal use (calling the
 	// forge's API) -- never exposed over HTTP.
 	RepoToken(ctx context.Context, id string) (string, error)

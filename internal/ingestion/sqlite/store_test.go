@@ -166,3 +166,31 @@ func TestStore_SetReconcileETag_UnknownRepo(t *testing.T) {
 	err := store.SetReconcileETag(context.Background(), "does-not-exist", `"v1"`)
 	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
 }
+
+func TestStore_DeleteRepo(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	created, err := store.CreateRepo(ctx, ingestion.NewRepo{
+		Forge:      ingestion.ForgeGitHub,
+		Identifier: "alrayyes/pipeline-analytics",
+		Token:      "ghp_supersecrettoken1234",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, store.DeleteRepo(ctx, created.ID))
+
+	_, err = store.GetRepo(ctx, created.ID)
+	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
+}
+
+func TestStore_DeleteRepo_UnknownRepo(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+
+	err := store.DeleteRepo(context.Background(), "does-not-exist")
+	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
+}

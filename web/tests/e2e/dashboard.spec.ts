@@ -50,6 +50,44 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(dashboardScan.violations).toEqual([]);
 
+	// Repo management (register/list/untrack) is exercised against the
+	// real POST/DELETE /api/repos endpoints, not mocked -- same reasoning
+	// as the login/registration ceremony above: this is what those
+	// handlers actually do, not a fixture standing in for them. The
+	// forge-webhook step legitimately fails against a fake token, which
+	// is itself part of what's being verified: a degraded repo still
+	// registers and shows why.
+	await page.getByRole('link', { name: 'Register a repository' }).click();
+	await expect(page).toHaveURL('/repos');
+	await expect(page.getByText('No repositories tracked yet.')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Register repository' }).click();
+	await page
+		.getByLabel('Repository', { exact: true })
+		.fill('alrayyes/demo-repo');
+	await page.getByLabel('Access token').fill('ghp_faketoken1234');
+	await page.getByRole('button', { name: 'Register', exact: true }).click();
+
+	const repoRow = page
+		.getByRole('row')
+		.filter({ hasText: 'alrayyes/demo-repo' });
+	await expect(repoRow).toBeVisible();
+	await expect(repoRow).toContainText('degraded');
+
+	const reposScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(reposScan.violations).toEqual([]);
+
+	await repoRow.getByRole('button', { name: 'Untrack' }).click();
+	await expect(page.getByText('Untrack alrayyes/demo-repo?')).toBeVisible();
+	await page
+		.getByRole('button', { name: 'Untrack', exact: true })
+		.last()
+		.click();
+	await expect(page.getByText('No repositories tracked yet.')).toBeVisible();
+
+	await page.getByRole('link', { name: 'Pipelines' }).click();
+	await expect(page).toHaveURL('/');
+
 	// The overview's own rendering logic (health badges, per-pipeline
 	// cards) is exercised against a controlled response here -- seeding
 	// real pipeline data would mean either a fake forge's webhook HMAC

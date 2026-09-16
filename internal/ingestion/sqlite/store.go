@@ -119,6 +119,26 @@ func (s *Store) GetRepo(ctx context.Context, id string) (ingestion.Repo, error) 
 	return repo, nil
 }
 
+// DeleteRepo implements ingestion.Store. The schema's ON DELETE CASCADE
+// takes care of its runs, jobs, and steps.
+func (s *Store) DeleteRepo(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx, "DELETE FROM repos WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("delete repo: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return ErrRepoNotFound
+	}
+
+	return nil
+}
+
 // SetReconcileETag implements ingestion.Store.
 func (s *Store) SetReconcileETag(ctx context.Context, id string, etag string) error {
 	result, err := s.db.ExecContext(ctx, "UPDATE repos SET reconcile_etag = ? WHERE id = ?", etag, id)
