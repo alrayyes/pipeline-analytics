@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.12.1...v0.13.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** offer a saved forge token when registering another repo ([#83](https://github.com/alrayyes/pipeline-analytics/issues/83)) ([8b14eba](https://github.com/alrayyes/pipeline-analytics/commit/8b14eba1b36041bf28f4dc716c2f2f09adebf5d4)), closes [#72](https://github.com/alrayyes/pipeline-analytics/issues/72)
+
 ## [0.12.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.12.0...v0.12.1) (2026-09-16)
 
 
