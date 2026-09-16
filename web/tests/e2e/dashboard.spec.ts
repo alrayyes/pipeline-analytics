@@ -101,17 +101,22 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	// The repo picker (discover-then-select) is exercised against a mocked
 	// response -- the real GitHub/Forgejo API call it wraps is already
-	// covered by the ListAccessibleRepos client tests.
+	// covered by the ListAccessibleRepos client tests. Left routed for the
+	// rest of this test, since the token-reuse retry below discovers again.
 	await page.route('**/api/repos/discover', (route) =>
 		route.fulfill({
 			json: ['alrayyes/demo-repo', 'alrayyes/dotfiles'],
 		}),
 	);
 	await page.getByRole('button', { name: 'Find repositories' }).click();
-	await expect(page.getByText('alrayyes/demo-repo')).toBeVisible();
-	await page.unroute('**/api/repos/discover');
 
-	await page.getByRole('button', { name: 'Register', exact: true }).click();
+	// Multi-select (#103): check one discovered repo and follow it.
+	const demoRepoCheckbox = page.getByRole('checkbox', {
+		name: 'alrayyes/demo-repo',
+	});
+	await expect(demoRepoCheckbox).toBeVisible();
+	await demoRepoCheckbox.check();
+	await page.getByRole('button', { name: 'Follow 1 repository' }).click();
 
 	const repoRow = page
 		.getByRole('row')
@@ -122,7 +127,9 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// text in the DOM for a moment after submit -- axe scores that as a
 	// real contrast failure if it catches the page mid-transition, so wait
 	// for the dialog to actually finish closing first.
-	await expect(page.getByText('Register a repository')).not.toBeVisible();
+	await expect(
+		page.getByText('Select repositories to follow'),
+	).not.toBeVisible();
 
 	const reposScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
 	expect(reposScan.violations).toEqual([]);
@@ -162,11 +169,22 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByLabel('Access token')).toHaveValue(
 		'ghp_faketoken1234',
 	);
-	await page
-		.getByLabel('Repository', { exact: true })
-		.fill('alrayyes/demo-repo');
-	await page.getByRole('button', { name: 'Register', exact: true }).click();
+	await page.getByRole('button', { name: 'Find repositories' }).click();
+
+	// Registering more than one repo in a single batch (#103): one checked
+	// from the discovered list, one added by name -- both land in the same
+	// "Follow N repositories" submission.
+	await page.getByRole('checkbox', { name: 'alrayyes/demo-repo' }).check();
+	await page.getByLabel('Add another by name').fill('alrayyes/manual-repo');
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	await expect(page.getByText('alrayyes/manual-repo')).toBeVisible();
+	await page.getByRole('button', { name: 'Follow 2 repositories' }).click();
+
 	await expect(repoRow).toBeVisible();
+	await expect(
+		page.getByRole('row').filter({ hasText: 'alrayyes/manual-repo' }),
+	).toBeVisible();
+	await page.unroute('**/api/repos/discover');
 
 	await page.getByRole('link', { name: 'Pipelines' }).click();
 	await expect(page).toHaveURL('/');
