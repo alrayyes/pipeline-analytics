@@ -33,8 +33,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-// version is set via goreleaser's ldflags (-X main.version={{.Version}}) on
-// a release build; a local `go build` leaves it at "dev".
+// version is set via goreleaser's ldflags (-X main.version={{.Tag}}) on a
+// release build -- the actual git tag ("v0.15.1"), not goreleaser's bare-
+// semver .Version, since the footer links to /releases/tag/{version} and
+// every tag this repo cuts carries the "v" prefix. A local `go build`
+// leaves it at "dev".
 var version = "dev"
 
 func main() {
