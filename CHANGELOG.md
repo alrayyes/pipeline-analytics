@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.10.0...v0.11.0) (2026-09-16)
+
+
+### Features
+
+* **dashboard-ui:** repo picker and per-forge token guidance ([#64](https://github.com/alrayyes/pipeline-analytics/issues/64)) ([437e4b0](https://github.com/alrayyes/pipeline-analytics/commit/437e4b0b7500f07fc7d94aa7216a6a7901f60ec5))
+
 ## [0.10.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.9.0...v0.10.0) (2026-09-16)
 
 
