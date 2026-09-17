@@ -15,7 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # RELEASE_TOKEN, not GITHUB_TOKEN: a merge performed with the default
+      # token doesn't trigger release.yml on the resulting push (GitHub's
+      # own anti-recursion behavior), so the release commit's tag/
+      # goreleaser/screenshots never run promptly -- they only get created
+      # later, as a side effect of whatever push happens to trigger
+      # release.yml next (#145). required_approving_review_count is 0 on
+      # this repo, so there's no review step this bypasses.
       - run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
