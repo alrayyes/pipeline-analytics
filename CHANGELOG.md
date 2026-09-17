@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.27.0...v0.27.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **docker:** bump pinned ca-certificates to 20260909-r0 ([#167](https://github.com/alrayyes/pipeline-analytics/issues/167)) ([5b61c8a](https://github.com/alrayyes/pipeline-analytics/commit/5b61c8a204d8d946d16bf67015110b77d89c2c2c))
+
 ## [0.27.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.26.0...v0.27.0) (2026-09-17)
 
 
