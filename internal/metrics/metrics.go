@@ -123,6 +123,8 @@ type Pipeline struct {
 	Name             string
 	HealthStatus     HealthStatus
 	TriggeredSignals []Signal
+	// LastRunAt is the most recent run's start time, nil if it has none.
+	LastRunAt *time.Time
 }
 
 // Trend is a time series: parallel Timestamps/P50/P90 (a duration trend) or
@@ -346,7 +348,24 @@ func (s *Service) summarizeFromRuns(ctx context.Context, ref PipelineRef, window
 		Name:             ref.Name,
 		HealthStatus:     status,
 		TriggeredSignals: signals,
+		LastRunAt:        lastRunAt(runs),
 	}, nil
+}
+
+// lastRunAt returns the most recent run's start time, falling back to its
+// completion time when it started before ingestion recorded a start (never
+// observed in practice, but StartedAt is a pointer). runs is
+// most-recent-first, per the Store contract.
+func lastRunAt(runs []RunRecord) *time.Time {
+	if len(runs) == 0 {
+		return nil
+	}
+
+	if runs[0].StartedAt != nil {
+		return runs[0].StartedAt
+	}
+
+	return runs[0].CompletedAt
 }
 
 func anyFlaky(steps []Step) bool {

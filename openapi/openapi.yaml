@@ -580,6 +580,10 @@ components:
           items:
             type: string
             enum: [failure_rate, duration_regression, flaky_step]
+        lastRunAt:
+          type: string
+          format: date-time
+          description: The most recent run's start time. Absent if the pipeline has no runs.
 
     Trend:
       type: object

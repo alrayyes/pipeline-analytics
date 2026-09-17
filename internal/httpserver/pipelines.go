@@ -10,11 +10,12 @@ import (
 )
 
 type pipelineSummaryDTO struct {
-	ID               string   `json:"id"`
-	RepoID           string   `json:"repoId"`
-	Name             string   `json:"name"`
-	HealthStatus     string   `json:"healthStatus"`
-	TriggeredSignals []string `json:"triggeredSignals,omitempty"`
+	ID               string     `json:"id"`
+	RepoID           string     `json:"repoId"`
+	Name             string     `json:"name"`
+	HealthStatus     string     `json:"healthStatus"`
+	TriggeredSignals []string   `json:"triggeredSignals,omitempty"`
+	LastRunAt        *time.Time `json:"lastRunAt,omitempty"`
 }
 
 func toPipelineSummaryDTO(p metrics.Pipeline) pipelineSummaryDTO {
@@ -29,6 +30,7 @@ func toPipelineSummaryDTO(p metrics.Pipeline) pipelineSummaryDTO {
 		Name:             p.Name,
 		HealthStatus:     string(p.HealthStatus),
 		TriggeredSignals: signals,
+		LastRunAt:        p.LastRunAt,
 	}
 }
 

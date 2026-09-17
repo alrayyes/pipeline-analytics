@@ -290,6 +290,12 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// the API into the database directly, neither of which this journey
 	// test's job is to do. What GET /api/pipelines returns for real data
 	// is already covered by internal/httpserver/pipelines_test.go.
+	// CI's last run is older than Deploy's -- distinct enough to tell the
+	// "Name" and "Most recently run" sort orders apart below.
+	const ciLastRunAt = new Date(
+		Date.now() - 2 * 24 * 60 * 60 * 1000,
+	).toISOString();
+	const deployLastRunAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 	await page.route('**/api/pipelines', (route) =>
 		route.fulfill({
 			json: [
@@ -298,6 +304,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 					repoId: 'repo-1',
 					name: 'CI',
 					healthStatus: 'healthy',
+					lastRunAt: ciLastRunAt,
 				},
 				{
 					id: 'unhealthy-1',
@@ -305,6 +312,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 					name: 'Deploy',
 					healthStatus: 'unhealthy',
 					triggeredSignals: ['failure_rate', 'flaky_step'],
+					lastRunAt: deployLastRunAt,
 				},
 			],
 		}),
@@ -312,22 +320,39 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.reload();
 
 	// Unhealthy-only by default (#101): the healthy "CI" pipeline is hidden
-	// until "Show all" is toggled.
+	// until the health filter is set to "All".
+	const healthFilter = page.getByRole('radiogroup', {
+		name: 'Filter by health status',
+	});
 	await expect(page.getByRole('heading', { name: 'CI' })).not.toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
 	const deployItem = page.getByRole('listitem').filter({ hasText: 'Deploy' });
 	await expect(deployItem).toContainText('unhealthy');
 	await expect(deployItem).toContainText('elevated failure rate, flaky step');
+	await expect(deployItem).toContainText('Last run');
 
 	const filteredOverviewScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
 		.analyze();
 	expect(filteredOverviewScan.violations).toEqual([]);
 
-	await page.getByRole('button', { name: 'Show all' }).click();
+	await healthFilter.getByRole('radio', { name: 'All' }).click();
 	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
 	const ciItem = page.getByRole('listitem').filter({ hasText: 'CI' });
 	await expect(ciItem).toContainText('healthy');
+
+	// #149: "Name" (the default) sorts CI before Deploy alphabetically;
+	// "Most recently run" reorders them the other way, since Deploy's
+	// fixture lastRunAt is the more recent of the two.
+	const pipelineNames = page.getByRole('heading', { level: 3 });
+	await expect(pipelineNames).toHaveText(['CI', 'Deploy']);
+	await page.getByLabel('Sort').click();
+	await page.getByRole('option', { name: 'Most recently run' }).click();
+	await expect(pipelineNames).toHaveText(['Deploy', 'CI']);
+	// Same dialog-closing-animation guard as the repo registration dialog
+	// above -- the dropdown's own fade-out otherwise reads as a real
+	// contrast failure if axe catches it mid-transition.
+	await expect(page.getByRole('listbox')).not.toBeVisible();
 
 	const overviewWithDataScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
@@ -344,8 +369,8 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.reload();
 	await expect(page.locator('html')).toHaveClass('dark');
 	// A reload is a fresh page load, so the unhealthy-only filter is back to
-	// its default -- toggle it again to get both badge colors on screen.
-	await page.getByRole('button', { name: 'Show all' }).click();
+	// its default -- set it back to "All" to get both badge colors on screen.
+	await healthFilter.getByRole('radio', { name: 'All' }).click();
 	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
 	const overviewDarkScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
@@ -422,6 +447,25 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	});
 	await expect(
 		otherRepoSection.getByRole('heading', { name: 'CI' }),
+	).toBeVisible();
+
+	// #149: the repo filter narrows the grouped list to one repo, the same
+	// way the forge filter already does.
+	await page.getByLabel('Repo').click();
+	await page.getByRole('option', { name: 'alrayyes/other-repo' }).click();
+	await expect(
+		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
+	).not.toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'alrayyes/other-repo' }),
+	).toBeVisible();
+	await page.getByLabel('Repo').click();
+	await page.getByRole('option', { name: 'All repos' }).click();
+	// Same dialog-closing-animation guard as above -- the axe scan right
+	// after this runs while the dropdown might still be fading out.
+	await expect(page.getByRole('listbox')).not.toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
 	).toBeVisible();
 
 	const groupingScan = await new AxeBuilder({ page })
