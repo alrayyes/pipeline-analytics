@@ -68,6 +68,55 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(dashboardScan.violations).toEqual([]);
 
+	// The header's mobile menu (#171): a phone-width viewport can't fit the
+	// nav links and CTA in one row, so they collapse behind a toggle there
+	// instead. Checked here, still at zero repos, rather than in a separate
+	// spec file of its own -- this app's single-tenant auth model means a
+	// second spec independently registering its own passkey against the
+	// same shared server races this journey's registration when Playwright
+	// runs spec files in parallel (confirmed: it does, in CI too, since
+	// nothing here pins `workers: 1`).
+	const desktopViewport = page.viewportSize();
+	await page.setViewportSize({ width: 375, height: 812 });
+
+	const scrollWidth = await page.evaluate(
+		() => document.documentElement.scrollWidth,
+	);
+	expect(scrollWidth).toBeLessThanOrEqual(375);
+
+	const menuToggle = nav.getByRole('button', { name: 'Open menu' });
+	await expect(menuToggle).toBeVisible();
+	await expect(menuToggle).toHaveAttribute('aria-expanded', 'false');
+	await expect(
+		nav.getByRole('link', { name: 'Register a repository' }),
+	).toBeHidden();
+
+	await menuToggle.click();
+	await expect(nav.getByRole('button', { name: 'Close menu' })).toHaveAttribute(
+		'aria-expanded',
+		'true',
+	);
+
+	const mobileNav = page.locator('#mobile-nav');
+	await expect(mobileNav.getByText('Steps', { exact: true })).toBeVisible();
+	await expect(
+		mobileNav.getByRole('link', { name: 'Register a repository' }),
+	).toBeVisible();
+
+	const mobileNavScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(mobileNavScan.violations).toEqual([]);
+
+	await nav.getByRole('button', { name: 'Close menu' }).click();
+	await expect(mobileNav).toBeHidden();
+
+	if (desktopViewport) await page.setViewportSize(desktopViewport);
+	await expect(menuToggle).toBeHidden();
+	await expect(
+		nav.getByRole('link', { name: 'Register a repository' }),
+	).toBeVisible();
+
 	// Dark mode (cycles system -> light -> dark), persisted across a
 	// reload, and re-scanned since contrast is theme-sensitive.
 	const themeToggle = page.getByRole('button', { name: /Theme:/ });
