@@ -114,7 +114,8 @@ async function loadRepos(): Promise<void> {
 		const res = await fetch('/api/repos');
 		if (!res.ok) return;
 
-		repos = await res.json();
+		const body: { repos: Repo[] } = await res.json();
+		repos = body.repos;
 	} catch {
 		// Best effort -- grouping still works, just with repoId as the label.
 	}

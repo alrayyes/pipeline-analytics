@@ -278,6 +278,55 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.click();
 	await expect(forgejoRepoRow).not.toBeVisible();
 
+	// Pagination (#141): a mocked page-and-a-bit of repos so Previous/Next
+	// have two real pages to move between, without registering 21 repos
+	// through the whole discovery flow to get there for real.
+	const paginatedRepos = Array.from({ length: 21 }, (_, i) => ({
+		id: `page-repo-${i}`,
+		forge: 'github',
+		identifier: `alrayyes/page-repo-${i}`,
+		tokenMasked: '****0000',
+		ingestionStatus: 'active',
+	}));
+	await page.route('**/api/repos*', (route) => {
+		if (route.request().method() !== 'GET') return route.fallback();
+
+		const url = new URL(route.request().url());
+		const limit = Number(url.searchParams.get('limit') ?? '20');
+		const offset = Number(url.searchParams.get('offset') ?? '0');
+		const pageRepos = paginatedRepos.slice(offset, offset + limit);
+
+		return route.fulfill({
+			json: {
+				repos: pageRepos,
+				hasMore: offset + limit < paginatedRepos.length,
+			},
+		});
+	});
+	await page.reload();
+
+	const previousPageButton = page.getByRole('button', { name: 'Previous' });
+	const nextPageButton = page.getByRole('button', { name: 'Next' });
+	await expect(page.getByText('alrayyes/page-repo-0')).toBeVisible();
+	await expect(previousPageButton).toBeDisabled();
+	await expect(nextPageButton).toBeEnabled();
+
+	await nextPageButton.click();
+	await expect(page.getByText('alrayyes/page-repo-20')).toBeVisible();
+	await expect(page.getByText('alrayyes/page-repo-0')).not.toBeVisible();
+	await expect(previousPageButton).toBeEnabled();
+	await expect(nextPageButton).toBeDisabled();
+
+	// Changing the forge filter resets the page back to 1, rather than
+	// re-requesting page 2 of a now-different filtered result set.
+	await page.getByRole('radio', { name: 'GitHub' }).click();
+	await expect(page.getByText('alrayyes/page-repo-0')).toBeVisible();
+	await expect(previousPageButton).toBeDisabled();
+	await page.getByRole('radio', { name: 'All' }).click();
+
+	await page.unroute('**/api/repos*');
+	await page.reload();
+
 	await page.unroute('**/api/repos/discover');
 
 	await page.getByRole('link', { name: 'Pipelines' }).click();
@@ -383,24 +432,30 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// Grouped by repo (#102): a pipeline name alone ("CI") is ambiguous
 	// across more than one tracked repo, so a second repo with its own "CI"
 	// has to land in its own section, never merged with the first repo's.
-	await page.route('**/api/repos', (route) =>
+	// Pagination (#141) means the frontend now always appends limit/offset,
+	// so the route glob needs the trailing `*` to still match a request
+	// that now always carries a query string.
+	await page.route('**/api/repos*', (route) =>
 		route.fulfill({
-			json: [
-				{
-					id: 'repo-1',
-					forge: 'github',
-					identifier: 'alrayyes/demo-repo',
-					tokenMasked: '****1234',
-					ingestionStatus: 'degraded',
-				},
-				{
-					id: 'repo-2',
-					forge: 'forgejo',
-					identifier: 'alrayyes/other-repo',
-					tokenMasked: '****5678',
-					ingestionStatus: 'active',
-				},
-			],
+			json: {
+				repos: [
+					{
+						id: 'repo-1',
+						forge: 'github',
+						identifier: 'alrayyes/demo-repo',
+						tokenMasked: '****1234',
+						ingestionStatus: 'degraded',
+					},
+					{
+						id: 'repo-2',
+						forge: 'forgejo',
+						identifier: 'alrayyes/other-repo',
+						tokenMasked: '****5678',
+						ingestionStatus: 'active',
+					},
+				],
+				hasMore: false,
+			},
 		}),
 	);
 	await page.route('**/api/pipelines', (route) =>
@@ -475,7 +530,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	// Restore the original two-pipeline fixture the rest of this journey
 	// (including the /api/pipelines/unhealthy-1 detail mock below) expects.
-	await page.unroute('**/api/repos');
+	await page.unroute('**/api/repos*');
 	await page.route('**/api/pipelines', (route) =>
 		route.fulfill({
 			json: [
