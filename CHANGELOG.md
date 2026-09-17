@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.24.0...v0.24.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **dashboard-ui:** truncate long step names instead of widening the Steps table ([#156](https://github.com/alrayyes/pipeline-analytics/issues/156)) ([91ef4e6](https://github.com/alrayyes/pipeline-analytics/commit/91ef4e63cbb02eebb1c1913747fe643bc2009c89)), closes [#148](https://github.com/alrayyes/pipeline-analytics/issues/148)
+
 ## [0.24.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.23.2...v0.24.0) (2026-09-17)
 
 
