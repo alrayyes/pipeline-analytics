@@ -21,6 +21,10 @@ type Deps struct {
 	Metrics    *metrics.Service
 	Auth       *auth.Service
 	AuthStore  auth.Store
+	// GitHubRateLimits reports the rate-limit status last observed for a
+	// GitHub token, for GET /api/insights/github-rate-limit. nil is fine --
+	// the endpoint just reports every token with no status yet.
+	GitHubRateLimits ingestion.RateLimitReporter
 	// Version is reported by GET /api/version -- the build's tagged
 	// version, or "dev" for a local build.
 	Version string
@@ -52,6 +56,9 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("GET /api/pipelines", pipelines.list)
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}", pipelines.get)
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}/steps", pipelines.steps)
+
+	insights := &insightsHandler{repos: deps.IngestionStore, rateLimits: deps.GitHubRateLimits}
+	mux.HandleFunc("GET /api/insights/github-rate-limit", insights.githubRateLimit)
 
 	authH := &authHandler{service: deps.Auth}
 	mux.HandleFunc("POST /api/auth/register/options", authH.registerOptions)

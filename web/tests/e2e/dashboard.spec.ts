@@ -665,6 +665,46 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'All pipelines' }).click();
 	await expect(page).toHaveURL('/');
 
+	// GitHub API rate-limit insights page -- the aggregation/grouping-by-
+	// token logic is already covered by
+	// internal/httpserver/insights_test.go; this exercises the page's own
+	// rendering, including a token with no observed status yet.
+	await page.route('**/api/insights/github-rate-limit', (route) =>
+		route.fulfill({
+			json: [
+				{
+					tokenMasked: '****1234',
+					repos: ['alrayyes/demo-repo', 'alrayyes/other-repo'],
+					status: {
+						limit: 5000,
+						remaining: 4900,
+						used: 100,
+						resetAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+					},
+				},
+				{
+					tokenMasked: '****5678',
+					repos: ['alrayyes/unseen-repo'],
+				},
+			],
+		}),
+	);
+	await page.getByRole('link', { name: 'Insights' }).click();
+	await expect(page).toHaveURL('/insights');
+	await expect(page.getByRole('cell', { name: '****1234' })).toBeVisible();
+	await expect(page.getByText('100 / 5000 (2%)')).toBeVisible();
+	await expect(page.getByText(/in \d+ minutes?/)).toBeVisible();
+	await expect(page.getByText('Not observed yet')).toBeVisible();
+
+	const insightsScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(insightsScan.violations).toEqual([]);
+
+	await page.unroute('**/api/insights/github-rate-limit');
+	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
+	await expect(page).toHaveURL('/');
+
 	// Release history (task: footer/releases layout fix) -- the page fetches
 	// GitHub's own releases API directly, no backend proxy, so that's what
 	// gets mocked here rather than an internal endpoint.

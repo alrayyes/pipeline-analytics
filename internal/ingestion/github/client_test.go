@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	ghclient "github.com/alrayyes/pipeline-analytics/internal/ingestion/github"
@@ -223,6 +224,54 @@ func TestClient_ListRecentRuns(t *testing.T) {
 
 		_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{Identifier: "alrayyes/pipeline-analytics", Token: "ghp_test"})
 		require.Error(t, err)
+	})
+}
+
+func TestClient_RateLimitFor(t *testing.T) {
+	t.Parallel()
+
+	t.Run("captures the rate-limit headers from a real response, per token", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-RateLimit-Limit", "5000")
+			w.Header().Set("X-RateLimit-Remaining", "4987")
+			w.Header().Set("X-RateLimit-Used", "13")
+			w.Header().Set("X-RateLimit-Reset", "1700000000")
+			w.Header().Set("X-RateLimit-Resource", "core")
+
+			switch r.URL.Path {
+			case "/repos/alrayyes/pipeline-analytics/actions/runs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowRunsPayload))
+			case "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowJobsPayload))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		_, ok := client.RateLimitFor("ghp_test")
+		require.False(t, ok, "no request made with this token yet")
+
+		_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+
+		snapshot, ok := client.RateLimitFor("ghp_test")
+		require.True(t, ok)
+		require.Equal(t, 5000, snapshot.Limit)
+		require.Equal(t, 4987, snapshot.Remaining)
+		require.Equal(t, 13, snapshot.Used)
+		require.Equal(t, "core", snapshot.Resource)
+		require.Equal(t, time.Unix(1700000000, 0), snapshot.ResetAt)
 	})
 }
 

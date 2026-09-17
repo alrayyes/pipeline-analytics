@@ -22,6 +22,7 @@ const THEME_LABELS = {
 const links = [
 	{ href: '/', label: 'Pipelines' },
 	{ href: '/repos', label: 'Repositories' },
+	{ href: '/insights', label: 'Insights' },
 ];
 
 function isActive(href: string): boolean {

@@ -214,16 +214,22 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		return nil, fmt.Errorf("load embedded frontend: %w", err)
 	}
 
+	// Optional: only the GitHub ForgeClient implements this, and reports
+	// nothing until reconciliation polling (or a webhook-registration call)
+	// actually makes a real request with a given token.
+	githubRateLimits, _ := forgeClients[ingestion.ForgeGitHub].(ingestion.RateLimitReporter)
+
 	return httpserver.New(httpserver.Deps{
-		Registrar:      registrar,
-		IngestionStore: ingestionStore,
-		RunStore:       ingestionStore,
-		Reconciler:     reconciler,
-		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
-		Auth:           auth.NewService(webAuthn, authStore),
-		AuthStore:      authStore,
-		Version:        version,
-		Assets:         assets,
+		Registrar:        registrar,
+		IngestionStore:   ingestionStore,
+		RunStore:         ingestionStore,
+		GitHubRateLimits: githubRateLimits,
+		Reconciler:       reconciler,
+		Metrics:          metrics.NewService(metricssqlite.NewStore(conn)),
+		Auth:             auth.NewService(webAuthn, authStore),
+		AuthStore:        authStore,
+		Version:          version,
+		Assets:           assets,
 	}), nil
 }
 
