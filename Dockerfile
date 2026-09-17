@@ -4,7 +4,7 @@
 # per non-native arch in the release matrix).
 FROM alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
 
-RUN apk add --no-cache ca-certificates=20260611-r0 && \
+RUN apk add --no-cache ca-certificates=20260909-r0 && \
     addgroup -S -g 10001 pipeline-analytics && \
     adduser -S -u 10001 -G pipeline-analytics pipeline-analytics
 
