@@ -293,6 +293,54 @@ func (s *Service) GetPipelineSteps(ctx context.Context, id PipelineID, window Wi
 	return aggregateSteps(occurrences), nil
 }
 
+// PipelineStepsGroup is one pipeline's flaky or failing steps, for the
+// cross-pipeline unhealthy-steps overview.
+type PipelineStepsGroup struct {
+	PipelineID   PipelineID
+	PipelineName string
+	RepoID       string
+	Steps        []Step
+}
+
+// ListUnhealthySteps returns every flaky or failing step across every
+// tracked pipeline, grouped by pipeline. A pipeline with no such step
+// contributes nothing to the result.
+func (s *Service) ListUnhealthySteps(ctx context.Context, window Window) ([]PipelineStepsGroup, error) {
+	refs, err := s.store.ListPipelines(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list pipelines: %w", err)
+	}
+
+	var groups []PipelineStepsGroup
+
+	for _, ref := range refs {
+		occurrences, err := s.store.PipelineSteps(ctx, ref, window)
+		if err != nil {
+			return nil, fmt.Errorf("load steps for %s: %w", ref.Name, err)
+		}
+
+		var unhealthy []Step
+		for _, step := range aggregateSteps(occurrences) {
+			if step.Flaky || step.FailureRate > 0 {
+				unhealthy = append(unhealthy, step)
+			}
+		}
+
+		if len(unhealthy) == 0 {
+			continue
+		}
+
+		groups = append(groups, PipelineStepsGroup{
+			PipelineID:   ref.ID(),
+			PipelineName: ref.Name,
+			RepoID:       ref.RepoID,
+			Steps:        unhealthy,
+		})
+	}
+
+	return groups, nil
+}
+
 // GetRepoUsage returns a repo's runner-minutes usage, broken down by
 // workflow, highest first.
 func (s *Service) GetRepoUsage(ctx context.Context, repoID string, window Window) ([]UsageEntry, error) {
