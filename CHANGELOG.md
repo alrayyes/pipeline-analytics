@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.29.0...v0.29.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **release:** deduplicate changelog and release notes ([#180](https://github.com/alrayyes/pipeline-analytics/issues/180)) ([adadd1b](https://github.com/alrayyes/pipeline-analytics/commit/adadd1bf1957147d5d0fc8c03f1070eb35f8c525)), closes [#179](https://github.com/alrayyes/pipeline-analytics/issues/179)
+
 ## [0.29.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.28.1...v0.29.0) (2026-09-17)
 
 
