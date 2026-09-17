@@ -203,6 +203,81 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	).toHaveCount(0);
 	await page.keyboard.press('Escape');
 
+	// Forge grouping and the persistent filter (#140): register one more
+	// repo on Forgejo so the table actually has two forges to group, then
+	// exercise the filter, then untrack it again -- the rest of this
+	// journey doesn't expect a Forgejo repo hanging around.
+	await page.getByRole('button', { name: 'Register repository' }).click();
+	await page.getByLabel('Forge', { exact: true }).click();
+	await page.getByRole('option', { name: 'Forgejo' }).click();
+	await page.getByLabel('Access token').fill('forgejo_faketoken5678');
+	await page
+		.getByLabel('Forgejo instance URL')
+		.fill('https://forgejo.example.com');
+	await page.getByRole('button', { name: 'Find repositories' }).click();
+	await page.getByLabel('Add another by name').fill('alrayyes/forgejo-repo');
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	await page.getByRole('button', { name: 'Follow 1 repository' }).click();
+
+	const githubHeading = page.getByRole('heading', {
+		name: 'GitHub',
+		exact: true,
+	});
+	const forgejoHeading = page.getByRole('heading', {
+		name: 'Forgejo',
+		exact: true,
+	});
+	await expect(githubHeading).toBeVisible();
+	await expect(forgejoHeading).toBeVisible();
+	const forgejoRepoRow = page
+		.getByRole('row')
+		.filter({ hasText: 'alrayyes/forgejo-repo' });
+	await expect(forgejoRepoRow).toBeVisible();
+	// Same dialog-closing-animation guard as the first registration above.
+	await expect(
+		page.getByText('Select repositories to follow'),
+	).not.toBeVisible();
+
+	const groupedReposScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(groupedReposScan.violations).toEqual([]);
+
+	// The filter narrows the grouped table to one forge, applied server-side
+	// (#140) -- not just hidden client-side.
+	await page.getByRole('radio', { name: 'GitHub' }).click();
+	await expect(githubHeading).toBeVisible();
+	await expect(forgejoHeading).not.toBeVisible();
+	await expect(forgejoRepoRow).not.toBeVisible();
+	await expect(repoRow).toBeVisible();
+
+	await page.getByRole('radio', { name: 'Forgejo' }).click();
+	await expect(forgejoHeading).toBeVisible();
+	await expect(githubHeading).not.toBeVisible();
+	await expect(forgejoRepoRow).toBeVisible();
+	await expect(repoRow).not.toBeVisible();
+
+	// Persisted across navigation, shared with the Pipelines list page.
+	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
+	await expect(page).toHaveURL('/');
+	await expect(page.getByRole('radio', { name: 'Forgejo' })).toHaveAttribute(
+		'aria-checked',
+		'true',
+	);
+
+	// Restore "All" before the rest of this journey, which expects an
+	// unfiltered view, then go back and untrack the extra repo.
+	await page.getByRole('radio', { name: 'All' }).click();
+	await page.getByRole('link', { name: 'Repositories', exact: true }).click();
+	await expect(page).toHaveURL('/repos');
+	await forgejoRepoRow.getByRole('button', { name: 'Untrack' }).click();
+	await expect(page.getByText('Untrack alrayyes/forgejo-repo?')).toBeVisible();
+	await page
+		.getByRole('button', { name: 'Untrack', exact: true })
+		.last()
+		.click();
+	await expect(forgejoRepoRow).not.toBeVisible();
+
 	await page.unroute('**/api/repos/discover');
 
 	await page.getByRole('link', { name: 'Pipelines' }).click();

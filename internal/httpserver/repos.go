@@ -60,8 +60,14 @@ func (h *reposHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	forge := r.URL.Query().Get("forge")
+
 	dtos := make([]repoDTO, 0, len(repos))
 	for _, repo := range repos {
+		if forge != "" && string(repo.Forge) != forge {
+			continue
+		}
+
 		dtos = append(dtos, toRepoDTO(repo))
 	}
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-import { onMount } from 'svelte';
 import { invalidateAll } from '$app/navigation';
+import ForgeFilter from '$lib/components/ForgeFilter.svelte';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -38,6 +38,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '$lib/components/ui/table/index.js';
+import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
 import {
 	getRememberedToken,
 	maskToken,
@@ -72,6 +73,38 @@ const STATUS_VARIANTS: Record<string, 'default' | 'destructive' | 'outline'> = {
 
 let repos = $state<Repo[] | null>(null);
 let error = $state<string | null>(null);
+
+interface RepoGroup {
+	forge: 'github' | 'forgejo';
+	label: string;
+	repos: Repo[];
+}
+
+// Grouped by forge, same pattern as the Pipelines list's grouping by repo
+// (#102) -- github then forgejo, matching the ForgeFilter control's own
+// option order, rather than alphabetical (which would put Forgejo first).
+const groupedRepos = $derived.by(() => {
+	const groups = new Map<Repo['forge'], RepoGroup>();
+
+	for (const repo of repos ?? []) {
+		let group = groups.get(repo.forge);
+
+		if (!group) {
+			group = {
+				forge: repo.forge,
+				label: FORGE_LABELS[repo.forge] ?? repo.forge,
+				repos: [],
+			};
+			groups.set(repo.forge, group);
+		}
+
+		group.repos.push(repo);
+	}
+
+	return (['github', 'forgejo'] as const)
+		.map((forge) => groups.get(forge))
+		.filter((group): group is RepoGroup => group !== undefined);
+});
 
 let registerOpen = $state(false);
 let registerBusy = $state(false);
@@ -169,7 +202,9 @@ let untrackError = $state<string | null>(null);
 
 async function loadRepos(): Promise<void> {
 	try {
-		const res = await fetch('/api/repos');
+		const filter = getForgeFilter();
+		const query = filter === 'all' ? '' : `?forge=${filter}`;
+		const res = await fetch(`/api/repos${query}`);
 		if (!res.ok) {
 			error = 'Could not load repositories.';
 
@@ -182,7 +217,15 @@ async function loadRepos(): Promise<void> {
 	}
 }
 
-onMount(loadRepos);
+// Reload with the new filter applied server-side rather than hiding rows
+// client-side -- getForgeFilter() read here is what makes this effect
+// re-run whenever the shared filter changes (including from the Pipelines
+// list page's own control), and it also covers the initial load, replacing
+// a separate onMount(loadRepos).
+$effect(() => {
+	getForgeFilter();
+	loadRepos();
+});
 
 function resetForm(): void {
 	step = 'token';
@@ -380,8 +423,11 @@ async function handleUntrack(): Promise<void> {
 </svelte:head>
 
 <main class="mx-auto max-w-4xl px-4 py-8">
-	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-semibold">Repositories</h1>
+	<div class="flex flex-wrap items-center justify-between gap-4">
+		<div class="flex items-center gap-4">
+			<h1 class="text-2xl font-semibold">Repositories</h1>
+			<ForgeFilter />
+		</div>
 		<Dialog
 			bind:open={registerOpen}
 			onOpenChange={(open) => {
@@ -584,44 +630,51 @@ async function handleUntrack(): Promise<void> {
 	{:else if repos.length === 0}
 		<p class="mt-6 text-muted-foreground">No repositories tracked yet.</p>
 	{:else}
-		<Table class="mt-6">
-			<TableHeader>
-				<TableRow>
-					<TableHead>Repository</TableHead>
-					<TableHead>Forge</TableHead>
-					<TableHead>Token</TableHead>
-					<TableHead>Status</TableHead>
-					<TableHead class="sr-only">Untrack</TableHead>
-				</TableRow>
-			</TableHeader>
-			<TableBody>
-				{#each repos as repo (repo.id)}
-					<TableRow>
-						<TableCell class="font-medium">{repo.identifier}</TableCell>
-						<TableCell>{FORGE_LABELS[repo.forge] ?? repo.forge}</TableCell>
-						<TableCell>{repo.tokenMasked}</TableCell>
-						<TableCell>
-							<Badge
-								variant={STATUS_VARIANTS[repo.ingestionStatus] ?? 'outline'}
-								class={repo.ingestionStatus === 'degraded' ? 'bg-destructive text-white' : ''}
-							>
-								{repo.ingestionStatus}
-							</Badge>
-							{#if repo.ingestionStatusReason}
-								<span class="ml-1 text-xs text-muted-foreground"
-									>{repo.ingestionStatusReason}</span
-								>
-							{/if}
-						</TableCell>
-						<TableCell>
-							<Button variant="ghost" size="sm" onclick={() => (untrackTarget = repo)}>
-								Untrack
-							</Button>
-						</TableCell>
-					</TableRow>
-				{/each}
-			</TableBody>
-		</Table>
+		<div class="mt-6 grid gap-8">
+			{#each groupedRepos as group (group.forge)}
+				<section>
+					<h2 class="mb-3 text-sm font-semibold text-muted-foreground">{group.label}</h2>
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Repository</TableHead>
+								<TableHead>Token</TableHead>
+								<TableHead>Status</TableHead>
+								<TableHead class="sr-only">Untrack</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{#each group.repos as repo (repo.id)}
+								<TableRow>
+									<TableCell class="font-medium">{repo.identifier}</TableCell>
+									<TableCell>{repo.tokenMasked}</TableCell>
+									<TableCell>
+										<Badge
+											variant={STATUS_VARIANTS[repo.ingestionStatus] ?? 'outline'}
+											class={repo.ingestionStatus === 'degraded'
+												? 'bg-destructive text-white'
+												: ''}
+										>
+											{repo.ingestionStatus}
+										</Badge>
+										{#if repo.ingestionStatusReason}
+											<span class="ml-1 text-xs text-muted-foreground"
+												>{repo.ingestionStatusReason}</span
+											>
+										{/if}
+									</TableCell>
+									<TableCell>
+										<Button variant="ghost" size="sm" onclick={() => (untrackTarget = repo)}>
+											Untrack
+										</Button>
+									</TableCell>
+								</TableRow>
+							{/each}
+						</TableBody>
+					</Table>
+				</section>
+			{/each}
+		</div>
 	{/if}
 </main>
 

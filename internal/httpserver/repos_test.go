@@ -315,6 +315,39 @@ func TestReposRegisterAndList(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		require.Len(t, got, 1)
 	})
+
+	t.Run("list filters by the forge query param", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		register := func(forge, identifier string) {
+			t.Helper()
+
+			body, err := json.Marshal(map[string]string{
+				"forge":      forge,
+				"identifier": identifier,
+				"token":      "ghp_supersecrettoken1234",
+			})
+			require.NoError(t, err)
+
+			req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+			srv.ServeHTTP(httptest.NewRecorder(), req)
+		}
+		register("github", "alrayyes/pipeline-analytics")
+		register("forgejo", "alrayyes/dotfiles")
+
+		getReq := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos?forge=github", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, getReq)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Len(t, got, 1)
+		require.Equal(t, "github", got[0]["forge"])
+	})
 }
 
 func TestReposUntrack(t *testing.T) {
