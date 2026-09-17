@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import { page } from '$app/state';
+import ForgeFilter from '$lib/components/ForgeFilter.svelte';
 import { Badge } from '$lib/components/ui/badge/index.js';
 import { Button } from '$lib/components/ui/button/index.js';
 import {
@@ -9,6 +10,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '$lib/components/ui/card/index.js';
+import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
 
 interface PipelineSummary {
 	id: string;
@@ -51,17 +53,30 @@ let error = $state<string | null>(null);
 // first reads better on load than mixing it into everything that's fine.
 let showAll = $state(false);
 
-const unhealthyPipelines = $derived(
-	pipelines?.filter((p) => p.healthStatus === 'unhealthy') ?? null,
-);
-const visiblePipelines = $derived(showAll ? pipelines : unhealthyPipelines);
-
 // Grouped by repo (#102) -- a pipeline name alone ("CI") is ambiguous
 // across more than one tracked repo, so each repo's pipelines get their
 // own section rather than one flat list. Falls back to the bare repoId as
 // the label if /api/repos hasn't loaded (or failed) -- grouping still
 // works, it just can't show a human-readable name yet.
 const repoById = $derived(new Map((repos ?? []).map((r) => [r.id, r])));
+
+// The forge filter is shared with the Repos page (issue #140), but applied
+// client-side here rather than as a query param -- unlike Repos, this page
+// already does a full unpaginated fetch and joins forge in from repoById,
+// so there's no server round trip to save by pushing the filter down.
+const forgeFilteredPipelines = $derived.by(() => {
+	const filter = getForgeFilter();
+	if (filter === 'all' || !pipelines) return pipelines;
+
+	return pipelines.filter((p) => repoById.get(p.repoId)?.forge === filter);
+});
+
+const unhealthyPipelines = $derived(
+	forgeFilteredPipelines?.filter((p) => p.healthStatus === 'unhealthy') ?? null,
+);
+const visiblePipelines = $derived(
+	showAll ? forgeFilteredPipelines : unhealthyPipelines,
+);
 
 const groupedPipelines = $derived.by(() => {
 	const groups = new Map<string, PipelineGroup>();
@@ -126,7 +141,10 @@ function signalLabel(signal: string): string {
 </svelte:head>
 
 <main class="mx-auto max-w-4xl px-4 py-8">
-	<h1 class="text-2xl font-semibold">Pipelines</h1>
+	<div class="flex flex-wrap items-center gap-4">
+		<h1 class="text-2xl font-semibold">Pipelines</h1>
+		<ForgeFilter />
+	</div>
 
 	{#if error}
 		<p role="alert" class="mt-6 text-destructive">{error}</p>
@@ -143,14 +161,19 @@ function signalLabel(signal: string): string {
 				to start tracking one.
 			{/if}
 		</p>
+	{:else if forgeFilteredPipelines?.length === 0}
+		<p class="mt-6 text-muted-foreground">
+			No pipelines match the selected forge filter.
+		</p>
 	{:else}
 		<div class="mt-6 flex items-center justify-between">
 			<p class="text-sm text-muted-foreground">
 				{#if showAll}
-					Showing all {pipelines.length}
-					{pipelines.length === 1 ? 'pipeline' : 'pipelines'}.
+					Showing all {forgeFilteredPipelines?.length ?? 0}
+					{forgeFilteredPipelines?.length === 1 ? 'pipeline' : 'pipelines'}.
 				{:else}
-					Showing {unhealthyPipelines?.length ?? 0} unhealthy of {pipelines.length}.
+					Showing {unhealthyPipelines?.length ?? 0} unhealthy of {forgeFilteredPipelines?.length ??
+						0}.
 				{/if}
 			</p>
 			<Button variant="outline" size="sm" onclick={() => (showAll = !showAll)}>
@@ -160,7 +183,8 @@ function signalLabel(signal: string): string {
 
 		{#if !showAll && unhealthyPipelines?.length === 0}
 			<p class="mt-4 text-muted-foreground">
-				All {pipelines.length} {pipelines.length === 1 ? 'pipeline is' : 'pipelines are'} healthy.
+				All {forgeFilteredPipelines?.length ?? 0}
+				{forgeFilteredPipelines?.length === 1 ? 'pipeline is' : 'pipelines are'} healthy.
 			</p>
 		{:else}
 			<div class="mt-4 grid gap-8">
