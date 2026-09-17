@@ -55,6 +55,10 @@ await page.route('**/api/pipelines', (route) =>
 	}),
 );
 await page.reload();
+// #101 defaults the Pipelines list to unhealthy-only, which hides the
+// mocked healthy "CI"/"Nightly" pipelines below -- click through to the
+// full list the overview screenshot is meant to show.
+await page.getByRole('button', { name: 'Show all' }).click();
 await page.waitForSelector('text=CI');
 await page.screenshot({ path: OUT_DIR + 'screenshot-overview.png' });
 
@@ -142,6 +146,8 @@ await page.screenshot({ path: OUT_DIR + 'screenshot-usage.png' });
 // the two most visually distinct surfaces) --
 await page.evaluate(() => localStorage.setItem('theme', 'dark'));
 await page.goto(BASE_URL + '/');
+// Fresh navigation, so showAll (#101) is back to its unhealthy-only default.
+await page.getByRole('button', { name: 'Show all' }).click();
 await page.waitForSelector('text=CI');
 await page.screenshot({ path: OUT_DIR + 'screenshot-overview-dark.png' });
 
