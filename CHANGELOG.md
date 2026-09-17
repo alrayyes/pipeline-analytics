@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.25.0...v0.26.0) (2026-09-17)
+
+
+### Features
+
+* **dashboard-ui:** filter and sort the Pipelines list by repo, health, and last run ([#158](https://github.com/alrayyes/pipeline-analytics/issues/158)) ([ec70ca3](https://github.com/alrayyes/pipeline-analytics/commit/ec70ca38c372813585d1197b38dd477080b4bc2d))
+
 ## [0.25.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.24.1...v0.25.0) (2026-09-17)
 
 
