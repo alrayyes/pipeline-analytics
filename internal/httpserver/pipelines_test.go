@@ -206,6 +206,102 @@ func TestPipelineSteps(t *testing.T) {
 	})
 }
 
+func TestUnhealthySteps(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reports only flaky or failing steps, grouped by pipeline", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		run := seedRun(t, srv, repoID, "1", 0, 30)
+
+		job, err := srv.runStore.UpsertJob(context.Background(), ingestion.Job{
+			RunID:       run.ID,
+			ForgeJobID:  "100",
+			Name:        "build",
+			Status:      "completed",
+			Conclusion:  "failure",
+			QueuedAt:    at(0),
+			StartedAt:   at(0),
+			CompletedAt: at(30),
+			ForgeURL:    "https://github.com/alrayyes/pipeline-analytics/actions/runs/1/job/100",
+		})
+		require.NoError(t, err)
+
+		err = srv.runStore.ReplaceSteps(context.Background(), job.ID, []ingestion.Step{
+			{Number: 1, Name: "checkout", Status: "completed", Conclusion: "success", StartedAt: at(0), CompletedAt: at(1)},
+			{Number: 2, Name: "deploy", Status: "completed", Conclusion: "failure", StartedAt: at(1), CompletedAt: at(20)},
+		})
+		require.NoError(t, err)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/steps/unhealthy", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var groups []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &groups))
+		require.Len(t, groups, 1)
+		require.Equal(t, seedRunPipelineName, groups[0]["pipelineName"])
+		require.Equal(t, repoID, groups[0]["repoId"])
+
+		steps, _ := groups[0]["steps"].([]any)
+		require.Len(t, steps, 1) // "checkout" never failed, so it's excluded
+		step, _ := steps[0].(map[string]any)
+		require.Equal(t, "deploy", step["name"])
+	})
+
+	t.Run("no unhealthy steps anywhere reports an empty list", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		run := seedRun(t, srv, repoID, "1", 0, 30)
+
+		job, err := srv.runStore.UpsertJob(context.Background(), ingestion.Job{
+			RunID:       run.ID,
+			ForgeJobID:  "100",
+			Name:        "build",
+			Status:      "completed",
+			Conclusion:  "success",
+			QueuedAt:    at(0),
+			StartedAt:   at(0),
+			CompletedAt: at(30),
+			ForgeURL:    "https://github.com/alrayyes/pipeline-analytics/actions/runs/1/job/100",
+		})
+		require.NoError(t, err)
+
+		err = srv.runStore.ReplaceSteps(context.Background(), job.ID, []ingestion.Step{
+			{Number: 1, Name: "checkout", Status: "completed", Conclusion: "success", StartedAt: at(0), CompletedAt: at(1)},
+		})
+		require.NoError(t, err)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/steps/unhealthy", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var groups []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &groups))
+		require.Empty(t, groups)
+	})
+
+	t.Run("requires a session", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/steps/unhealthy", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}
+
 func TestRepoUsage(t *testing.T) {
 	t.Parallel()
 

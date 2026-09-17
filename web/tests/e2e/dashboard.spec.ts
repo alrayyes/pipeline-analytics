@@ -705,6 +705,47 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
 	await expect(page).toHaveURL('/');
 
+	// Cross-pipeline unhealthy-steps overview (#150) -- the same per-step
+	// health the pipeline detail page's own Steps table shows, aggregated
+	// across every tracked pipeline instead of scoped to one.
+	await page.route('**/api/steps/unhealthy', (route) =>
+		route.fulfill({
+			json: [
+				{
+					pipelineId: 'unhealthy-1',
+					pipelineName: 'Deploy',
+					repoId: 'repo-1',
+					steps: [
+						{
+							id: 'step-2',
+							name: 'flaky integration test',
+							durationContributionSeconds: 120,
+							failureRate: 0.3,
+							flaky: true,
+							forgeUrl: 'https://forge.example/owner/repo/actions/runs/1/job/2',
+						},
+					],
+				},
+			],
+		}),
+	);
+	await page.getByRole('link', { name: 'Steps' }).click();
+	await expect(page).toHaveURL('/steps');
+	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
+	await expect(
+		page.getByRole('cell', { name: 'flaky integration test' }),
+	).toBeVisible();
+	await expect(page.getByText('flaky', { exact: true })).toBeVisible();
+
+	const stepsOverviewScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(stepsOverviewScan.violations).toEqual([]);
+
+	await page.unroute('**/api/steps/unhealthy');
+	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
+	await expect(page).toHaveURL('/');
+
 	// Release history (task: footer/releases layout fix) -- the page fetches
 	// GitHub's own releases API directly, no backend proxy, so that's what
 	// gets mocked here rather than an internal endpoint.

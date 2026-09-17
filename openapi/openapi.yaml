@@ -235,6 +235,27 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/steps/unhealthy:
+    get:
+      operationId: listUnhealthySteps
+      summary: Every flaky or failing step across every tracked pipeline, grouped by pipeline
+      tags: [pipelines]
+      parameters:
+        - $ref: "#/components/parameters/Window"
+      responses:
+        "200":
+          description: >
+            One entry per pipeline with at least one flaky or failing step; a
+            fully healthy pipeline contributes nothing.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineStepsGroup"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/auth/register/options:
     post:
       operationId: webauthnRegisterOptions
@@ -642,6 +663,21 @@ components:
           type: string
           format: uri
           description: Deep link to this step's log on the originating forge.
+
+    PipelineStepsGroup:
+      type: object
+      required: [pipelineId, pipelineName, repoId, steps]
+      properties:
+        pipelineId:
+          type: string
+        pipelineName:
+          type: string
+        repoId:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/Step"
 
     UsageEntry:
       type: object

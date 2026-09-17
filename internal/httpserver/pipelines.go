@@ -153,6 +153,45 @@ func (h *pipelinesHandler) steps(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dtos)
 }
 
+type pipelineStepsGroupDTO struct {
+	PipelineID   string    `json:"pipelineId"`
+	PipelineName string    `json:"pipelineName"`
+	RepoID       string    `json:"repoId"`
+	Steps        []stepDTO `json:"steps"`
+}
+
+// unhealthySteps returns every flaky or failing step across every tracked
+// pipeline, grouped by pipeline -- the cross-pipeline counterpart to steps,
+// which is scoped to one pipeline.
+func (h *pipelinesHandler) unhealthySteps(w http.ResponseWriter, r *http.Request) {
+	window := metrics.ParseWindow(r.URL.Query().Get("window"))
+
+	groups, err := h.service.ListUnhealthySteps(r.Context(), window)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "list unhealthy steps")
+
+		return
+	}
+
+	dtos := make([]pipelineStepsGroupDTO, 0, len(groups))
+
+	for _, g := range groups {
+		steps := make([]stepDTO, 0, len(g.Steps))
+		for _, s := range g.Steps {
+			steps = append(steps, toStepDTO(s))
+		}
+
+		dtos = append(dtos, pipelineStepsGroupDTO{
+			PipelineID:   string(g.PipelineID),
+			PipelineName: g.PipelineName,
+			RepoID:       g.RepoID,
+			Steps:        steps,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, dtos)
+}
+
 type usageEntryDTO struct {
 	Workflow      string  `json:"workflow"`
 	RunnerMinutes float64 `json:"runnerMinutes"`

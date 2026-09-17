@@ -346,6 +346,77 @@ func TestService_GetPipelineSteps(t *testing.T) {
 	})
 }
 
+func TestService_ListUnhealthySteps(t *testing.T) {
+	t.Parallel()
+
+	t.Run("only flaky or failing steps show, grouped by pipeline", func(t *testing.T) {
+		t.Parallel()
+
+		flakyPipeline := metrics.PipelineRef{RepoID: "repo-1", Name: "CI"}
+		healthyPipeline := metrics.PipelineRef{RepoID: "repo-1", Name: "Lint"}
+		failingPipeline := metrics.PipelineRef{RepoID: "repo-2", Name: "Deploy"}
+
+		store := &fakeStore{
+			pipelines: []metrics.PipelineRef{flakyPipeline, healthyPipeline, failingPipeline},
+			steps: map[metrics.PipelineRef][]metrics.StepOccurrence{
+				flakyPipeline: {
+					{Name: "flaky-test", Status: "completed", Conclusion: "success", StartedAt: t1(0), CompletedAt: t1(1)},
+					{Name: "flaky-test", Status: "completed", Conclusion: "failure", StartedAt: t1(0), CompletedAt: t1(1)},
+					{Name: "solid-test", Status: "completed", Conclusion: "success", StartedAt: t1(0), CompletedAt: t1(1)},
+				},
+				healthyPipeline: {
+					{Name: "lint", Status: "completed", Conclusion: "success", StartedAt: t1(0), CompletedAt: t1(1)},
+				},
+				failingPipeline: {
+					{Name: "push-image", Status: "completed", Conclusion: "failure", StartedAt: t1(0), CompletedAt: t1(1)},
+				},
+			},
+		}
+
+		service := metrics.NewService(store)
+		groups, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10})
+		require.NoError(t, err)
+		require.Len(t, groups, 2)
+
+		byPipeline := map[string]metrics.PipelineStepsGroup{}
+		for _, g := range groups {
+			byPipeline[g.PipelineName] = g
+		}
+
+		_, healthyPresent := byPipeline["Lint"]
+		require.False(t, healthyPresent)
+
+		ciGroup := byPipeline["CI"]
+		require.Equal(t, "repo-1", ciGroup.RepoID)
+		require.Len(t, ciGroup.Steps, 1)
+		require.Equal(t, "flaky-test", ciGroup.Steps[0].Name)
+		require.True(t, ciGroup.Steps[0].Flaky)
+
+		deployGroup := byPipeline["Deploy"]
+		require.Equal(t, "repo-2", deployGroup.RepoID)
+		require.Len(t, deployGroup.Steps, 1)
+		require.Equal(t, "push-image", deployGroup.Steps[0].Name)
+		require.InDelta(t, 1.0, deployGroup.Steps[0].FailureRate, 0.001)
+	})
+
+	t.Run("no unhealthy steps anywhere reports an empty list", func(t *testing.T) {
+		t.Parallel()
+
+		ref := metrics.PipelineRef{RepoID: "repo-1", Name: "CI"}
+		store := &fakeStore{
+			pipelines: []metrics.PipelineRef{ref},
+			steps: map[metrics.PipelineRef][]metrics.StepOccurrence{
+				ref: {{Name: "lint", Status: "completed", Conclusion: "success", StartedAt: t1(0), CompletedAt: t1(1)}},
+			},
+		}
+
+		service := metrics.NewService(store)
+		groups, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10})
+		require.NoError(t, err)
+		require.Empty(t, groups)
+	})
+}
+
 func TestService_GetRepoUsage(t *testing.T) {
 	t.Parallel()
 
