@@ -5,7 +5,6 @@
 
 ### Features
 
-* **web:** add humans.txt ([6579b70](https://github.com/alrayyes/pipeline-analytics/commit/6579b708f341da067648c84aa79bed7bd4e97edb))
 * **web:** add humans.txt ([604c13f](https://github.com/alrayyes/pipeline-analytics/commit/604c13f4dd553166585f939c86e7694ad42f7a6f)), closes [#175](https://github.com/alrayyes/pipeline-analytics/issues/175)
 
 ## [0.28.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.28.0...v0.28.1) (2026-09-17)
@@ -13,9 +12,7 @@
 
 ### Bug Fixes
 
-* **e2e:** give every test its own isolated server instead of one shared ([2fc3322](https://github.com/alrayyes/pipeline-analytics/commit/2fc3322d2e464844a95bcd2fff0cc2bfd6f55954))
 * **e2e:** give every test its own isolated server instead of one shared ([debb96f](https://github.com/alrayyes/pipeline-analytics/commit/debb96f58a2e31ccbf3b813885da5e2e1e397765)), closes [#168](https://github.com/alrayyes/pipeline-analytics/issues/168)
-* **nav:** collapse the header behind a menu toggle on phone widths ([115d31a](https://github.com/alrayyes/pipeline-analytics/commit/115d31ae741f885e746ea963316fc6b00a3f6d8a))
 * **nav:** collapse the header behind a menu toggle on phone widths ([2e7b290](https://github.com/alrayyes/pipeline-analytics/commit/2e7b290e2da0495ba9875f30cb274fd46382d28d)), closes [#171](https://github.com/alrayyes/pipeline-analytics/issues/171)
 * **web:** add @types/node for the e2e helpers' node: imports ([7890e6a](https://github.com/alrayyes/pipeline-analytics/commit/7890e6ac18971c155de141bb94f49a56440ef418))
 
