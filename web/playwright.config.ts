@@ -6,15 +6,12 @@ export default defineConfig({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+	// Builds the frontend and the Go binary once; each test then starts its
+	// own server from that binary via the baseURL fixture in fixtures.ts,
+	// rather than the whole run sharing one server process (#168).
+	globalSetup: './tests/e2e/global-setup.ts',
 	use: {
-		baseURL: 'http://localhost:4173',
 		trace: 'retain-on-failure',
 	},
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-	webServer: {
-		command: './tests/e2e/start-server.sh',
-		url: 'http://localhost:4173/healthz',
-		reuseExistingServer: !process.env.CI,
-		timeout: 60_000,
-	},
 });
