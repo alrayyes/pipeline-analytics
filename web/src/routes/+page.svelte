@@ -165,21 +165,23 @@ function signalLabel(signal: string): string {
 		{:else}
 			<div class="mt-4 grid gap-8">
 				{#each groupedPipelines as group (group.repoId)}
-					<section>
+					<section class="min-w-0">
 						<div class="mb-3 flex items-center gap-2">
-							<h2 class="text-sm font-semibold text-muted-foreground">{group.label}</h2>
+							<h2 class="min-w-0 truncate text-sm font-semibold text-muted-foreground">
+								{group.label}
+							</h2>
 							{#if group.forge}
 								<Badge variant="outline">{FORGE_LABELS[group.forge] ?? group.forge}</Badge>
 							{/if}
 						</div>
 						<ul class="grid gap-4">
 							{#each group.pipelines as pipeline (pipeline.id)}
-								<li>
+								<li class="min-w-0">
 									<a href="/pipelines/{pipeline.id}" class="block">
-										<Card class="transition-colors hover:border-primary">
+										<Card class="min-w-0 transition-colors hover:border-primary">
 											<CardHeader class="flex flex-row items-center justify-between">
 												<CardTitle class="contents">
-													<h3>{pipeline.name}</h3>
+													<h3 class="min-w-0 truncate">{pipeline.name}</h3>
 												</CardTitle>
 												<Badge
 													variant={pipeline.healthStatus === 'healthy'
