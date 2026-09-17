@@ -1,5 +1,12 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
+import { Button } from '$lib/components/ui/button/index.js';
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from '$lib/components/ui/card/index.js';
 
 type Mode = 'checking' | 'register' | 'login' | 'unreachable';
 
@@ -134,23 +141,32 @@ async function handleLogin(): Promise<void> {
 	<title>Log in · pipeline-analytics</title>
 </svelte:head>
 
-<main>
-	<h1>pipeline-analytics</h1>
+<main class="mx-auto flex min-h-svh max-w-sm flex-col justify-center px-4 py-8">
+	<Card>
+		<CardHeader>
+			<CardTitle class="text-2xl">pipeline-analytics</CardTitle>
+		</CardHeader>
+		<CardContent class="grid gap-4">
+			{#if mode === 'checking'}
+				<p class="text-sm text-muted-foreground">Checking account status…</p>
+			{:else if mode === 'unreachable'}
+				<p role="alert" class="text-sm text-destructive">
+					Could not reach the server. Try reloading the page.
+				</p>
+			{:else if mode === 'register'}
+				<p class="text-sm text-muted-foreground">
+					No account has been registered yet. Register a passkey to get started.
+				</p>
+				<Button type="button" onclick={handleRegister} disabled={busy}>
+					{busy ? 'Registering…' : 'Register your passkey'}
+				</Button>
+			{:else if mode === 'login'}
+				<Button type="button" onclick={handleLogin} disabled={busy}>
+					{busy ? 'Logging in…' : 'Log in with passkey'}
+				</Button>
+			{/if}
 
-	{#if mode === 'checking'}
-		<p>Checking account status…</p>
-	{:else if mode === 'unreachable'}
-		<p role="alert">Could not reach the server. Try reloading the page.</p>
-	{:else if mode === 'register'}
-		<p>No account has been registered yet. Register a passkey to get started.</p>
-		<button type="button" onclick={handleRegister} disabled={busy}>
-			{busy ? 'Registering…' : 'Register your passkey'}
-		</button>
-	{:else if mode === 'login'}
-		<button type="button" onclick={handleLogin} disabled={busy}>
-			{busy ? 'Logging in…' : 'Log in with passkey'}
-		</button>
-	{/if}
-
-	<p role="alert" aria-live="polite">{error ?? ''}</p>
+			<p role="alert" aria-live="polite" class="text-sm text-destructive">{error ?? ''}</p>
+		</CardContent>
+	</Card>
 </main>
