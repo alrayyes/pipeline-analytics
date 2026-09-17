@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.29.1...v0.29.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **docs:** scope the screenshot capture script's health-filter click ([#183](https://github.com/alrayyes/pipeline-analytics/issues/183)) ([74ca888](https://github.com/alrayyes/pipeline-analytics/commit/74ca888306b46e3c70cb8d17b71ddc3e2afc2fd0)), closes [#182](https://github.com/alrayyes/pipeline-analytics/issues/182)
+
 ## [0.29.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.29.0...v0.29.1) (2026-09-17)
 
 
