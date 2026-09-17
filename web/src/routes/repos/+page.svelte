@@ -247,32 +247,31 @@ function goToNextPage(): void {
 // change (not just re-running for some other reason) is the only thing
 // that resets the page -- changing forge with the reader on page 2+ (#141)
 // shouldn't leave them on an offset the newly-filtered result set might not
-// even reach.
+// even reach. Kept as its own effect, separate from the one that actually
+// fetches below, rather than one effect trying to detect-and-fetch in a
+// single pass with an early return -- that shape relied on the offset
+// write it made retriggering its own next run to do the actual fetch,
+// which is exactly the kind of self-retrigger that's easy to get wrong.
 let previousFilter: ReturnType<typeof getForgeFilter> | undefined;
 
-// Reload with the new filter and page applied server-side rather than
-// hiding rows client-side -- getForgeFilter() and offset read here are what
-// make this effect re-run whenever the shared filter changes (including
-// from the Pipelines list page's own control) or the page control moves,
-// and it also covers the initial load, replacing a separate
-// onMount(loadRepos).
 $effect(() => {
 	const filter = getForgeFilter();
-	const currentOffset = offset;
 
 	if (filter !== previousFilter) {
 		previousFilter = filter;
-
-		if (currentOffset !== 0) {
-			// Setting offset back to 0 re-triggers this effect, which then
-			// runs again with previousFilter already caught up -- that
-			// second run is the one that actually fetches.
-			offset = 0;
-
-			return;
-		}
+		offset = 0;
 	}
+});
 
+// Reload with the current filter and page applied server-side rather than
+// hiding rows client-side -- getForgeFilter() and offset read here are what
+// make this effect re-run whenever the shared filter changes (including
+// from the Pipelines list page's own control, or the reset above) or the
+// page control moves, and it also covers the initial load, replacing a
+// separate onMount(loadRepos).
+$effect(() => {
+	getForgeFilter();
+	offset;
 	loadRepos();
 });
 
