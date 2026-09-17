@@ -499,7 +499,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 				},
 				{
 					id: 'step-2',
-					name: 'flaky integration test',
+					name: 'Install dependencies and run the full integration test suite with coverage',
 					durationContributionSeconds: 120,
 					queueSeconds: 5,
 					execSeconds: 115,
@@ -534,7 +534,10 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// visually distinguishable from the consistently-failing one.
 	const stepRows = page.getByRole('row');
 	await expect(stepRows.nth(1)).toContainText('run tests');
-	const flakyRow = stepRows.filter({ hasText: 'flaky integration test' });
+	const flakyRow = stepRows.filter({
+		hasText:
+			'Install dependencies and run the full integration test suite with coverage',
+	});
 	await expect(flakyRow.getByText('flaky', { exact: true })).toBeVisible();
 	const failingRow = stepRows.filter({ hasText: 'deploy to prod' });
 	await expect(failingRow.getByText('failing', { exact: true })).toBeVisible();
@@ -542,6 +545,25 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// rather than an empty Status cell (#101).
 	const passingRow = stepRows.filter({ hasText: 'run tests' });
 	await expect(passingRow.getByText('passing', { exact: true })).toBeVisible();
+
+	// #148: a realistically long step name (this fixture's "Install
+	// dependencies..." step) shouldn't force the Steps table's own
+	// overflow-x-auto container to actually scroll, on an ordinary desktop
+	// viewport -- the long name is meant to truncate within its own column
+	// instead of widening the whole table.
+	const stepsOverflow = await page.evaluate(() => {
+		const tableContainer = document.querySelector(
+			'[data-slot="table-container"]',
+		);
+
+		return {
+			scrollWidth: tableContainer?.scrollWidth ?? 0,
+			clientWidth: tableContainer?.clientWidth ?? 0,
+		};
+	});
+	expect(stepsOverflow.scrollWidth).toBeLessThanOrEqual(
+		stepsOverflow.clientWidth,
+	);
 
 	// Deep link to the originating forge (5.6).
 	const forgeLink = page.getByRole('link', { name: 'View on forge' });

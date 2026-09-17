@@ -281,7 +281,9 @@ function failureRateSeries(trend: Trend) {
 												}
 											: undefined}
 									>
-										<TableCell class="font-medium">{step.name}</TableCell>
+										<TableCell class="max-w-[16rem] truncate font-medium" title={step.name}>
+											{step.name}
+										</TableCell>
 										<TableCell>{formatSeconds(step.durationContributionSeconds)}</TableCell>
 										<TableCell>
 											{formatSeconds(step.queueSeconds)} / {formatSeconds(step.execSeconds)}
