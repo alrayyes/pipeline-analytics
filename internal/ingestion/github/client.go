@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
@@ -31,6 +32,12 @@ var ErrUnexpectedStatus = errors.New("unexpected status")
 // Client is the GitHub-backed ingestion.ForgeClient.
 type Client struct {
 	baseURL *url.URL
+
+	// rateLimitsMu guards rateLimits, keyed by token -- reconciliation
+	// polling and the registration UI's discover/webhook calls can run
+	// concurrently against the same shared Client.
+	rateLimitsMu sync.RWMutex
+	rateLimits   map[string]ingestion.RateLimitSnapshot
 }
 
 // NewClient returns a Client. baseURL overrides the GitHub API endpoint
@@ -261,6 +268,8 @@ func (c *Client) conditionalGet(ctx context.Context, url, token, ifNoneMatch str
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	c.recordRateLimit(token, resp.Header)
+
 	if resp.StatusCode == http.StatusNotModified {
 		return "", true, nil
 	}
@@ -274,6 +283,51 @@ func (c *Client) conditionalGet(ctx context.Context, url, token, ifNoneMatch str
 	}
 
 	return resp.Header.Get("ETag"), false, nil
+}
+
+// RateLimitFor implements ingestion.RateLimitReporter.
+func (c *Client) RateLimitFor(token string) (ingestion.RateLimitSnapshot, bool) {
+	c.rateLimitsMu.RLock()
+	defer c.rateLimitsMu.RUnlock()
+
+	snapshot, ok := c.rateLimits[token]
+
+	return snapshot, ok
+}
+
+// recordRateLimit captures the X-RateLimit-* headers GitHub sends on every
+// REST API response (200 or 304 alike) -- the recommended way to track
+// rate-limit usage, per GitHub's own guidance ("you should use the rate
+// limit response headers instead of calling the API to check your rate
+// limit": docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+// A response missing or malformed headers (a non-GitHub fake server in a
+// test, say) is silently ignored rather than erroring the caller's request.
+func (c *Client) recordRateLimit(token string, header http.Header) {
+	limit, errLimit := strconv.Atoi(header.Get("X-RateLimit-Limit"))
+	remaining, errRemaining := strconv.Atoi(header.Get("X-RateLimit-Remaining"))
+	used, errUsed := strconv.Atoi(header.Get("X-RateLimit-Used"))
+	resetUnix, errReset := strconv.ParseInt(header.Get("X-RateLimit-Reset"), 10, 64)
+
+	if errLimit != nil || errRemaining != nil || errUsed != nil || errReset != nil {
+		return
+	}
+
+	snapshot := ingestion.RateLimitSnapshot{
+		Limit:     limit,
+		Remaining: remaining,
+		Used:      used,
+		Resource:  header.Get("X-RateLimit-Resource"),
+		ResetAt:   time.Unix(resetUnix, 0),
+	}
+
+	c.rateLimitsMu.Lock()
+	defer c.rateLimitsMu.Unlock()
+
+	if c.rateLimits == nil {
+		c.rateLimits = make(map[string]ingestion.RateLimitSnapshot)
+	}
+
+	c.rateLimits[token] = snapshot
 }
 
 func (c *Client) baseURLString() string {
