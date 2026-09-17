@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.26.0...v0.27.0) (2026-09-17)
+
+
+### Features
+
+* **dashboard-ui:** add a cross-pipeline overview of unhealthy steps ([#159](https://github.com/alrayyes/pipeline-analytics/issues/159)) ([38f0aac](https://github.com/alrayyes/pipeline-analytics/commit/38f0aac444cd490b734e1fb4e149cd7d14a1bf28)), closes [#150](https://github.com/alrayyes/pipeline-analytics/issues/150)
+
 ## [0.26.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.25.0...v0.26.0) (2026-09-17)
 
 
