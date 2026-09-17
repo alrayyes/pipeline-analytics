@@ -209,6 +209,32 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/insights/github-rate-limit:
+    get:
+      operationId: getGitHubRateLimitInsights
+      summary: GitHub REST API rate-limit usage, grouped by token
+      description: >
+        One entry per distinct GitHub token this app holds (not per repo --
+        the same token often tracks more than one repo), with the repos it
+        covers and the token's most recently observed rate-limit status.
+        That status is read from a real API response's X-RateLimit-*
+        headers rather than a dedicated poll, per GitHub's own guidance
+        (docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
+        -- `status` is absent until a request has actually been made with
+        that token (reconciliation polling, or webhook/discovery calls).
+      tags: [insights]
+      responses:
+        "200":
+          description: GitHub token usage
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GitHubTokenUsage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/auth/register/options:
     post:
       operationId: webauthnRegisterOptions
@@ -621,6 +647,36 @@ components:
           type: string
         runnerMinutes:
           type: number
+
+    RateLimitStatus:
+      type: object
+      required: [limit, remaining, used, resetAt]
+      properties:
+        limit:
+          type: integer
+          description: Requests allowed per hour for this resource (usually "core").
+        remaining:
+          type: integer
+        used:
+          type: integer
+        resetAt:
+          type: string
+          format: date-time
+
+    GitHubTokenUsage:
+      type: object
+      required: [tokenMasked, repos]
+      properties:
+        tokenMasked:
+          type: string
+          description: Last four characters only, e.g. "****1234".
+        repos:
+          type: array
+          items:
+            type: string
+          description: "owner/name identifiers of every repo tracked under this token."
+        status:
+          $ref: "#/components/schemas/RateLimitStatus"
 
     WebAuthnCreationOptions:
       type: object

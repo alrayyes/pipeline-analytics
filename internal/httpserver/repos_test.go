@@ -24,6 +24,13 @@ type fakeForgeClient struct {
 	err             error
 	discoveredRepos []string
 	discoverErr     error
+	rateLimits      map[string]ingestion.RateLimitSnapshot
+}
+
+func (f *fakeForgeClient) RateLimitFor(token string) (ingestion.RateLimitSnapshot, bool) {
+	snapshot, ok := f.rateLimits[token]
+
+	return snapshot, ok
 }
 
 func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhookRequest) error {

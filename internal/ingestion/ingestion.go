@@ -109,6 +109,26 @@ type ForgeClient interface {
 	ListAccessibleRepos(ctx context.Context, req ListAccessibleReposRequest) ([]string, error)
 }
 
+// RateLimitSnapshot is a forge API's most recently observed rate-limit
+// status for one token.
+type RateLimitSnapshot struct {
+	Limit     int
+	Remaining int
+	Used      int
+	Resource  string
+	ResetAt   time.Time
+}
+
+// RateLimitReporter is implemented by a ForgeClient that can report the
+// rate-limit status it last observed a token being given, read from a real
+// response's headers rather than a dedicated poll -- GitHub only; Forgejo
+// has no equivalent concept and its ForgeClient doesn't implement this.
+type RateLimitReporter interface {
+	// RateLimitFor returns the token's most recently observed status. ok is
+	// false if this token hasn't been used on a request yet.
+	RateLimitFor(token string) (snapshot RateLimitSnapshot, ok bool)
+}
+
 // ListAccessibleReposRequest is what ListAccessibleRepos needs to ask a
 // forge which repos a token can reach.
 type ListAccessibleReposRequest struct {
