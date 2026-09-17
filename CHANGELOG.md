@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.28.1...v0.29.0) (2026-09-17)
+
+
+### Features
+
+* **web:** add humans.txt ([6579b70](https://github.com/alrayyes/pipeline-analytics/commit/6579b708f341da067648c84aa79bed7bd4e97edb))
+* **web:** add humans.txt ([604c13f](https://github.com/alrayyes/pipeline-analytics/commit/604c13f4dd553166585f939c86e7694ad42f7a6f)), closes [#175](https://github.com/alrayyes/pipeline-analytics/issues/175)
+
 ## [0.28.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.28.0...v0.28.1) (2026-09-17)
 
 
