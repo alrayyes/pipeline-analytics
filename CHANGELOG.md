@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.27.1...v0.28.0) (2026-09-17)
+
+
+### Features
+
+* **openapi:** document pagination on GET /api/repos ([#165](https://github.com/alrayyes/pipeline-analytics/issues/165)) ([75d7743](https://github.com/alrayyes/pipeline-analytics/commit/75d774312b266e106bb8dbdd263cdf0fea40cc79))
+
 ## [0.27.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.27.0...v0.27.1) (2026-09-17)
 
 
