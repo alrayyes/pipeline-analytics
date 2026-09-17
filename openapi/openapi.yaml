@@ -38,15 +38,17 @@ paths:
       operationId: listRepos
       summary: List tracked repositories
       tags: [repos]
+      parameters:
+        - $ref: "#/components/parameters/RepoForgeFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
         "200":
-          description: Tracked repositories
+          description: A page of tracked repositories
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Repo"
+                $ref: "#/components/schemas/RepoList"
         "401":
           $ref: "#/components/responses/Unauthorized"
     post:
@@ -474,6 +476,30 @@ components:
       description: Trailing run count or duration the trend/ranking is computed over. Defaults to a server-chosen rolling window.
       schema:
         type: string
+    RepoForgeFilter:
+      name: forge
+      in: query
+      required: false
+      description: Restrict the list to one forge. Omitted returns every forge.
+      schema:
+        $ref: "#/components/schemas/Forge"
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Max items to return. Omitted returns every matching item, unpaginated.
+      schema:
+        type: integer
+        minimum: 1
+    Offset:
+      name: offset
+      in: query
+      required: false
+      description: Items to skip before the returned page.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
 
   responses:
     BadRequest:
@@ -550,6 +576,18 @@ components:
         ingestionStatusReason:
           type: string
           description: Set when ingestionStatus is degraded.
+
+    RepoList:
+      type: object
+      required: [repos, hasMore]
+      properties:
+        repos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Repo"
+        hasMore:
+          type: boolean
+          description: True when repos beyond this page match the filter. Always false when limit was omitted.
 
     RepoRegistration:
       type: object
