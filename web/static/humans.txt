@@ -1,0 +1,8 @@
+/* TEAM */
+Maintainer: alrayyes
+Site: https://github.com/alrayyes/pipeline-analytics
+
+/* SITE */
+Language: Go, TypeScript
+Framework: SvelteKit
+Storage: SQLite
