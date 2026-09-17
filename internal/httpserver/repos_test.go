@@ -47,6 +47,14 @@ func (f *fakeForgeClient) ListAccessibleRepos(context.Context, ingestion.ListAcc
 
 var testAssets fs.FS = fstest.MapFS{"index.html": {Data: []byte("<html></html>")}}
 
+// repoListResponse mirrors the handler's wrapped GET /api/repos response
+// shape, kept loose (map per repo) since these tests only assert on a
+// handful of fields.
+type repoListResponse struct {
+	Repos   []map[string]any `json:"repos"`
+	HasMore bool             `json:"hasMore"`
+}
+
 // testServer is an httpserver.New() instance plus a ready-made session
 // cookie for tests that need to call a gated endpoint.
 type testServer struct {
@@ -318,9 +326,10 @@ func TestReposRegisterAndList(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var got []map[string]any
+		var got repoListResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-		require.Len(t, got, 1)
+		require.False(t, got.HasMore)
+		require.Len(t, got.Repos, 1)
 	})
 
 	t.Run("list filters by the forge query param", func(t *testing.T) {
@@ -350,10 +359,55 @@ func TestReposRegisterAndList(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var got []map[string]any
+		var got repoListResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-		require.Len(t, got, 1)
-		require.Equal(t, "github", got[0]["forge"])
+		require.Len(t, got.Repos, 1)
+		require.Equal(t, "github", got.Repos[0]["forge"])
+	})
+
+	t.Run("list paginates with limit and offset", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		register := func(identifier string) {
+			t.Helper()
+
+			body, err := json.Marshal(map[string]string{
+				"forge":      "github",
+				"identifier": identifier,
+				"token":      "ghp_supersecrettoken1234",
+			})
+			require.NoError(t, err)
+
+			req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+			srv.ServeHTTP(httptest.NewRecorder(), req)
+		}
+		register("alrayyes/repo-0")
+		register("alrayyes/repo-1")
+		register("alrayyes/repo-2")
+
+		firstPage := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos?limit=2&offset=0", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, firstPage)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got repoListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.True(t, got.HasMore)
+		require.Len(t, got.Repos, 2)
+
+		secondPage := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos?limit=2&offset=2", nil))
+		rec = httptest.NewRecorder()
+		srv.ServeHTTP(rec, secondPage)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		got = repoListResponse{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.False(t, got.HasMore)
+		require.Len(t, got.Repos, 1)
 	})
 }
 
@@ -391,9 +445,9 @@ func TestReposUntrack(t *testing.T) {
 		getRec := httptest.NewRecorder()
 		srv.ServeHTTP(getRec, getReq)
 
-		var got []map[string]any
+		var got repoListResponse
 		require.NoError(t, json.Unmarshal(getRec.Body.Bytes(), &got))
-		require.Empty(t, got)
+		require.Empty(t, got.Repos)
 	})
 
 	t.Run("untracking an unknown repo returns 404", func(t *testing.T) {

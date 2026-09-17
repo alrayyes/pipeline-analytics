@@ -55,6 +55,13 @@ interface Repo {
 	ingestionStatusReason?: string;
 }
 
+interface RepoListResponse {
+	repos: Repo[];
+	hasMore: boolean;
+}
+
+const PAGE_SIZE = 20;
+
 const FORGE_LABELS: Record<string, string> = {
 	github: 'GitHub',
 	forgejo: 'Forgejo',
@@ -73,6 +80,8 @@ const STATUS_VARIANTS: Record<string, 'default' | 'destructive' | 'outline'> = {
 
 let repos = $state<Repo[] | null>(null);
 let error = $state<string | null>(null);
+let offset = $state(0);
+let hasMore = $state(false);
 
 interface RepoGroup {
 	forge: 'github' | 'forgejo';
@@ -203,27 +212,66 @@ let untrackError = $state<string | null>(null);
 async function loadRepos(): Promise<void> {
 	try {
 		const filter = getForgeFilter();
-		const query = filter === 'all' ? '' : `?forge=${filter}`;
-		const res = await fetch(`/api/repos${query}`);
+		const params = new URLSearchParams({
+			limit: String(PAGE_SIZE),
+			offset: String(offset),
+		});
+		if (filter !== 'all') params.set('forge', filter);
+
+		const res = await fetch(`/api/repos?${params}`);
 		if (!res.ok) {
 			error = 'Could not load repositories.';
 
 			return;
 		}
 
-		repos = await res.json();
+		const body: RepoListResponse = await res.json();
+		repos = body.repos;
+		hasMore = body.hasMore;
 	} catch {
 		error = 'Could not reach the server.';
 	}
 }
 
-// Reload with the new filter applied server-side rather than hiding rows
-// client-side -- getForgeFilter() read here is what makes this effect
-// re-run whenever the shared filter changes (including from the Pipelines
-// list page's own control), and it also covers the initial load, replacing
-// a separate onMount(loadRepos).
+function goToPreviousPage(): void {
+	offset = Math.max(0, offset - PAGE_SIZE);
+}
+
+function goToNextPage(): void {
+	if (!hasMore) return;
+
+	offset += PAGE_SIZE;
+}
+
+// Tracks the filter's previous value across effect runs so a real filter
+// change (not just re-running for some other reason) is the only thing
+// that resets the page -- changing forge with the reader on page 2+ (#141)
+// shouldn't leave them on an offset the newly-filtered result set might not
+// even reach. Kept as its own effect, separate from the one that actually
+// fetches below, rather than one effect trying to detect-and-fetch in a
+// single pass with an early return -- that shape relied on the offset
+// write it made retriggering its own next run to do the actual fetch,
+// which is exactly the kind of self-retrigger that's easy to get wrong.
+let previousFilter: ReturnType<typeof getForgeFilter> | undefined;
+
+$effect(() => {
+	const filter = getForgeFilter();
+
+	if (filter !== previousFilter) {
+		previousFilter = filter;
+		offset = 0;
+	}
+});
+
+// Reload with the current filter and page applied server-side rather than
+// hiding rows client-side -- getForgeFilter() and offset read here are what
+// make this effect re-run whenever the shared filter changes (including
+// from the Pipelines list page's own control, or the reset above) or the
+// page control moves, and it also covers the initial load, replacing a
+// separate onMount(loadRepos).
 $effect(() => {
 	getForgeFilter();
+	offset;
 	loadRepos();
 });
 
@@ -627,7 +675,7 @@ async function handleUntrack(): Promise<void> {
 		<p role="alert" class="mt-6 text-destructive">{error}</p>
 	{:else if repos === null}
 		<p class="mt-6 text-muted-foreground">Loading…</p>
-	{:else if repos.length === 0}
+	{:else if repos.length === 0 && offset === 0}
 		<p class="mt-6 text-muted-foreground">No repositories tracked yet.</p>
 	{:else}
 		<div class="mt-6 grid gap-8">
@@ -674,6 +722,20 @@ async function handleUntrack(): Promise<void> {
 					</Table>
 				</section>
 			{/each}
+		</div>
+
+		<div class="mt-6 flex items-center justify-between gap-4">
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={offset === 0}
+				onclick={goToPreviousPage}
+			>
+				Previous
+			</Button>
+			<Button variant="outline" size="sm" disabled={!hasMore} onclick={goToNextPage}>
+				Next
+			</Button>
 		</div>
 	{/if}
 </main>

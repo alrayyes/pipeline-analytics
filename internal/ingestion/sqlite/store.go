@@ -69,13 +69,30 @@ func (s *Store) CreateRepo(ctx context.Context, repo ingestion.NewRepo) (ingesti
 }
 
 // ListRepos implements ingestion.Store.
-func (s *Store) ListRepos(ctx context.Context) ([]ingestion.Repo, error) {
-	rows, err := s.db.QueryContext(ctx, `
+func (s *Store) ListRepos(ctx context.Context, filter ingestion.RepoListFilter) ([]ingestion.Repo, bool, error) {
+	query := `
 		SELECT id, forge, identifier, forgejo_instance_url, token_masked, webhook_secret, ingestion_status, ingestion_status_reason, reconcile_etag, created_at
-		FROM repos ORDER BY created_at
-	`)
+		FROM repos
+	`
+	args := []any{}
+
+	if filter.Forge != "" {
+		query += " WHERE forge = ?"
+		args = append(args, string(filter.Forge))
+	}
+
+	query += " ORDER BY created_at, id"
+
+	// Fetching one extra row is what tells the caller whether a next page
+	// exists, without a separate COUNT(*) round trip.
+	if filter.Limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		args = append(args, filter.Limit+1, filter.Offset)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query repos: %w", err)
+		return nil, false, fmt.Errorf("query repos: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -84,17 +101,22 @@ func (s *Store) ListRepos(ctx context.Context) ([]ingestion.Repo, error) {
 	for rows.Next() {
 		repo, err := scanRepo(rows)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		repos = append(repos, repo)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate repos: %w", err)
+		return nil, false, fmt.Errorf("iterate repos: %w", err)
 	}
 
-	return repos, nil
+	hasMore := filter.Limit > 0 && len(repos) > filter.Limit
+	if hasMore {
+		repos = repos[:filter.Limit]
+	}
+
+	return repos, hasMore, nil
 }
 
 // ErrRepoNotFound is returned when no repo matches the requested id.

@@ -2,6 +2,7 @@ package sqlite_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/alrayyes/pipeline-analytics/internal/db"
@@ -100,8 +101,9 @@ func TestStore_ListAndGetRepo(t *testing.T) {
 	t.Run("list includes the created repo", func(t *testing.T) {
 		t.Parallel()
 
-		repos, err := store.ListRepos(ctx)
+		repos, hasMore, err := store.ListRepos(ctx, ingestion.RepoListFilter{})
 		require.NoError(t, err)
+		require.False(t, hasMore)
 		require.Len(t, repos, 1)
 		require.Equal(t, created.ID, repos[0].ID)
 		require.Equal(t, "****5678", repos[0].TokenMasked)
@@ -114,6 +116,83 @@ func TestStore_ListAndGetRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, created.Identifier, got.Identifier)
 	})
+}
+
+func TestStore_ListReposPagination(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	var created []ingestion.Repo
+
+	for i := range 3 {
+		repo, err := store.CreateRepo(ctx, ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: fmt.Sprintf("alrayyes/repo-%d", i),
+			Token:      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+		created = append(created, repo)
+	}
+
+	t.Run("limit trims the page and reports more remain", func(t *testing.T) {
+		t.Parallel()
+
+		repos, hasMore, err := store.ListRepos(ctx, ingestion.RepoListFilter{Limit: 2})
+		require.NoError(t, err)
+		require.True(t, hasMore)
+		require.Len(t, repos, 2)
+		require.Equal(t, created[0].ID, repos[0].ID)
+		require.Equal(t, created[1].ID, repos[1].ID)
+	})
+
+	t.Run("offset returns the next page", func(t *testing.T) {
+		t.Parallel()
+
+		repos, hasMore, err := store.ListRepos(ctx, ingestion.RepoListFilter{Limit: 2, Offset: 2})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, repos, 1)
+		require.Equal(t, created[2].ID, repos[0].ID)
+	})
+
+	t.Run("no limit returns every repo unpaginated", func(t *testing.T) {
+		t.Parallel()
+
+		repos, hasMore, err := store.ListRepos(ctx, ingestion.RepoListFilter{})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, repos, 3)
+	})
+}
+
+func TestStore_ListReposForgeFilter(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := store.CreateRepo(ctx, ingestion.NewRepo{
+		Forge:      ingestion.ForgeGitHub,
+		Identifier: "alrayyes/pipeline-analytics",
+		Token:      "ghp_supersecrettoken1234",
+	})
+	require.NoError(t, err)
+
+	forgejoRepo, err := store.CreateRepo(ctx, ingestion.NewRepo{ //nolint:gosec // test fixture value, not a real credential
+		Forge:              ingestion.ForgeForgejo,
+		Identifier:         "alrayyes/dotfiles",
+		ForgejoInstanceURL: "https://git.higherlearning.eu",
+		Token:              "forgejo-token-5678",
+	})
+	require.NoError(t, err)
+
+	repos, hasMore, err := store.ListRepos(ctx, ingestion.RepoListFilter{Forge: ingestion.ForgeForgejo})
+	require.NoError(t, err)
+	require.False(t, hasMore)
+	require.Len(t, repos, 1)
+	require.Equal(t, forgejoRepo.ID, repos[0].ID)
 }
 
 func TestStore_SetIngestionStatus(t *testing.T) {

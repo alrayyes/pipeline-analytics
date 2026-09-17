@@ -41,7 +41,7 @@ type githubTokenGroup struct {
 // (ingestion.RateLimitReporter), never a dedicated poll -- GitHub's own
 // guidance prefers this over calling GET /rate_limit.
 func (h *insightsHandler) githubRateLimit(w http.ResponseWriter, r *http.Request) {
-	repos, err := h.repos.ListRepos(r.Context())
+	repos, _, err := h.repos.ListRepos(r.Context(), ingestion.RepoListFilter{})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "list repos")
 

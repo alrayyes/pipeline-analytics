@@ -53,10 +53,26 @@ type NewRepo struct {
 	Token              string
 }
 
+// RepoListFilter narrows ListRepos to one forge and/or one page, ordered
+// oldest-created first. The zero value matches every tracked repo,
+// unfiltered and unpaginated -- what reconciliation and the rate-limit
+// insights page need, since they operate over every repo rather than one
+// page a user is looking at.
+type RepoListFilter struct {
+	// Forge restricts the list to one forge. Empty matches every forge.
+	Forge Forge
+	// Limit caps how many repos are returned. Zero means unlimited.
+	Limit int
+	// Offset skips this many matching repos before the page starts.
+	Offset int
+}
+
 // Store is the port the domain persists tracked repos through.
 type Store interface {
 	CreateRepo(ctx context.Context, repo NewRepo) (Repo, error)
-	ListRepos(ctx context.Context) ([]Repo, error)
+	// ListRepos returns the repos matching filter, plus whether more repos
+	// beyond this page also match -- always false when filter.Limit is 0.
+	ListRepos(ctx context.Context, filter RepoListFilter) (repos []Repo, hasMore bool, err error)
 	GetRepo(ctx context.Context, id string) (Repo, error)
 	// DeleteRepo stops tracking a repo. The schema's ON DELETE CASCADE
 	// removes its stored runs, jobs, and steps along with it -- it does
