@@ -3,14 +3,25 @@ import { onMount } from 'svelte';
 import { page } from '$app/state';
 import ForgeFilter from '$lib/components/ForgeFilter.svelte';
 import { Badge } from '$lib/components/ui/badge/index.js';
-import { Button } from '$lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
 } from '$lib/components/ui/card/index.js';
+import { Label } from '$lib/components/ui/label/index.js';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+} from '$lib/components/ui/select/index.js';
+import {
+	ToggleGroup,
+	ToggleGroupItem,
+} from '$lib/components/ui/toggle-group/index.js';
 import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
+import { formatRelativeTime } from '$lib/relativeTime.js';
 
 interface PipelineSummary {
 	id: string;
@@ -18,6 +29,7 @@ interface PipelineSummary {
 	name: string;
 	healthStatus: 'healthy' | 'unhealthy';
 	triggeredSignals?: string[];
+	lastRunAt?: string;
 }
 
 interface Repo {
@@ -33,6 +45,9 @@ interface PipelineGroup {
 	pipelines: PipelineSummary[];
 }
 
+type HealthFilter = 'all' | 'healthy' | 'unhealthy';
+type SortBy = 'name' | 'lastRun';
+
 const SIGNAL_LABELS: Record<string, string> = {
 	failure_rate: 'elevated failure rate',
 	duration_regression: 'duration regression',
@@ -41,6 +56,15 @@ const SIGNAL_LABELS: Record<string, string> = {
 const FORGE_LABELS: Record<string, string> = {
 	github: 'GitHub',
 	forgejo: 'Forgejo',
+};
+const HEALTH_OPTIONS: { value: HealthFilter; label: string }[] = [
+	{ value: 'all', label: 'All' },
+	{ value: 'healthy', label: 'Healthy' },
+	{ value: 'unhealthy', label: 'Unhealthy' },
+];
+const SORT_LABELS: Record<SortBy, string> = {
+	name: 'Name',
+	lastRun: 'Most recently run',
 };
 
 let pipelines = $state<PipelineSummary[] | null>(null);
@@ -51,7 +75,9 @@ let error = $state<string | null>(null);
 // leading with what needs attention beats an everything-at-once list --
 // per dashboard filtering research, surfacing only what needs attention
 // first reads better on load than mixing it into everything that's fine.
-let showAll = $state(false);
+let healthFilter = $state<HealthFilter>('unhealthy');
+let selectedRepoId = $state('all');
+let sortBy = $state<SortBy>('name');
 
 // Grouped by repo (#102) -- a pipeline name alone ("CI") is ambiguous
 // across more than one tracked repo, so each repo's pipelines get their
@@ -71,12 +97,34 @@ const forgeFilteredPipelines = $derived.by(() => {
 	return pipelines.filter((p) => repoById.get(p.repoId)?.forge === filter);
 });
 
-const unhealthyPipelines = $derived(
-	forgeFilteredPipelines?.filter((p) => p.healthStatus === 'unhealthy') ?? null,
-);
-const visiblePipelines = $derived(
-	showAll ? forgeFilteredPipelines : unhealthyPipelines,
-);
+const repoFilteredPipelines = $derived.by(() => {
+	if (selectedRepoId === 'all' || !forgeFilteredPipelines)
+		return forgeFilteredPipelines;
+
+	return forgeFilteredPipelines.filter((p) => p.repoId === selectedRepoId);
+});
+
+const visiblePipelines = $derived.by(() => {
+	if (!repoFilteredPipelines) return null;
+	if (healthFilter === 'all') return repoFilteredPipelines;
+
+	return repoFilteredPipelines.filter((p) => p.healthStatus === healthFilter);
+});
+
+// "Name" is an explicit alphabetical sort rather than whatever order
+// /api/pipelines happened to return -- the point of offering it as a choice
+// is that it's deterministic, the same way "Most recently run" is.
+function comparePipelines(a: PipelineSummary, b: PipelineSummary): number {
+	if (sortBy === 'lastRun') {
+		if (!a.lastRunAt && !b.lastRunAt) return 0;
+		if (!a.lastRunAt) return 1;
+		if (!b.lastRunAt) return -1;
+
+		return new Date(b.lastRunAt).getTime() - new Date(a.lastRunAt).getTime();
+	}
+
+	return a.name.localeCompare(b.name);
+}
 
 const groupedPipelines = $derived.by(() => {
 	const groups = new Map<string, PipelineGroup>();
@@ -96,6 +144,10 @@ const groupedPipelines = $derived.by(() => {
 		}
 
 		group.pipelines.push(pipeline);
+	}
+
+	for (const group of groups.values()) {
+		group.pipelines.sort(comparePipelines);
 	}
 
 	return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
@@ -161,32 +213,85 @@ function signalLabel(signal: string): string {
 				to start tracking one.
 			{/if}
 		</p>
-	{:else if forgeFilteredPipelines?.length === 0}
-		<p class="mt-6 text-muted-foreground">
-			No pipelines match the selected forge filter.
-		</p>
 	{:else}
-		<div class="mt-6 flex items-center justify-between">
-			<p class="text-sm text-muted-foreground">
-				{#if showAll}
-					Showing all {forgeFilteredPipelines?.length ?? 0}
-					{forgeFilteredPipelines?.length === 1 ? 'pipeline' : 'pipelines'}.
+		<div class="mt-6 flex flex-wrap items-center gap-4">
+			<div role="radiogroup" aria-label="Filter by health status">
+				<ToggleGroup
+					type="single"
+					variant="outline"
+					value={healthFilter}
+					onValueChange={(value) => {
+						if (value) healthFilter = value as HealthFilter;
+					}}
+				>
+					{#each HEALTH_OPTIONS as option (option.value)}
+						<ToggleGroupItem value={option.value} aria-label={option.label}>
+							{option.label}
+						</ToggleGroupItem>
+					{/each}
+				</ToggleGroup>
+			</div>
+
+			<div class="flex items-center gap-2">
+				<Label for="repo-filter">Repo</Label>
+				<Select
+					type="single"
+					value={selectedRepoId}
+					onValueChange={(value) => {
+						if (value) selectedRepoId = value;
+					}}
+				>
+					<SelectTrigger id="repo-filter" class="w-48">
+						{selectedRepoId === 'all'
+							? 'All repos'
+							: (repoById.get(selectedRepoId)?.identifier ?? selectedRepoId)}
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="all" label="All repos">All repos</SelectItem>
+						{#each repos ?? [] as repo (repo.id)}
+							<SelectItem value={repo.id} label={repo.identifier}>
+								{repo.identifier}
+							</SelectItem>
+						{/each}
+					</SelectContent>
+				</Select>
+			</div>
+
+			<div class="flex items-center gap-2">
+				<Label for="sort-by">Sort</Label>
+				<Select
+					type="single"
+					value={sortBy}
+					onValueChange={(value) => {
+						if (value) sortBy = value as SortBy;
+					}}
+				>
+					<SelectTrigger id="sort-by" class="w-44">
+						{SORT_LABELS[sortBy]}
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="name" label={SORT_LABELS.name}>{SORT_LABELS.name}</SelectItem>
+						<SelectItem value="lastRun" label={SORT_LABELS.lastRun}>
+							{SORT_LABELS.lastRun}
+						</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>
+		</div>
+
+		{#if visiblePipelines?.length === 0}
+			<p class="mt-6 text-muted-foreground">No pipelines match the selected filters.</p>
+		{:else}
+			<p class="mt-4 text-sm text-muted-foreground">
+				{#if healthFilter === 'all'}
+					Showing all {visiblePipelines?.length ?? 0}
+					{visiblePipelines?.length === 1 ? 'pipeline' : 'pipelines'}.
 				{:else}
-					Showing {unhealthyPipelines?.length ?? 0} unhealthy of {forgeFilteredPipelines?.length ??
+					Showing {visiblePipelines?.length ?? 0} {healthFilter} of {repoFilteredPipelines?.length ??
 						0}.
 				{/if}
 			</p>
-			<Button variant="outline" size="sm" onclick={() => (showAll = !showAll)}>
-				{showAll ? 'Show unhealthy only' : 'Show all'}
-			</Button>
-		</div>
 
-		{#if !showAll && unhealthyPipelines?.length === 0}
-			<p class="mt-4 text-muted-foreground">
-				All {forgeFilteredPipelines?.length ?? 0}
-				{forgeFilteredPipelines?.length === 1 ? 'pipeline is' : 'pipelines are'} healthy.
-			</p>
-		{:else}
 			<div class="mt-4 grid gap-8">
 				{#each groupedPipelines as group (group.repoId)}
 					<section class="min-w-0">
@@ -218,9 +323,16 @@ function signalLabel(signal: string): string {
 													{pipeline.healthStatus}
 												</Badge>
 											</CardHeader>
-											{#if pipeline.triggeredSignals?.length}
-												<CardContent class="text-sm text-muted-foreground">
-													{pipeline.triggeredSignals.map(signalLabel).join(', ')}
+											{#if pipeline.triggeredSignals?.length || pipeline.lastRunAt}
+												<CardContent class="grid gap-1 text-sm text-muted-foreground">
+													{#if pipeline.triggeredSignals?.length}
+														<p>{pipeline.triggeredSignals.map(signalLabel).join(', ')}</p>
+													{/if}
+													{#if pipeline.lastRunAt}
+														<p class="text-xs">
+															Last run {formatRelativeTime(new Date(pipeline.lastRunAt))}
+														</p>
+													{/if}
 												</CardContent>
 											{/if}
 										</Card>

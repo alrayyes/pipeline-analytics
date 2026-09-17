@@ -196,6 +196,27 @@ func TestService_ListPipelines(t *testing.T) {
 		require.Equal(t, metrics.HealthUnhealthy, pipelines[0].HealthStatus)
 		require.Contains(t, pipelines[0].TriggeredSignals, metrics.SignalDurationRegression)
 	})
+
+	t.Run("LastRunAt is the most recent run's start time", func(t *testing.T) {
+		t.Parallel()
+
+		ref := metrics.PipelineRef{RepoID: "repo-1", Name: "CI"}
+		store := &fakeStore{
+			pipelines: []metrics.PipelineRef{ref},
+			runs: map[metrics.PipelineRef][]metrics.RunRecord{
+				// Most-recent-first, per the Store contract.
+				ref: {
+					completedRun(100, 5, "success"),
+					completedRun(90, 5, "success"),
+				},
+			},
+		}
+
+		service := metrics.NewService(store)
+		pipelines, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10})
+		require.NoError(t, err)
+		require.Equal(t, t1(100), pipelines[0].LastRunAt)
+	})
 }
 
 func TestService_GetPipeline(t *testing.T) {

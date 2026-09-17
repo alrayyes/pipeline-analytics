@@ -92,6 +92,26 @@ func TestPipelinesList(t *testing.T) {
 		require.Equal(t, "healthy", pipelines[0]["healthStatus"])
 	})
 
+	t.Run("reports the most recent run's start time as lastRunAt", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		seedRun(t, srv, repoID, "1", 0, 5)
+		seedRun(t, srv, repoID, "2", 10, 5)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var pipelines []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
+		require.Len(t, pipelines, 1)
+		require.Equal(t, at(10).Format(time.RFC3339), pipelines[0]["lastRunAt"])
+	})
+
 	t.Run("requires a session", func(t *testing.T) {
 		t.Parallel()
 
