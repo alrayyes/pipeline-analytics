@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.23.1...v0.23.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **dashboard-ui:** click through the unhealthy-only default before capturing screenshots ([#137](https://github.com/alrayyes/pipeline-analytics/issues/137)) ([3c4dfae](https://github.com/alrayyes/pipeline-analytics/commit/3c4dfae832f6652dd8153e4a21532a67975596ae)), closes [#136](https://github.com/alrayyes/pipeline-analytics/issues/136)
+* **dashboard-ui:** fix horizontal overflow on the Pipelines list page ([#139](https://github.com/alrayyes/pipeline-analytics/issues/139)) ([2c778c1](https://github.com/alrayyes/pipeline-analytics/commit/2c778c1e6a3477631baa88718775231efb52952e)), closes [#135](https://github.com/alrayyes/pipeline-analytics/issues/135)
+
 ## [0.23.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.23.0...v0.23.1) (2026-09-16)
 
 
