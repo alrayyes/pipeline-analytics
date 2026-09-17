@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.24.1...v0.25.0) (2026-09-17)
+
+
+### Features
+
+* **dashboard-ui:** add a GitHub API rate-limit insights page ([#161](https://github.com/alrayyes/pipeline-analytics/issues/161)) ([5d55751](https://github.com/alrayyes/pipeline-analytics/commit/5d5575162f058e1808092b66e50517cea3f56e1b)), closes [#160](https://github.com/alrayyes/pipeline-analytics/issues/160)
+
 ## [0.24.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.24.0...v0.24.1) (2026-09-17)
 
 
