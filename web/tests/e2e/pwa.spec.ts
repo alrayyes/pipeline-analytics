@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.js';
 
 // Installability (#77): the manifest and service worker are both public,
 // unauthenticated static assets -- a browser has to be able to fetch them

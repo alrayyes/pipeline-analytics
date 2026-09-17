@@ -100,9 +100,9 @@ jobs:
         run: bun install --frozen-lockfile
       - working-directory: web
         run: bunx playwright install --with-deps chromium
-      # start-server.sh builds the frontend and the Go binary itself, so
-      # this runs against the real embedded-frontend binary -- same shape
-      # as production, not a dev-server/API proxy.
+      # global-setup.ts builds the frontend and the Go binary once, and
+      # each test starts its own server from that binary (fixtures.ts) --
+      # same shape as production, not a dev-server/API proxy.
       - working-directory: web
         run: bun run test:e2e
       - if: always()
