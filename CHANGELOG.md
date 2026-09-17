@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.23.2...v0.24.0) (2026-09-17)
+
+
+### Features
+
+* **dashboard-ui:** add a persistent all/GitHub/Forgejo filter, group both list pages by forge ([#143](https://github.com/alrayyes/pipeline-analytics/issues/143)) ([92beeef](https://github.com/alrayyes/pipeline-analytics/commit/92beeefd97683641f5bfe95310dc84be65f6c0a6)), closes [#140](https://github.com/alrayyes/pipeline-analytics/issues/140)
+
 ## [0.23.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.23.1...v0.23.2) (2026-09-17)
 
 
