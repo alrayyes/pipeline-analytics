@@ -3,6 +3,7 @@ package httpserver
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 )
@@ -22,6 +23,11 @@ type repoRegistrationDTO struct {
 	Identifier         string `json:"identifier"`
 	ForgejoInstanceURL string `json:"forgejoInstanceUrl,omitempty"`
 	Token              string `json:"token"`
+}
+
+type repoListDTO struct {
+	Repos   []repoDTO `json:"repos"`
+	HasMore bool      `json:"hasMore"`
 }
 
 type repoDiscoveryDTO struct {
@@ -53,25 +59,26 @@ type reposHandler struct {
 }
 
 func (h *reposHandler) list(w http.ResponseWriter, r *http.Request) {
-	repos, err := h.store.ListRepos(r.Context())
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	repos, hasMore, err := h.store.ListRepos(r.Context(), ingestion.RepoListFilter{
+		Forge:  ingestion.Forge(r.URL.Query().Get("forge")),
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "list repos")
 
 		return
 	}
 
-	forge := r.URL.Query().Get("forge")
-
 	dtos := make([]repoDTO, 0, len(repos))
 	for _, repo := range repos {
-		if forge != "" && string(repo.Forge) != forge {
-			continue
-		}
-
 		dtos = append(dtos, toRepoDTO(repo))
 	}
 
-	writeJSON(w, http.StatusOK, dtos)
+	writeJSON(w, http.StatusOK, repoListDTO{Repos: dtos, HasMore: hasMore})
 }
 
 func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {

@@ -42,7 +42,7 @@ func (f *fakeStore) CreateRepo(_ context.Context, in ingestion.NewRepo) (ingesti
 	return repo, nil
 }
 
-func (f *fakeStore) ListRepos(context.Context) ([]ingestion.Repo, error) {
+func (f *fakeStore) ListRepos(context.Context, ingestion.RepoListFilter) ([]ingestion.Repo, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -51,7 +51,7 @@ func (f *fakeStore) ListRepos(context.Context) ([]ingestion.Repo, error) {
 		repos = append(repos, r)
 	}
 
-	return repos, nil
+	return repos, false, nil
 }
 
 var errRepoNotFound = errors.New("repo not found")

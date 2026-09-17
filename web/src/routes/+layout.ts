@@ -24,7 +24,9 @@ export const load: LayoutLoad = async ({ url, fetch }) => {
 		return { hasRepos: false };
 	}
 
-	const res = await fetch('/api/repos');
+	// limit=1: this call only needs to know whether any repo exists at all,
+	// not fetch the page a user is looking at.
+	const res = await fetch('/api/repos?limit=1');
 	if (res.status === 401) {
 		redirect(302, '/login');
 	}
@@ -33,7 +35,7 @@ export const load: LayoutLoad = async ({ url, fetch }) => {
 		return { hasRepos: false };
 	}
 
-	const repos: unknown[] = await res.json();
+	const body: { repos: unknown[] } = await res.json();
 
-	return { hasRepos: repos.length > 0 };
+	return { hasRepos: body.repos.length > 0 };
 };

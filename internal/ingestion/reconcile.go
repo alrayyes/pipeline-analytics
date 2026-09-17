@@ -43,7 +43,7 @@ func (r *Reconciler) Run(ctx context.Context, interval time.Duration) {
 // ReconcileAll polls every tracked repo once. A single repo's failure is
 // logged, not returned, so it doesn't block reconciling the others.
 func (r *Reconciler) ReconcileAll(ctx context.Context) {
-	repos, err := r.store.ListRepos(ctx)
+	repos, _, err := r.store.ListRepos(ctx, RepoListFilter{})
 	if err != nil {
 		slog.ErrorContext(ctx, "list tracked repos for reconciliation", "error", err)
 
