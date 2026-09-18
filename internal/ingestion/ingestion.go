@@ -202,6 +202,13 @@ type ListRunsRequest struct {
 	// ETag is the repo's ReconcileETag from the last poll, sent as
 	// If-None-Match. Empty on a repo's first poll.
 	ETag string
+	// KnownRuns is each already-stored run's status/conclusion, keyed by
+	// forge run ID -- a GitHub ListRecentRuns skips fetching jobs for a
+	// run present here whose status and conclusion still match what's
+	// stored, since that call would return data identical to what's
+	// already persisted. Forgejo's implementation ignores this; see its
+	// own ListRecentRuns doc comment for why it fetches unconditionally.
+	KnownRuns map[string]RunState
 }
 
 // ListRunsResult is what a reconciliation poll found.

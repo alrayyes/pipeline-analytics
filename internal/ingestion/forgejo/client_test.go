@@ -311,6 +311,44 @@ func TestClient_ListRecentRuns(t *testing.T) {
 		_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{InstanceURL: server.URL, Identifier: "alrayyes/dotfiles", Token: "t"})
 		require.Error(t, err)
 	})
+
+	t.Run("KnownRuns is ignored -- jobs are still fetched unconditionally", func(t *testing.T) {
+		t.Parallel()
+
+		jobsFetched := false
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			switch r.URL.Path {
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(actionRunsPayload))
+			case "/api/v1/repos/alrayyes/dotfiles/actions/runs/42/jobs":
+				jobsFetched = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(actionJobsPayloadWrapped))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/dotfiles",
+			Token:       "forgejo_test_token",
+			KnownRuns: map[string]ingestion.RunState{
+				"42": {Status: "completed", Conclusion: "success"},
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, jobsFetched)
+		require.Len(t, result.Runs[0].Jobs, 1)
+	})
 }
 
 func TestClient_ListAccessibleRepos(t *testing.T) {

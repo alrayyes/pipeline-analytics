@@ -45,6 +45,15 @@ type Step struct {
 	CompletedAt *time.Time
 }
 
+// RunState is a run's stored status and conclusion, keyed by forge run ID
+// -- what reconciliation compares a fresh run listing against to decide
+// whether that run's jobs need refetching (forge-ingestion/spec.md's "An
+// already-completed run's jobs aren't refetched").
+type RunState struct {
+	Status     string
+	Conclusion string
+}
+
 // RunStore is the port webhook ingestion persists runs, jobs, and steps
 // through.
 type RunStore interface {
@@ -52,6 +61,11 @@ type RunStore interface {
 	// (owner/name) -- how an incoming webhook is resolved to the repo it
 	// belongs to.
 	RepoByIdentifier(ctx context.Context, forge Forge, identifier string) (Repo, error)
+	// RunStates returns every stored run's status/conclusion for repoID,
+	// keyed by forge run ID, in one query -- what reconciliation builds
+	// ListRunsRequest.KnownRuns from before polling, rather than looking
+	// each run up individually inside the poll loop.
+	RunStates(ctx context.Context, repoID string) (map[string]RunState, error)
 	// UpsertRun creates or updates a run, matched by (repo id, forge run
 	// id), and returns the stored row (with its internal ID).
 	UpsertRun(ctx context.Context, run Run) (Run, error)

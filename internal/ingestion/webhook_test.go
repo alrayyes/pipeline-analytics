@@ -97,6 +97,21 @@ func (f *fakeRunStore) UpsertRun(_ context.Context, run ingestion.Run) (ingestio
 	return run, nil
 }
 
+func (f *fakeRunStore) RunStates(_ context.Context, repoID string) (map[string]ingestion.RunState, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	states := make(map[string]ingestion.RunState)
+
+	for key, run := range f.runs {
+		if run.RepoID == repoID {
+			states[key[len(repoID)+1:]] = ingestion.RunState{Status: run.Status, Conclusion: run.Conclusion}
+		}
+	}
+
+	return states, nil
+}
+
 func (f *fakeRunStore) UpsertJob(_ context.Context, job ingestion.Job) (ingestion.Job, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

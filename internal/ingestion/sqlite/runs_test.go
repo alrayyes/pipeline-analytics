@@ -140,3 +140,61 @@ func TestStore_UpsertJobAndReplaceSteps(t *testing.T) {
 		require.Equal(t, "failure", conclusion)
 	})
 }
+
+func TestStore_RunStates(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	repoA, err := store.CreateRepo(ctx, ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "a/b", Token: "t"})
+	require.NoError(t, err)
+	repoB, err := store.CreateRepo(ctx, ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "c/d", Token: "t"})
+	require.NoError(t, err)
+
+	_, err = store.UpsertRun(ctx, ingestion.Run{
+		RepoID: repoA.ID, ForgeRunID: "1001", PipelineName: "ci.yml",
+		Status: "completed", Conclusion: "success",
+	})
+	require.NoError(t, err)
+	_, err = store.UpsertRun(ctx, ingestion.Run{
+		RepoID: repoA.ID, ForgeRunID: "1002", PipelineName: "ci.yml",
+		Status: "in_progress",
+	})
+	require.NoError(t, err)
+	_, err = store.UpsertRun(ctx, ingestion.Run{
+		RepoID: repoB.ID, ForgeRunID: "2001", PipelineName: "ci.yml",
+		Status: "completed", Conclusion: "failure",
+	})
+	require.NoError(t, err)
+
+	t.Run("returns every stored run for the repo, keyed by forge run id", func(t *testing.T) {
+		t.Parallel()
+
+		states, err := store.RunStates(ctx, repoA.ID)
+		require.NoError(t, err)
+		require.Equal(t, map[string]ingestion.RunState{
+			"1001": {Status: "completed", Conclusion: "success"},
+			"1002": {Status: "in_progress"},
+		}, states)
+	})
+
+	t.Run("doesn't include another repo's runs", func(t *testing.T) {
+		t.Parallel()
+
+		states, err := store.RunStates(ctx, repoA.ID)
+		require.NoError(t, err)
+		require.NotContains(t, states, "2001")
+	})
+
+	t.Run("a repo with no runs returns an empty map", func(t *testing.T) {
+		t.Parallel()
+
+		repoC, err := store.CreateRepo(ctx, ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "e/f", Token: "t"})
+		require.NoError(t, err)
+
+		states, err := store.RunStates(ctx, repoC.ID)
+		require.NoError(t, err)
+		require.Empty(t, states)
+	})
+}
