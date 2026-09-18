@@ -178,6 +178,95 @@ func TestService_Token(t *testing.T) {
 	})
 }
 
+func TestService_AddCredential(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	service := newTestService(t)
+	rp := virtualwebauthn.RelyingParty{Name: "pipeline-analytics", ID: testRPID, Origin: testOrigin}
+
+	// The account's first (anonymous-registration) credential.
+	firstAuthenticator := virtualwebauthn.NewAuthenticator()
+	firstCredential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+
+	creation, ceremonyID, err := service.BeginRegistration(ctx)
+	require.NoError(t, err)
+
+	creationJSON, err := json.Marshal(creation)
+	require.NoError(t, err)
+
+	attestationOptions, err := virtualwebauthn.ParseAttestationOptions(string(creationJSON))
+	require.NoError(t, err)
+
+	attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, firstAuthenticator, firstCredential, *attestationOptions)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(attestationResponse))
+	req.Header.Set("Content-Type", "application/json")
+
+	user, _, err := service.FinishRegistration(ctx, ceremonyID, req)
+	require.NoError(t, err)
+	firstAuthenticator.Options.UserHandle = []byte(attestationOptions.UserID)
+	firstAuthenticator.AddCredential(firstCredential)
+
+	t.Run("enrolls a second credential against the same account", func(t *testing.T) {
+		addCreation, addCeremonyID, err := service.BeginAddCredential(ctx)
+		require.NoError(t, err)
+
+		addCreationJSON, err := json.Marshal(addCreation)
+		require.NoError(t, err)
+
+		addAttestationOptions, err := virtualwebauthn.ParseAttestationOptions(string(addCreationJSON))
+		require.NoError(t, err)
+
+		secondAuthenticator := virtualwebauthn.NewAuthenticator()
+		secondCredential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+		addAttestationResponse := virtualwebauthn.CreateAttestationResponse(rp, secondAuthenticator, secondCredential, *addAttestationOptions)
+
+		addReq := httptest.NewRequest(http.MethodPost, "/api/auth/credentials", strings.NewReader(addAttestationResponse))
+		addReq.Header.Set("Content-Type", "application/json")
+
+		require.NoError(t, service.FinishAddCredential(ctx, addCeremonyID, "MacBook", addReq))
+
+		infos, err := service.ListCredentials(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, infos, 2)
+		require.Empty(t, infos[0].Label)
+		require.Equal(t, "MacBook", infos[1].Label)
+
+		// The new credential logs in too, proving it's genuinely usable --
+		// not just stored.
+		secondAuthenticator.Options.UserHandle = []byte(addAttestationOptions.UserID)
+		secondAuthenticator.AddCredential(secondCredential)
+
+		assertion, loginCeremonyID, err := service.BeginLogin(ctx)
+		require.NoError(t, err)
+
+		assertionJSON, err := json.Marshal(assertion)
+		require.NoError(t, err)
+
+		assertionOptions, err := virtualwebauthn.ParseAssertionOptions(string(assertionJSON))
+		require.NoError(t, err)
+
+		assertionResponse := virtualwebauthn.CreateAssertionResponse(rp, secondAuthenticator, secondCredential, *assertionOptions)
+		loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(assertionResponse))
+		loginReq.Header.Set("Content-Type", "application/json")
+
+		sessionID, err := service.FinishLogin(ctx, loginCeremonyID, loginReq)
+		require.NoError(t, err)
+		require.NotEmpty(t, sessionID)
+	})
+
+	t.Run("rejects revoking the account's last remaining credential", func(t *testing.T) {
+		infos, err := service.ListCredentials(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, infos, 2)
+
+		require.NoError(t, service.RevokeCredential(ctx, user.ID, infos[0].ID))
+
+		err = service.RevokeCredential(ctx, user.ID, infos[1].ID)
+		require.ErrorIs(t, err, auth.ErrLastCredential)
+	})
+}
+
 func TestService_BeginLogin_NoUser(t *testing.T) {
 	t.Parallel()
 

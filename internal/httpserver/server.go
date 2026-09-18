@@ -72,6 +72,10 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("POST /api/auth/logout", authH.logout)
 	mux.HandleFunc("POST /api/auth/tokens", authH.issueToken)
 	mux.HandleFunc("DELETE /api/auth/tokens/{tokenId}", authH.revokeToken)
+	mux.HandleFunc("POST /api/auth/credentials/options", authH.addCredentialOptions)
+	mux.HandleFunc("POST /api/auth/credentials", authH.addCredential)
+	mux.HandleFunc("GET /api/auth/credentials", authH.listCredentials)
+	mux.HandleFunc("DELETE /api/auth/credentials/{credentialId}", authH.revokeCredential)
 
 	settingsH := &settingsHandler{service: deps.Settings}
 	mux.HandleFunc("GET /api/settings", settingsH.get)

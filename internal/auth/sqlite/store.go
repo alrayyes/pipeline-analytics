@@ -102,6 +102,24 @@ func (s *Store) PutCredential(ctx context.Context, userID string, cred webauthn.
 	return nil
 }
 
+// PutCredentialLabeled implements auth.Store.
+func (s *Store) PutCredentialLabeled(ctx context.Context, userID string, cred webauthn.Credential, label string) error {
+	data, err := json.Marshal(cred)
+	if err != nil {
+		return fmt.Errorf("marshal credential: %w", err)
+	}
+
+	_, err = s.db.ExecContext(ctx, `
+		INSERT INTO webauthn_credentials (id, user_id, data, label, created_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (id) DO UPDATE SET data = excluded.data
+	`, cred.ID, userID, data, label, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("insert labeled credential: %w", err)
+	}
+
+	return nil
+}
+
 // CredentialsForUser implements auth.Store.
 func (s *Store) CredentialsForUser(ctx context.Context, userID string) ([]webauthn.Credential, error) {
 	rows, err := s.db.QueryContext(ctx, "SELECT data FROM webauthn_credentials WHERE user_id = ?", userID)
@@ -131,6 +149,75 @@ func (s *Store) CredentialsForUser(ctx context.Context, userID string) ([]webaut
 	}
 
 	return creds, nil
+}
+
+// CredentialInfosForUser implements auth.Store.
+func (s *Store) CredentialInfosForUser(ctx context.Context, userID string) ([]auth.CredentialInfo, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT id, label, created_at FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at",
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query credential infos: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var infos []auth.CredentialInfo
+
+	for rows.Next() {
+		var info auth.CredentialInfo
+		if err := rows.Scan(&info.ID, &info.Label, &info.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan credential info: %w", err)
+		}
+
+		infos = append(infos, info)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate credential infos: %w", err)
+	}
+
+	return infos, nil
+}
+
+// RevokeCredential implements auth.Store.
+func (s *Store) RevokeCredential(ctx context.Context, userID string, credentialID []byte) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var count int
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = ?", userID).Scan(&count); err != nil {
+		return fmt.Errorf("count credentials: %w", err)
+	}
+
+	if count <= 1 {
+		return auth.ErrLastCredential
+	}
+
+	res, err := tx.ExecContext(ctx,
+		"DELETE FROM webauthn_credentials WHERE id = ? AND user_id = ?", credentialID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete credential: %w", err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete credential: %w", err)
+	}
+
+	if n == 0 {
+		return auth.ErrCredentialNotFound
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // SaveCeremony implements auth.Store.

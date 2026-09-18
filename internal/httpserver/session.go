@@ -90,6 +90,8 @@ func isPublicPath(path string) bool {
 		return true
 	case path == "/api/auth/tokens", strings.HasPrefix(path, "/api/auth/tokens/"):
 		return false // session-only, not the general /api/auth/ exemption below
+	case path == "/api/auth/credentials", strings.HasPrefix(path, "/api/auth/credentials/"):
+		return false // session-only, same reasoning as tokens above
 	case strings.HasPrefix(path, "/api/auth/"):
 		return true
 	case strings.HasPrefix(path, "/webhooks/"):

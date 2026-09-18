@@ -2,6 +2,7 @@ package httpserver_test
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -249,6 +250,115 @@ func TestAPITokenHTTPFlow(t *testing.T) {
 		require.NoError(t, json.NewDecoder(afterRec.Body).Decode(&errBody))
 		require.NotEmpty(t, errBody.Code)
 		require.NotEmpty(t, errBody.Message)
+	})
+}
+
+// TestCredentialManagementHTTPFlow drives the authenticated add/list/
+// revoke credential endpoints through the real HTTP handlers -- per #188's
+// acceptance criteria.
+func TestCredentialManagementHTTPFlow(t *testing.T) {
+	t.Parallel()
+
+	srv := newAuthTestServer(t)
+	sessionCookie := registerAndLogin(t, srv)
+	rp := virtualwebauthn.RelyingParty{Name: "pipeline-analytics", ID: authTestRPID, Origin: authTestOrigin}
+
+	t.Run("adding a credential without a session is denied", func(t *testing.T) {
+		t.Parallel()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/credentials/options", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("listing credentials without a session is denied", func(t *testing.T) {
+		t.Parallel()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/auth/credentials", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("adding, listing, and revoking a credential", func(t *testing.T) {
+		t.Parallel()
+
+		optsReq := httptest.NewRequest(http.MethodPost, "/api/auth/credentials/options", nil)
+		optsReq.AddCookie(sessionCookie)
+		optsRec := httptest.NewRecorder()
+		srv.ServeHTTP(optsRec, optsReq)
+		require.Equal(t, http.StatusOK, optsRec.Code)
+
+		addCeremonyCookie := findCookie(t, optsRec, "pa_ceremony")
+
+		attestationOptions, err := virtualwebauthn.ParseAttestationOptions(optsRec.Body.String())
+		require.NoError(t, err)
+
+		secondAuthenticator := virtualwebauthn.NewAuthenticator()
+		secondCredential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+		attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, secondAuthenticator, secondCredential, *attestationOptions)
+
+		finishReq := httptest.NewRequest(http.MethodPost, "/api/auth/credentials?label=MacBook", strings.NewReader(attestationResponse))
+		finishReq.AddCookie(sessionCookie)
+		finishReq.AddCookie(addCeremonyCookie)
+		finishRec := httptest.NewRecorder()
+		srv.ServeHTTP(finishRec, finishReq)
+		require.Equal(t, http.StatusCreated, finishRec.Code)
+
+		// A bearer token can't enroll a credential -- session-only, same as
+		// token issuance/revocation.
+		bearerReq := httptest.NewRequest(http.MethodPost, "/api/auth/credentials/options", nil)
+		bearerReq.Header.Set("Authorization", "Bearer not-a-real-token")
+		bearerRec := httptest.NewRecorder()
+		srv.ServeHTTP(bearerRec, bearerReq)
+		require.Equal(t, http.StatusUnauthorized, bearerRec.Code)
+
+		listReq := httptest.NewRequest(http.MethodGet, "/api/auth/credentials", nil)
+		listReq.AddCookie(sessionCookie)
+		listRec := httptest.NewRecorder()
+		srv.ServeHTTP(listRec, listReq)
+		require.Equal(t, http.StatusOK, listRec.Code)
+
+		var listed []struct {
+			ID    string `json:"id"`
+			Label string `json:"label"`
+		}
+		require.NoError(t, json.NewDecoder(listRec.Body).Decode(&listed))
+		require.Len(t, listed, 2)
+		require.Empty(t, listed[0].Label)
+		require.Equal(t, "MacBook", listed[1].Label)
+
+		// Checked while both credentials still exist -- once only one is
+		// left, any revoke (even of an unknown id) is rejected as the
+		// last-credential case first.
+		unknownID := base64.RawURLEncoding.EncodeToString([]byte("nonexistent"))
+		unknownReq := httptest.NewRequest(http.MethodDelete, "/api/auth/credentials/"+unknownID, nil)
+		unknownReq.AddCookie(sessionCookie)
+		unknownRec := httptest.NewRecorder()
+		srv.ServeHTTP(unknownRec, unknownReq)
+		require.Equal(t, http.StatusNotFound, unknownRec.Code)
+
+		malformedReq := httptest.NewRequest(http.MethodDelete, "/api/auth/credentials/not-valid-base64!!!", nil)
+		malformedReq.AddCookie(sessionCookie)
+		malformedRec := httptest.NewRecorder()
+		srv.ServeHTTP(malformedRec, malformedReq)
+		require.Equal(t, http.StatusBadRequest, malformedRec.Code)
+
+		revokeFirstReq := httptest.NewRequest(http.MethodDelete, "/api/auth/credentials/"+listed[0].ID, nil)
+		revokeFirstReq.AddCookie(sessionCookie)
+		revokeFirstRec := httptest.NewRecorder()
+		srv.ServeHTTP(revokeFirstRec, revokeFirstReq)
+		require.Equal(t, http.StatusNoContent, revokeFirstRec.Code)
+
+		// The account's last remaining credential can't be revoked.
+		revokeLastReq := httptest.NewRequest(http.MethodDelete, "/api/auth/credentials/"+listed[1].ID, nil)
+		revokeLastReq.AddCookie(sessionCookie)
+		revokeLastRec := httptest.NewRecorder()
+		srv.ServeHTTP(revokeLastRec, revokeLastReq)
+		require.Equal(t, http.StatusConflict, revokeLastRec.Code)
 	})
 }
 

@@ -150,6 +150,79 @@ func (s *Service) FinishLogin(ctx context.Context, ceremonyID string, r *http.Re
 	return sessionID, nil
 }
 
+// BeginAddCredential starts an authenticated "add another passkey"
+// ceremony for the account's existing user, excluding credentials already
+// registered to it -- standard WebAuthn behavior for "register another",
+// and the reason this loads the real user via userWithCredentials rather
+// than constructing a tempUser the way the anonymous BeginRegistration
+// does (support-multiple-passkeys/design.md's "reuse BeginRegistration/
+// FinishRegistration against the real user" decision).
+func (s *Service) BeginAddCredential(ctx context.Context) (*protocol.CredentialCreation, string, error) {
+	user, creds, err := s.userWithCredentials(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
+	creation, session, err := s.webAuthn.BeginRegistration(webauthnUser{user: user, credentials: creds})
+	if err != nil {
+		return nil, "", fmt.Errorf("begin add credential: %w", err)
+	}
+
+	ceremonyID, err := s.saveCeremony(ctx, session)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return creation, ceremonyID, nil
+}
+
+// FinishAddCredential completes the ceremony started by BeginAddCredential,
+// storing the new credential under a user-supplied label.
+func (s *Service) FinishAddCredential(ctx context.Context, ceremonyID, label string, r *http.Request) error {
+	session, err := s.loadCeremony(ctx, ceremonyID)
+	if err != nil {
+		return err
+	}
+
+	user, creds, err := s.userWithCredentials(ctx)
+	if err != nil {
+		return err
+	}
+
+	cred, err := s.webAuthn.FinishRegistration(webauthnUser{user: user, credentials: creds}, *session, r)
+	if err != nil {
+		return fmt.Errorf("finish add credential: %w", err)
+	}
+
+	if err := s.store.PutCredentialLabeled(ctx, user.ID, *cred, label); err != nil {
+		return fmt.Errorf("save credential: %w", err)
+	}
+
+	return nil
+}
+
+// ListCredentials returns userID's registered credentials' listing
+// metadata (label, creation date), oldest first.
+func (s *Service) ListCredentials(ctx context.Context, userID string) ([]CredentialInfo, error) {
+	infos, err := s.store.CredentialInfosForUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list credentials: %w", err)
+	}
+
+	return infos, nil
+}
+
+// RevokeCredential revokes a credential belonging to userID. Returns
+// ErrCredentialNotFound if no such credential exists for that user, or
+// ErrLastCredential if it's the account's only remaining credential.
+func (s *Service) RevokeCredential(ctx context.Context, userID string, credentialID []byte) error {
+	if err := s.store.RevokeCredential(ctx, userID, credentialID); err != nil {
+		return fmt.Errorf("revoke credential: %w", err)
+	}
+
+	return nil
+}
+
 // Logout ends a session.
 func (s *Service) Logout(ctx context.Context, sessionID string) error {
 	if err := s.store.DeleteSession(ctx, sessionID); err != nil {

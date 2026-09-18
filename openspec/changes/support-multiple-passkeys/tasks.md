@@ -2,22 +2,22 @@
 
 ## 1. Backend: enrollment, listing, revocation
 
-- [ ] 1.1 Add the `webauthn_credentials.label` migration and verify it
+- [x] 1.1 Add the `webauthn_credentials.label` migration and verify it
       applies cleanly via the existing migration test harness
-- [ ] 1.2 Add `Service.BeginAddCredential`/`FinishAddCredential`,
+- [x] 1.2 Add `Service.BeginAddCredential`/`FinishAddCredential`,
       loading the real user (not a temp one) and excluding already-
       registered credentials, with unit tests covering a second
       credential enrolling successfully against the same account
-- [ ] 1.3 Add a transactional revoke store method that rejects
+- [x] 1.3 Add a transactional revoke store method that rejects
       revoking an account's last remaining credential, with a unit
       test for both the normal and last-credential-rejected cases
-- [ ] 1.4 Add a credential-listing store method returning label and
+- [x] 1.4 Add a credential-listing store method returning label and
       creation date per credential, with a unit test for more than one
       credential
-- [ ] 1.5 Add authenticated `POST` (begin/finish add), `GET` (list),
+- [x] 1.5 Add authenticated `POST` (begin/finish add), `GET` (list),
       and `DELETE` (revoke) endpoints in `internal/httpserver`, and
       verify each is denied without a valid session
-- [ ] 1.6 Add the new endpoints to the OpenAPI spec under `openapi/`
+- [x] 1.6 Add the new endpoints to the OpenAPI spec under `openapi/`
       and verify it lints clean (Redocly)
 
 ## 2. Frontend: credential management UI

@@ -14,11 +14,13 @@ import (
 // Sentinel errors, so a caller can errors.Is against a specific condition
 // instead of matching on message text.
 var (
-	ErrUserExists       = errors.New("a user account already exists")
-	ErrNoUser           = errors.New("no user account has been registered yet")
-	ErrCeremonyNotFound = errors.New("ceremony not found or expired")
-	ErrSessionNotFound  = errors.New("session not found or expired")
-	ErrTokenNotFound    = errors.New("token not found, expired, or revoked")
+	ErrUserExists         = errors.New("a user account already exists")
+	ErrNoUser             = errors.New("no user account has been registered yet")
+	ErrCeremonyNotFound   = errors.New("ceremony not found or expired")
+	ErrSessionNotFound    = errors.New("session not found or expired")
+	ErrTokenNotFound      = errors.New("token not found, expired, or revoked")
+	ErrCredentialNotFound = errors.New("credential not found")
+	ErrLastCredential     = errors.New("cannot revoke the account's last remaining credential")
 )
 
 // User is the dashboard's single account.
@@ -39,6 +41,18 @@ type Token struct {
 	ExpiresAt time.Time
 }
 
+// CredentialInfo is a WebAuthn credential's metadata for the credential-
+// management UI -- never the credential itself (public key, sign count,
+// ...), which stays internal to the WebAuthn ceremony. ID is the raw
+// credential id; the HTTP layer is what encodes it for the wire (see
+// support-multiple-passkeys/design.md's "base64url of the credential ID"
+// decision).
+type CredentialInfo struct {
+	ID        []byte
+	Label     string
+	CreatedAt time.Time
+}
+
 // Store is the port the domain persists users, credentials, in-flight
 // ceremonies, and sessions through.
 type Store interface {
@@ -55,8 +69,25 @@ type Store interface {
 	// PutCredential creates or updates (e.g. after a login's sign-count
 	// bump) a credential belonging to userID.
 	PutCredential(ctx context.Context, userID string, cred webauthn.Credential) error
+	// PutCredentialLabeled creates a new credential belonging to userID
+	// with a user-supplied label -- the authenticated "add a passkey"
+	// path, as opposed to PutCredential's anonymous-registration and
+	// sign-count-bump uses, neither of which have a label to set.
+	PutCredentialLabeled(ctx context.Context, userID string, cred webauthn.Credential, label string) error
 	// CredentialsForUser returns every credential belonging to userID.
 	CredentialsForUser(ctx context.Context, userID string) ([]webauthn.Credential, error)
+	// CredentialInfosForUser returns every credential belonging to userID
+	// as its listing metadata (label, creation date), for the credential-
+	// management UI.
+	CredentialInfosForUser(ctx context.Context, userID string) ([]CredentialInfo, error)
+	// RevokeCredential deletes a credential belonging to userID, scoped by
+	// its raw id. Returns ErrCredentialNotFound if no such credential
+	// exists for that user, or ErrLastCredential if it's the account's
+	// only remaining credential -- both checked and applied in a single
+	// transaction, so a concurrent revoke of the account's last two
+	// credentials can't zero it out (support-multiple-passkeys/design.md's
+	// "Concurrent revoke" risk).
+	RevokeCredential(ctx context.Context, userID string, credentialID []byte) error
 
 	// SaveCeremony stores the SessionData for an in-flight WebAuthn
 	// ceremony, keyed by an opaque id the caller generates.
