@@ -3,6 +3,7 @@ package sqlite
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,13 @@ import (
 // with no password-reset flow to fall back on favors a long, low-friction
 // lifetime over frequent re-authentication.
 const sessionTTL = 30 * 24 * time.Hour
+
+// apiTokenTTL is how long an API token lasts after creation, per
+// add-api-token-auth/design.md's "a long, fixed TTL rather than no expiry
+// at all" decision: long enough a script won't need to babysit rotation,
+// short enough a forgotten token doesn't stay valid forever. Revocation is
+// the mechanism for anything sooner; this is the backstop.
+const apiTokenTTL = 365 * 24 * time.Hour
 
 // Store implements auth.Store against a SQLite database.
 type Store struct {
@@ -215,4 +223,90 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	}
 
 	return nil
+}
+
+// CreateToken implements auth.Store.
+func (s *Store) CreateToken(ctx context.Context, userID string) (auth.Token, string, error) {
+	raw, err := crypto.RandomHex(32)
+	if err != nil {
+		return auth.Token{}, "", fmt.Errorf("generate token: %w", err)
+	}
+
+	hash := tokenHash(raw)
+	now := time.Now().UTC()
+
+	tok := auth.Token{
+		ID:        uuid.NewString(),
+		UserID:    userID,
+		CreatedAt: now,
+		ExpiresAt: now.Add(apiTokenTTL),
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		"INSERT INTO api_tokens (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
+		tok.ID, tok.UserID, hash, tok.ExpiresAt, tok.CreatedAt,
+	)
+	if err != nil {
+		return auth.Token{}, "", fmt.Errorf("insert token: %w", err)
+	}
+
+	return tok, raw, nil
+}
+
+// TokenUserID implements auth.Store.
+func (s *Store) TokenUserID(ctx context.Context, rawToken string) (string, error) {
+	var (
+		userID    string
+		expiresAt time.Time
+		revokedAt sql.NullTime
+	)
+
+	err := s.db.QueryRowContext(ctx,
+		"SELECT user_id, expires_at, revoked_at FROM api_tokens WHERE token_hash = ?",
+		tokenHash(rawToken),
+	).Scan(&userID, &expiresAt, &revokedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", auth.ErrTokenNotFound
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("query token: %w", err)
+	}
+
+	if revokedAt.Valid || time.Now().After(expiresAt) {
+		return "", auth.ErrTokenNotFound
+	}
+
+	return userID, nil
+}
+
+// RevokeToken implements auth.Store.
+func (s *Store) RevokeToken(ctx context.Context, userID, tokenID string) error {
+	res, err := s.db.ExecContext(ctx,
+		"UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL",
+		time.Now().UTC(), tokenID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("revoke token: %w", err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("revoke token: %w", err)
+	}
+
+	if n == 0 {
+		return auth.ErrTokenNotFound
+	}
+
+	return nil
+}
+
+// tokenHash hashes a raw API token for storage/lookup, so the raw secret
+// itself is never recoverable from the database. See
+// add-api-token-auth/design.md's "Hash the token at rest" decision.
+func tokenHash(raw string) []byte {
+	sum := sha256.Sum256([]byte(raw))
+
+	return sum[:]
 }

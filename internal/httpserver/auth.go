@@ -96,12 +96,69 @@ func (h *authHandler) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// issueToken creates a new API token. Session-only: see
+// add-api-token-auth/design.md's "session-only" decision -- a token can't
+// mint another token.
+func (h *authHandler) issueToken(w http.ResponseWriter, r *http.Request) {
+	info, ok := authInfoFromContext(r)
+	if !ok || !info.ViaSession {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to issue a token")
+
+		return
+	}
+
+	tok, raw, err := h.service.IssueToken(r.Context(), info.UserID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "issue token")
+
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, toTokenDTO(tok, raw))
+}
+
+// revokeToken revokes an API token by id. Session-only, same reasoning as
+// issueToken.
+func (h *authHandler) revokeToken(w http.ResponseWriter, r *http.Request) {
+	info, ok := authInfoFromContext(r)
+	if !ok || !info.ViaSession {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to revoke a token")
+
+		return
+	}
+
+	err := h.service.RevokeToken(r.Context(), info.UserID, r.PathValue("tokenId"))
+
+	switch {
+	case errors.Is(err, auth.ErrTokenNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "token not found")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal_error", "revoke token")
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 type userDTO struct {
 	DisplayName string `json:"displayName"`
 }
 
 func toUserDTO(u auth.User) userDTO {
 	return userDTO{DisplayName: u.DisplayName}
+}
+
+// tokenDTO is only ever built right after issuance, at the one point the
+// raw value exists -- see add-api-token-auth/design.md's "Hash the token
+// at rest" decision.
+type tokenDTO struct {
+	ID        string    `json:"id"`
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"createdAt"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+func toTokenDTO(t auth.Token, raw string) tokenDTO {
+	return tokenDTO{ID: t.ID, Token: raw, CreatedAt: t.CreatedAt, ExpiresAt: t.ExpiresAt}
 }
 
 func ceremonyCookie(r *http.Request) (string, bool) {
