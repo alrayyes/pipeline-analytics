@@ -916,3 +916,92 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId });
 });
+
+test('past PAGE_SIZE tracked repos, Discover still excludes every one of them (#197)', async ({
+	page,
+	context,
+}) => {
+	const cdp = await context.newCDPSession(page);
+	await cdp.send('WebAuthn.enable');
+	const { authenticatorId }: { authenticatorId: string } = await cdp.send(
+		'WebAuthn.addVirtualAuthenticator',
+		{
+			options: {
+				protocol: 'ctap2',
+				transport: 'internal',
+				hasResidentKey: true,
+				hasUserVerification: true,
+				isUserVerified: true,
+				automaticPresenceSimulation: true,
+			},
+		},
+	);
+
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Register your passkey' }).click();
+	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
+
+	// 21 -- one past PAGE_SIZE (20) -- so the "already tracked" check has to
+	// see every tracked repo, not just whatever page a paginated fetch
+	// happens to be showing.
+	const trackedIdentifiers = Array.from(
+		{ length: 21 },
+		(_, i) => `alrayyes/repo-${i}`,
+	);
+
+	await page.getByRole('link', { name: 'Register a repository' }).click();
+	await expect(page).toHaveURL('/repos');
+
+	await page.getByRole('button', { name: 'Register repository' }).click();
+	await page.getByLabel('Access token').fill('ghp_faketoken1234');
+
+	await page.route('**/api/repos/discover', (route) =>
+		route.fulfill({ json: trackedIdentifiers }),
+	);
+	await page.getByRole('button', { name: 'Find repositories' }).click();
+
+	await page.getByRole('button', { name: 'Select all' }).click();
+	await page
+		.getByRole('button', {
+			name: `Follow ${trackedIdentifiers.length} repositories`,
+		})
+		.click();
+
+	// The repos table is itself paginated at PAGE_SIZE (20) -- repo-20 is
+	// the 21st, so it's on page two, not visible without paging forward.
+	// repo-0 (page one) and the enabled "Next" button both confirm the
+	// batch of 21 actually landed.
+	await expect(
+		page.getByRole('row').filter({ hasText: 'alrayyes/repo-0' }),
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
+	await expect(
+		page.getByText('Select repositories to follow'),
+	).not.toBeVisible();
+
+	// Re-discovering with the same 21 identifiers plus one genuinely new
+	// one: before #197's fix, trackedIdentifiers only ever reflected the
+	// paginated GET /api/repos?limit=20's first page, so whichever tracked
+	// repo landed past that page (oldest-first, so repo-20 -- the very one
+	// just asserted above) wrongly reappeared as if it were new.
+	await page.route('**/api/repos/discover', (route) =>
+		route.fulfill({
+			json: [...trackedIdentifiers, 'alrayyes/repo-new'],
+		}),
+	);
+	await page.getByRole('button', { name: 'Register repository' }).click();
+	await page
+		.getByRole('button', { name: 'Use saved token (****1234)' })
+		.click();
+
+	await expect(
+		page.getByRole('checkbox', { name: 'alrayyes/repo-new' }),
+	).toBeVisible();
+	for (const identifier of trackedIdentifiers) {
+		await expect(
+			page.getByRole('checkbox', { name: identifier, exact: true }),
+		).toHaveCount(0);
+	}
+
+	await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId });
+});

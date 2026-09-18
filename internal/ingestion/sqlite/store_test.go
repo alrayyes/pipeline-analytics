@@ -273,3 +273,129 @@ func TestStore_DeleteRepo_UnknownRepo(t *testing.T) {
 	err := store.DeleteRepo(context.Background(), "does-not-exist")
 	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
 }
+
+func TestStore_CreateRepo_AlreadyTracked(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := store.CreateRepo(ctx, ingestion.NewRepo{
+		Forge:      ingestion.ForgeGitHub,
+		Identifier: "alrayyes/pipeline-analytics",
+		Token:      "ghp_supersecrettoken1234",
+	})
+	require.NoError(t, err)
+
+	t.Run("same forge and identifier, both GitHub (no instance URL)", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.CreateRepo(ctx, ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_supersecrettoken1234",
+		})
+		require.ErrorIs(t, err, ingestion.ErrRepoAlreadyTracked)
+	})
+
+	t.Run("same identifier on a different forge is not a duplicate", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.CreateRepo(ctx, ingestion.NewRepo{ //nolint:gosec // test fixture value, not a real credential
+			Forge:              ingestion.ForgeForgejo,
+			Identifier:         "alrayyes/pipeline-analytics",
+			ForgejoInstanceURL: "https://git.higherlearning.eu",
+			Token:              "forgejo-token-5678",
+		})
+		require.NoError(t, err)
+	})
+}
+
+func TestStore_CreateRepo_AlreadyTracked_Forgejo(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := store.CreateRepo(ctx, ingestion.NewRepo{ //nolint:gosec // test fixture value, not a real credential
+		Forge:              ingestion.ForgeForgejo,
+		Identifier:         "alrayyes/dotfiles",
+		ForgejoInstanceURL: "https://git.higherlearning.eu",
+		Token:              "forgejo-token-5678",
+	})
+	require.NoError(t, err)
+
+	t.Run("same forge, identifier, and instance URL", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.CreateRepo(ctx, ingestion.NewRepo{ //nolint:gosec // test fixture value, not a real credential
+			Forge:              ingestion.ForgeForgejo,
+			Identifier:         "alrayyes/dotfiles",
+			ForgejoInstanceURL: "https://git.higherlearning.eu",
+			Token:              "forgejo-token-5678",
+		})
+		require.ErrorIs(t, err, ingestion.ErrRepoAlreadyTracked)
+	})
+
+	t.Run("same identifier on a different instance URL is not a duplicate", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.CreateRepo(ctx, ingestion.NewRepo{ //nolint:gosec // test fixture value, not a real credential
+			Forge:              ingestion.ForgeForgejo,
+			Identifier:         "alrayyes/dotfiles",
+			ForgejoInstanceURL: "https://code.example.com",
+			Token:              "forgejo-token-9999",
+		})
+		require.NoError(t, err)
+	})
+}
+
+func TestStore_ListRepoIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	// More than PAGE_SIZE (20) so this proves the result isn't paginated.
+	for i := range 25 {
+		_, err := store.CreateRepo(ctx, ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: fmt.Sprintf("alrayyes/repo-%d", i),
+			Token:      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+	}
+
+	_, err := store.CreateRepo(ctx, ingestion.NewRepo{ //nolint:gosec // test fixture value, not a real credential
+		Forge:              ingestion.ForgeForgejo,
+		Identifier:         "alrayyes/dotfiles",
+		ForgejoInstanceURL: "https://git.higherlearning.eu",
+		Token:              "forgejo-token-5678",
+	})
+	require.NoError(t, err)
+
+	t.Run("returns every identifier for the forge, unpaginated", func(t *testing.T) {
+		t.Parallel()
+
+		identifiers, err := store.ListRepoIdentifiers(ctx, ingestion.ForgeGitHub, "")
+		require.NoError(t, err)
+		require.Len(t, identifiers, 25)
+		require.Contains(t, identifiers, "alrayyes/repo-24")
+	})
+
+	t.Run("scopes to the forge and instance URL", func(t *testing.T) {
+		t.Parallel()
+
+		identifiers, err := store.ListRepoIdentifiers(ctx, ingestion.ForgeForgejo, "https://git.higherlearning.eu")
+		require.NoError(t, err)
+		require.Equal(t, []string{"alrayyes/dotfiles"}, identifiers)
+	})
+
+	t.Run("a different instance URL sees nothing", func(t *testing.T) {
+		t.Parallel()
+
+		identifiers, err := store.ListRepoIdentifiers(ctx, ingestion.ForgeForgejo, "https://code.example.com")
+		require.NoError(t, err)
+		require.Empty(t, identifiers)
+	})
+}

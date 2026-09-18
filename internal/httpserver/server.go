@@ -46,6 +46,7 @@ func New(deps Deps) http.Handler {
 	repos := &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore}
 	mux.HandleFunc("GET /api/repos", repos.list)
 	mux.HandleFunc("POST /api/repos", repos.register)
+	mux.HandleFunc("GET /api/repos/identifiers", repos.identifiers)
 	mux.HandleFunc("POST /api/repos/discover", repos.discover)
 	mux.HandleFunc("DELETE /api/repos/{repoId}", repos.untrack)
 

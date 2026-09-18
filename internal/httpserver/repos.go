@@ -2,6 +2,8 @@ package httpserver
 
 import (
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -102,12 +104,44 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 		Token:              in.Token,
 	})
 	if err != nil {
+		if errors.Is(err, ingestion.ErrRepoAlreadyTracked) {
+			slog.ErrorContext(r.Context(), "rejected duplicate repo registration",
+				"forge", in.Forge, "identifier", in.Identifier)
+			writeError(w, http.StatusConflict, "already_tracked", "this repo is already tracked")
+
+			return
+		}
+
+		slog.ErrorContext(r.Context(), "register repo failed",
+			"forge", in.Forge, "identifier", in.Identifier, "error", err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "register repo")
 
 		return
 	}
 
 	writeJSON(w, http.StatusCreated, toRepoDTO(repo))
+}
+
+type repoIdentifiersDTO struct {
+	Identifiers []string `json:"identifiers"`
+}
+
+func (h *reposHandler) identifiers(w http.ResponseWriter, r *http.Request) {
+	forge := r.URL.Query().Get("forge")
+	if forge != string(ingestion.ForgeGitHub) && forge != string(ingestion.ForgeForgejo) {
+		writeError(w, http.StatusBadRequest, "invalid_query", "forge is required")
+
+		return
+	}
+
+	identifiers, err := h.store.ListRepoIdentifiers(r.Context(), ingestion.Forge(forge), r.URL.Query().Get("forgejoInstanceUrl"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "list repo identifiers")
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, repoIdentifiersDTO{Identifiers: identifiers})
 }
 
 func (h *reposHandler) discover(w http.ResponseWriter, r *http.Request) {

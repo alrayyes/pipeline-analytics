@@ -11,6 +11,8 @@ import (
 	"github.com/alrayyes/pipeline-analytics/internal/crypto"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	"github.com/google/uuid"
+	sqlitedriver "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // Store implements ingestion.Store against a SQLite database.
@@ -62,10 +64,52 @@ func (s *Store) CreateRepo(ctx context.Context, repo ingestion.NewRepo) (ingesti
 		encrypted, repoRecord.TokenMasked, repoRecord.WebhookSecret, string(repoRecord.IngestionStatus), repoRecord.CreatedAt,
 	)
 	if err != nil {
+		if isUniqueConstraintErr(err) {
+			return ingestion.Repo{}, ingestion.ErrRepoAlreadyTracked
+		}
+
 		return ingestion.Repo{}, fmt.Errorf("insert repo: %w", err)
 	}
 
 	return repoRecord, nil
+}
+
+// isUniqueConstraintErr reports whether err is a SQLite UNIQUE constraint
+// violation -- detected via the driver's own error code
+// (SQLITE_CONSTRAINT_UNIQUE), not by matching the error message string.
+func isUniqueConstraintErr(err error) bool {
+	var sqliteErr *sqlitedriver.Error
+
+	return errors.As(err, &sqliteErr) && sqliteErr.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE
+}
+
+// ListRepoIdentifiers implements ingestion.Store.
+func (s *Store) ListRepoIdentifiers(ctx context.Context, forge ingestion.Forge, instanceURL string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT identifier FROM repos
+		WHERE forge = ? AND forgejo_instance_url IS ?
+	`, string(forge), nullable(instanceURL))
+	if err != nil {
+		return nil, fmt.Errorf("query repo identifiers: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var identifiers []string
+
+	for rows.Next() {
+		var identifier string
+		if err := rows.Scan(&identifier); err != nil {
+			return nil, fmt.Errorf("scan repo identifier: %w", err)
+		}
+
+		identifiers = append(identifiers, identifier)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate repo identifiers: %w", err)
+	}
+
+	return identifiers, nil
 }
 
 // ListRepos implements ingestion.Store.

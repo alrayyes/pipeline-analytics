@@ -131,6 +131,31 @@ let discoveredRepos = $state<string[] | null>(null);
 let discoverBusy = $state(false);
 let discoverError = $state<string | null>(null);
 
+// Every tracked identifier for the current forge (+ instance, for
+// Forgejo), fetched unpaginated from a dedicated endpoint rather than
+// derived from the (paginated) `repos` list -- past PAGE_SIZE tracked
+// repos, a derived-from-`repos` set only ever reflected whatever page
+// happened to be loaded, so an already-tracked repo past the first page
+// wrongly reappeared in Discover as if it were new (#197).
+let trackedIdentifiers = $state<Set<string>>(new Set());
+
+async function loadTrackedIdentifiers(): Promise<void> {
+	try {
+		const params = new URLSearchParams({ forge });
+		if (forge === 'forgejo' && forgejoInstanceUrl) {
+			params.set('forgejoInstanceUrl', forgejoInstanceUrl);
+		}
+
+		const res = await fetch(`/api/repos/identifiers?${params}`);
+		if (!res.ok) return;
+
+		const body: { identifiers: string[] } = await res.json();
+		trackedIdentifiers = new Set(body.identifiers);
+	} catch {
+		// Best effort -- Discover just won't exclude anything if this fails.
+	}
+}
+
 let selected = $state<Set<string>>(new Set());
 let manualIdentifier = $state('');
 
@@ -150,21 +175,6 @@ const canDiscover = $derived(
 const allDiscoveredSelected = $derived(
 	(discoveredRepos?.length ?? 0) > 0 &&
 		(discoveredRepos ?? []).every((id) => selected.has(id)),
-);
-
-// Repos already tracked on this exact forge (+ instance, for Forgejo)
-// don't belong in the picker at all -- there's nothing to do with one a
-// second time.
-const trackedIdentifiers = $derived(
-	new Set(
-		(repos ?? [])
-			.filter(
-				(r) =>
-					r.forge === forge &&
-					(forge !== 'forgejo' || r.forgejoInstanceUrl === forgejoInstanceUrl),
-			)
-			.map((r) => r.identifier),
-	),
 );
 
 // Manually-added identifiers aren't necessarily in discoveredRepos (the
@@ -191,6 +201,11 @@ $effect(() => {
 		forge,
 		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
 	);
+});
+
+$effect(() => {
+	[forge, forgejoInstanceUrl];
+	loadTrackedIdentifiers();
 });
 
 // A discovered list only makes sense for the token/forge/instance it was
@@ -394,11 +409,16 @@ async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 				results.push({ identifier, ok: true });
 			} else {
 				const body = await res.json().catch(() => null);
-				results.push({
-					identifier,
-					ok: false,
-					message: body?.message ?? 'Could not register.',
-				});
+				// Distinct from the generic fallback, and keyed on `code`
+				// rather than trusting the server's message string to stay
+				// this exact wording -- a repo Discover offered anyway
+				// (stale trackedIdentifiers, or two tabs racing) isn't a
+				// failure worth "Could not register.", it's a no-op.
+				const message =
+					body?.code === 'already_tracked'
+						? 'Already tracked.'
+						: (body?.message ?? 'Could not register.');
+				results.push({ identifier, ok: false, message });
 			}
 		} catch {
 			results.push({
@@ -425,7 +445,7 @@ async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 	// The layout's own load -- which the nav's hasRepos-gated links and the
 	// Pipelines empty state (#71) both read -- only reruns on navigation by
 	// default; this registration didn't navigate anywhere.
-	await Promise.all([loadRepos(), invalidateAll()]);
+	await Promise.all([loadRepos(), loadTrackedIdentifiers(), invalidateAll()]);
 
 	if (results.every((r) => r.ok)) {
 		// Not resetForm() here -- it flips `step` back to 'token', which
@@ -457,7 +477,7 @@ async function handleUntrack(): Promise<void> {
 		}
 
 		untrackTarget = null;
-		await Promise.all([loadRepos(), invalidateAll()]);
+		await Promise.all([loadRepos(), loadTrackedIdentifiers(), invalidateAll()]);
 	} catch {
 		untrackError = 'Could not reach the server.';
 	} finally {

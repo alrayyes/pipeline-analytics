@@ -42,6 +42,21 @@ func (f *fakeStore) CreateRepo(_ context.Context, in ingestion.NewRepo) (ingesti
 	return repo, nil
 }
 
+func (f *fakeStore) ListRepoIdentifiers(_ context.Context, forge ingestion.Forge, instanceURL string) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	var identifiers []string
+
+	for _, r := range f.repos {
+		if r.Forge == forge && r.ForgejoInstanceURL == instanceURL {
+			identifiers = append(identifiers, r.Identifier)
+		}
+	}
+
+	return identifiers, nil
+}
+
 func (f *fakeStore) ListRepos(context.Context, ingestion.RepoListFilter) ([]ingestion.Repo, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
