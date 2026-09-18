@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.32.1...v0.33.0) (2026-09-18)
+
+
+### Features
+
+* **auth:** support registering more than one passkey ([#213](https://github.com/alrayyes/pipeline-analytics/issues/213)) ([8a6c072](https://github.com/alrayyes/pipeline-analytics/commit/8a6c072f3ea2c7f8c1f8dcf8b66563ba1e76ba43))
+
 ## [0.32.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.32.0...v0.32.1) (2026-09-18)
 
 
