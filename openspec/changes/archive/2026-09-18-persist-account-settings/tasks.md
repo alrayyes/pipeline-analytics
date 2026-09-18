@@ -41,4 +41,4 @@
 
 ## 4. Ship it
 
-- [ ] 4.1 Open a pull request with `Closes #187` and verify CI passes
+- [x] 4.1 Open a pull request with `Closes #187` and verify CI passes
