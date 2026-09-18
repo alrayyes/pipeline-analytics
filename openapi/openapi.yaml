@@ -79,6 +79,49 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/repos/identifiers:
+    get:
+      operationId: listRepoIdentifiers
+      summary: List every tracked identifier for a forge, unpaginated
+      description: >
+        Backs Discover's "already tracked" check, which needs to see every
+        tracked repo regardless of how many are tracked, not just whatever
+        page a paginated GET /api/repos happens to be showing (see
+        forge-ingestion/spec.md's "Repo tracking registration").
+      tags: [repos]
+      parameters:
+        - name: forge
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Forge"
+        - name: forgejoInstanceUrl
+          in: query
+          required: false
+          description: Restricts to one Forgejo instance. Ignored for GitHub.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Every tracked identifier matching forge (+ instance, for Forgejo)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [identifiers]
+                properties:
+                  identifiers:
+                    type: array
+                    items:
+                      type: string
+                    example: ["alrayyes/pipeline-analytics"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/repos/discover:
     post:
@@ -575,6 +618,12 @@ components:
             $ref: "#/components/schemas/Error"
     BadGateway:
       description: The originating forge rejected the request or couldn't be reached
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: A resource with that identity already exists
       content:
         application/json:
           schema:

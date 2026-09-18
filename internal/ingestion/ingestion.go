@@ -5,8 +5,13 @@ package ingestion
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+// ErrRepoAlreadyTracked is returned by CreateRepo when a repo with the same
+// forge, identifier, and (for Forgejo) instance URL is already tracked.
+var ErrRepoAlreadyTracked = errors.New("repo already tracked")
 
 // Forge identifies which forge a tracked repo lives on.
 type Forge string
@@ -73,6 +78,11 @@ type Store interface {
 	// ListRepos returns the repos matching filter, plus whether more repos
 	// beyond this page also match -- always false when filter.Limit is 0.
 	ListRepos(ctx context.Context, filter RepoListFilter) (repos []Repo, hasMore bool, err error)
+	// ListRepoIdentifiers returns every tracked identifier for forge (and,
+	// for Forgejo, instanceURL), unpaginated -- for a "is this already
+	// tracked" check that has to see every tracked repo, not just the page
+	// a paginated list happens to be showing.
+	ListRepoIdentifiers(ctx context.Context, forge Forge, instanceURL string) ([]string, error)
 	GetRepo(ctx context.Context, id string) (Repo, error)
 	// DeleteRepo stops tracking a repo. The schema's ON DELETE CASCADE
 	// removes its stored runs, jobs, and steps along with it -- it does
