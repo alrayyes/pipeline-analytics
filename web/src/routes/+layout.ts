@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { fetchSettings } from '$lib/settingsSync.js';
 import type { LayoutLoad } from './$types';
 
 // Embedded into the Go binary and served as static files with no Node
@@ -19,23 +20,35 @@ export const ssr = false;
 // (issue #71) -- the nav and the Pipelines empty state both need that to
 // pick the right copy/CTA, and this call already fires on every navigation
 // for the 401 check above, so reading its body costs nothing extra.
+//
+// The settings fetch (persist-account-settings/design.md's "folds into the
+// existing auth-gate request") runs in parallel with the repos call via
+// Promise.all, not after it -- a second sequential round trip here would
+// delay every navigation just to seed stores that already have a
+// localStorage-cached value to paint from in the meantime. A failed
+// settings fetch resolves to null (fetchSettings' own doc comment), not an
+// error -- the root layout's init calls fall back to that cache.
 export const load: LayoutLoad = async ({ url, fetch }) => {
 	if (url.pathname === '/login') {
-		return { hasRepos: false };
+		return { hasRepos: false, settings: null };
 	}
 
 	// limit=1: this call only needs to know whether any repo exists at all,
 	// not fetch the page a user is looking at.
-	const res = await fetch('/api/repos?limit=1');
-	if (res.status === 401) {
+	const [reposRes, settings] = await Promise.all([
+		fetch('/api/repos?limit=1'),
+		fetchSettings(fetch),
+	]);
+
+	if (reposRes.status === 401) {
 		redirect(302, '/login');
 	}
 
-	if (!res.ok) {
-		return { hasRepos: false };
+	if (!reposRes.ok) {
+		return { hasRepos: false, settings };
 	}
 
-	const body: { repos: unknown[] } = await res.json();
+	const body: { repos: unknown[] } = await reposRes.json();
 
-	return { hasRepos: body.repos.length > 0 };
+	return { hasRepos: body.repos.length > 0, settings };
 };
