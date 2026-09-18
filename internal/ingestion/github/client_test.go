@@ -227,6 +227,172 @@ func TestClient_ListRecentRuns(t *testing.T) {
 	})
 }
 
+// TestClient_ListRecentRuns_KnownRuns covers the per-run skip-refetch
+// behavior separately from TestClient_ListRecentRuns' other scenarios --
+// kept apart so neither function grows past a reasonable size/complexity
+// for one test.
+func TestClient_ListRecentRuns_KnownRuns(t *testing.T) {
+	t.Parallel()
+
+	t.Run("skips fetching jobs for a run matching KnownRuns", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs" {
+				t.Fatal("jobs should not be fetched for a run whose status/conclusion already matches KnownRuns")
+			}
+
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(workflowRunsPayload))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+			KnownRuns: map[string]ingestion.RunState{
+				"1001": {Status: "completed", Conclusion: "success"},
+			},
+		})
+		require.NoError(t, err)
+		require.Len(t, result.Runs, 1)
+		require.Empty(t, result.Runs[0].Jobs)
+	})
+
+	t.Run("still fetches jobs for a run whose conclusion differs from KnownRuns", func(t *testing.T) {
+		t.Parallel()
+
+		jobsFetched := false
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/repos/alrayyes/pipeline-analytics/actions/runs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowRunsPayload))
+			case "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs":
+				jobsFetched = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowJobsPayload))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		// KnownRuns says this run last completed as a failure; the fresh
+		// listing reports success -- the conclusion changed, so jobs must
+		// still be fetched even though the status (completed) didn't.
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+			KnownRuns: map[string]ingestion.RunState{
+				"1001": {Status: "completed", Conclusion: "failure"},
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, jobsFetched)
+		require.Len(t, result.Runs[0].Jobs, 1)
+	})
+
+	t.Run("still fetches jobs for a run transitioning into completed", func(t *testing.T) {
+		t.Parallel()
+
+		jobsFetched := false
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/repos/alrayyes/pipeline-analytics/actions/runs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowRunsPayload))
+			case "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs":
+				jobsFetched = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowJobsPayload))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		// KnownRuns says this run was still in progress as of the last
+		// poll; workflowRunsPayload (this poll) reports it completed --
+		// jobs must be fetched for a run finishing, not just for one
+		// whose conclusion changed after already being completed.
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+			KnownRuns: map[string]ingestion.RunState{
+				"1001": {Status: "in_progress"},
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, jobsFetched)
+		require.Len(t, result.Runs[0].Jobs, 1)
+	})
+
+	t.Run("still fetches jobs for a run re-run under the same id (completed -> in_progress)", func(t *testing.T) {
+		t.Parallel()
+
+		jobsFetched := false
+		rerunPayload := `{
+  "workflow_runs": [
+    {
+      "id": 1001,
+      "name": "CI",
+      "status": "in_progress",
+      "conclusion": "",
+      "run_started_at": "2026-09-16T10:00:00Z",
+      "updated_at": "2026-09-16T10:00:00Z",
+      "html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001"
+    }
+  ]
+}`
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/repos/alrayyes/pipeline-analytics/actions/runs":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(rerunPayload))
+			case "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs":
+				jobsFetched = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(workflowJobsPayload))
+			default:
+				t.Errorf("unexpected request path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		// KnownRuns says this run already completed; the fresh listing
+		// reports it back as in_progress under the same run ID -- a
+		// re-run. The skip is not a one-time flag: jobs must be fetched
+		// again here even though this exact run was skipped on an
+		// earlier poll.
+		result, err := client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+			KnownRuns: map[string]ingestion.RunState{
+				"1001": {Status: "completed", Conclusion: "success"},
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, jobsFetched)
+		require.Len(t, result.Runs[0].Jobs, 1)
+	})
+}
+
 func TestClient_RateLimitFor(t *testing.T) {
 	t.Parallel()
 

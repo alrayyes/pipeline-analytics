@@ -3,11 +3,14 @@ package ingestion_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
+	"github.com/alrayyes/pipeline-analytics/internal/ingestion/github"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,6 +68,36 @@ func TestReconciler_ReconcileRepo(t *testing.T) {
 		updated, err := store.GetRepo(context.Background(), repo.ID)
 		require.NoError(t, err)
 		require.Equal(t, `"v1"`, updated.ReconcileETag)
+	})
+
+	t.Run("passes already-stored run states as KnownRuns on the next poll", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		repo, err := store.CreateRepo(context.Background(), ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "alrayyes/pipeline-analytics"})
+		require.NoError(t, err)
+
+		runStore := newFakeRunStore()
+		_, err = runStore.UpsertRun(context.Background(), ingestion.Run{
+			RepoID: repo.ID, ForgeRunID: "1001", PipelineName: "CI",
+			Status: "completed", Conclusion: "success",
+		})
+		require.NoError(t, err)
+
+		var gotKnownRuns map[string]ingestion.RunState
+
+		client := &fakeForgeClient{listRunsFunc: func(_ context.Context, req ingestion.ListRunsRequest) (ingestion.ListRunsResult, error) {
+			gotKnownRuns = req.KnownRuns
+
+			return ingestion.ListRunsResult{NotModified: true}, nil
+		}}
+
+		reconciler := ingestion.NewReconciler(store, runStore, map[ingestion.Forge]ingestion.ForgeClient{ingestion.ForgeGitHub: client})
+		require.NoError(t, reconciler.ReconcileRepo(context.Background(), repo))
+
+		require.Equal(t, map[string]ingestion.RunState{
+			"1001": {Status: "completed", Conclusion: "success"},
+		}, gotKnownRuns)
 	})
 
 	t.Run("an unchanged repo makes no run-storage writes", func(t *testing.T) {
@@ -163,4 +196,63 @@ func TestReconciler_ReconcileAll(t *testing.T) {
 		require.True(t, polled[failing.Identifier])
 		require.True(t, polled[healthy.Identifier])
 	})
+}
+
+// TestReconciler_ReconcileRepo_SkipsUnchangedRunJobs wires a real
+// github.Client (not the in-package fake) into Reconciler, since "zero jobs
+// requests" is an HTTP-level guarantee only the real client's KnownRuns
+// handling can demonstrate end to end -- skip-refetch-completed-run-jobs's
+// whole point.
+func TestReconciler_ReconcileRepo_SkipsUnchangedRunJobs(t *testing.T) {
+	t.Parallel()
+
+	store := newFakeStore()
+	repo, err := store.CreateRepo(context.Background(), ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "alrayyes/pipeline-analytics"})
+	require.NoError(t, err)
+
+	runStore := newFakeRunStore()
+	_, err = runStore.UpsertRun(context.Background(), ingestion.Run{
+		RepoID: repo.ID, ForgeRunID: "1001", PipelineName: "CI",
+		Status: "completed", Conclusion: "success",
+	})
+	require.NoError(t, err)
+
+	jobsRequests := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch r.URL.Path {
+		case "/repos/alrayyes/pipeline-analytics/actions/runs":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"workflow_runs": [
+					{
+						"id": 1001,
+						"name": "CI",
+						"status": "completed",
+						"conclusion": "success",
+						"run_started_at": "2026-09-15T10:00:00Z",
+						"updated_at": "2026-09-15T10:05:00Z",
+						"html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001"
+					}
+				]
+			}`))
+		case "/repos/alrayyes/pipeline-analytics/actions/runs/1001/jobs":
+			jobsRequests++
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"jobs": []}`))
+		default:
+			t.Errorf("unexpected request path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client, err := github.NewClient(server.URL + "/")
+	require.NoError(t, err)
+
+	reconciler := ingestion.NewReconciler(store, runStore, map[ingestion.Forge]ingestion.ForgeClient{ingestion.ForgeGitHub: client})
+	require.NoError(t, reconciler.ReconcileRepo(context.Background(), repo))
+
+	require.Zero(t, jobsRequests, "run 1001's status/conclusion already matched what was stored")
 }

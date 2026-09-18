@@ -156,6 +156,12 @@ func (c *Client) GetRepo(ctx context.Context, req ingestion.GetRepoRequest) (ing
 // client isn't used here -- CheckResponse treats a 304 as an API error, so
 // a plain net/http request keeps the conditional-GET contract explicit and
 // testable against a fake server.
+//
+// Below that per-list check, each individual run gets its own, finer-
+// grained skip: a run present in req.KnownRuns whose status is completed
+// and matches the fresh listing's status and conclusion has nothing new to
+// report, so its jobs aren't refetched at all (see ingestion.RunState's
+// doc comment).
 func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsRequest) (ingestion.ListRunsResult, error) {
 	owner, name, err := splitIdentifier(req.Identifier)
 	if err != nil {
@@ -163,15 +169,7 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 	}
 
 	var runsPayload struct {
-		WorkflowRuns []struct {
-			ID           int64  `json:"id"`
-			Name         string `json:"name"`
-			Status       string `json:"status"`
-			Conclusion   string `json:"conclusion"`
-			RunStartedAt string `json:"run_started_at"`
-			UpdatedAt    string `json:"updated_at"`
-			HTMLURL      string `json:"html_url"`
-		} `json:"workflow_runs"`
+		WorkflowRuns []githubWorkflowRun `json:"workflow_runs"`
 	}
 
 	runsURL := fmt.Sprintf("%srepos/%s/%s/actions/runs?per_page=20", c.baseURLString(), owner, name)
@@ -188,29 +186,67 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 	runs := make([]ingestion.RunSnapshot, 0, len(runsPayload.WorkflowRuns))
 
 	for _, wr := range runsPayload.WorkflowRuns {
-		jobs, err := c.listWorkflowJobs(ctx, owner, name, wr.ID, req.Token)
+		run, err := c.snapshotRun(ctx, owner, name, wr, req.Token, req.KnownRuns)
 		if err != nil {
 			return ingestion.ListRunsResult{}, err
 		}
 
-		var completedAt *time.Time
-		if wr.Status == "completed" {
-			completedAt = parseGitHubTime(wr.UpdatedAt)
-		}
-
-		runs = append(runs, ingestion.RunSnapshot{
-			ForgeRunID:   strconv.FormatInt(wr.ID, 10),
-			PipelineName: wr.Name,
-			Status:       wr.Status,
-			Conclusion:   wr.Conclusion,
-			StartedAt:    parseGitHubTime(wr.RunStartedAt),
-			CompletedAt:  completedAt,
-			ForgeURL:     wr.HTMLURL,
-			Jobs:         jobs,
-		})
+		runs = append(runs, run)
 	}
 
 	return ingestion.ListRunsResult{ETag: etag, Runs: runs}, nil
+}
+
+// githubWorkflowRun is one entry from GitHub's list-workflow-runs response.
+type githubWorkflowRun struct {
+	ID           int64  `json:"id"`
+	Name         string `json:"name"`
+	Status       string `json:"status"`
+	Conclusion   string `json:"conclusion"`
+	RunStartedAt string `json:"run_started_at"`
+	UpdatedAt    string `json:"updated_at"`
+	HTMLURL      string `json:"html_url"`
+}
+
+// snapshotRun converts one run listing entry to a RunSnapshot, fetching its
+// jobs unless knownRuns says that's unnecessary (runIsUpToDate).
+func (c *Client) snapshotRun(ctx context.Context, owner, name string, wr githubWorkflowRun, token string, knownRuns map[string]ingestion.RunState) (ingestion.RunSnapshot, error) {
+	runID := strconv.FormatInt(wr.ID, 10)
+
+	var jobs []ingestion.JobSnapshot
+
+	if !runIsUpToDate(knownRuns[runID], wr.Status, wr.Conclusion) {
+		var err error
+
+		jobs, err = c.listWorkflowJobs(ctx, owner, name, wr.ID, token)
+		if err != nil {
+			return ingestion.RunSnapshot{}, err
+		}
+	}
+
+	var completedAt *time.Time
+	if wr.Status == "completed" {
+		completedAt = parseGitHubTime(wr.UpdatedAt)
+	}
+
+	return ingestion.RunSnapshot{
+		ForgeRunID:   runID,
+		PipelineName: wr.Name,
+		Status:       wr.Status,
+		Conclusion:   wr.Conclusion,
+		StartedAt:    parseGitHubTime(wr.RunStartedAt),
+		CompletedAt:  completedAt,
+		ForgeURL:     wr.HTMLURL,
+		Jobs:         jobs,
+	}, nil
+}
+
+// runIsUpToDate reports whether a run's stored state (absent if it was
+// never in KnownRuns) already matches what the fresh listing reports --
+// only true for a run that's completed in both, with the same conclusion,
+// which is what actually makes its jobs safe to skip refetching.
+func runIsUpToDate(known ingestion.RunState, freshStatus, freshConclusion string) bool {
+	return known.Status == "completed" && freshStatus == "completed" && known.Conclusion == freshConclusion
 }
 
 func (c *Client) listWorkflowJobs(ctx context.Context, owner, name string, runID int64, token string) ([]ingestion.JobSnapshot, error) {
