@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -408,6 +410,222 @@ func TestReposRegisterAndList(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		require.False(t, got.HasMore)
 		require.Len(t, got.Repos, 1)
+	})
+}
+
+func TestReposRegister_AlreadyTracked(t *testing.T) {
+	t.Parallel()
+
+	t.Run("re-registering the same forge and identifier returns 409, not 500", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		body, err := json.Marshal(map[string]string{
+			"forge":      "github",
+			"identifier": "alrayyes/pipeline-analytics",
+			"token":      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+
+		first := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+		firstRec := httptest.NewRecorder()
+		srv.ServeHTTP(firstRec, first)
+		require.Equal(t, http.StatusCreated, firstRec.Code)
+
+		second := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+		secondRec := httptest.NewRecorder()
+		srv.ServeHTTP(secondRec, second)
+
+		require.Equal(t, http.StatusConflict, secondRec.Code)
+
+		var got map[string]any
+		require.NoError(t, json.Unmarshal(secondRec.Body.Bytes(), &got))
+		require.Equal(t, "already_tracked", got["code"])
+	})
+
+	t.Run("a duplicate registration does not create a second row", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		body, err := json.Marshal(map[string]string{
+			"forge":      "github",
+			"identifier": "alrayyes/pipeline-analytics",
+			"token":      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+
+		for range 2 {
+			req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+		}
+
+		listReq := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos", nil))
+		listRec := httptest.NewRecorder()
+		srv.ServeHTTP(listRec, listReq)
+
+		var got repoListResponse
+		require.NoError(t, json.Unmarshal(listRec.Body.Bytes(), &got))
+		require.Len(t, got.Repos, 1)
+	})
+}
+
+// TestReposRegister_LogsFailures swaps the package-global slog default to
+// capture output, so it (and its subtests) deliberately don't call
+// t.Parallel() -- concurrent tests logging through the same swapped default
+// would race on it. Go only starts running parallel-marked tests once every
+// non-parallel top-level test in the package has finished, so this being
+// sequential is what keeps the swap race-free without every other test in
+// the package needing to avoid parallelism too.
+func TestReposRegister_LogsFailures(t *testing.T) {
+	captureLogs := func(t *testing.T) *bytes.Buffer {
+		t.Helper()
+
+		var buf bytes.Buffer
+
+		previous := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+		t.Cleanup(func() { slog.SetDefault(previous) })
+
+		return &buf
+	}
+
+	t.Run("a duplicate registration is logged", func(t *testing.T) {
+		logs := captureLogs(t)
+		srv := newTestServer(t, nil)
+
+		body, err := json.Marshal(map[string]string{
+			"forge":      "github",
+			"identifier": "alrayyes/pipeline-analytics",
+			"token":      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+
+		for range 2 {
+			req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+		}
+
+		require.Contains(t, logs.String(), "alrayyes/pipeline-analytics")
+	})
+
+	t.Run("any other registration failure is also logged", func(t *testing.T) {
+		logs := captureLogs(t)
+
+		conn, err := db.Open(":memory:")
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, conn.Close()) })
+		require.NoError(t, db.Migrate(context.Background(), conn))
+
+		// A key of the wrong length makes CreateRepo's token encryption
+		// fail before it ever reaches the UNIQUE constraint -- a real,
+		// non-duplicate failure exercising the handler's other error path.
+		badStore := ingestionsqlite.NewStore(conn, []byte("too-short"))
+		registrar := ingestion.NewRegistrar(badStore, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{},
+		}, "https://example.com")
+
+		authStore := authsqlite.NewStore(conn)
+		ctx := context.Background()
+		user, err := authStore.CreateUser(ctx, []byte("test-handle"), "admin")
+		require.NoError(t, err)
+		sessionID, err := authStore.CreateSession(ctx, user.ID)
+		require.NoError(t, err)
+
+		handler := httpserver.New(httpserver.Deps{
+			Registrar:      registrar,
+			IngestionStore: badStore,
+			RunStore:       badStore,
+			Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
+			AuthStore:      authStore,
+			Version:        "test-version",
+			Assets:         testAssets,
+		})
+
+		body, err := json.Marshal(map[string]string{
+			"forge":      "github",
+			"identifier": "alrayyes/pipeline-analytics",
+			"token":      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body))
+		req.AddCookie(&http.Cookie{
+			Name:     "session",
+			Value:    sessionID,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteStrictMode,
+		})
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		require.Contains(t, logs.String(), "alrayyes/pipeline-analytics")
+	})
+}
+
+func TestReposIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns every tracked identifier for the forge, unpaginated", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		for i := range 25 {
+			body, err := json.Marshal(map[string]string{
+				"forge":      "github",
+				"identifier": fmt.Sprintf("alrayyes/repo-%d", i),
+				"token":      "ghp_supersecrettoken1234",
+			})
+			require.NoError(t, err)
+
+			req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+			require.Equal(t, http.StatusCreated, rec.Code)
+		}
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos/identifiers?forge=github", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got struct {
+			Identifiers []string `json:"identifiers"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Len(t, got.Identifiers, 25)
+		require.Contains(t, got.Identifiers, "alrayyes/repo-24")
+	})
+
+	t.Run("rejects a missing forge", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos/identifiers", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("rejects an unauthenticated request", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/repos/identifiers?forge=github", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
 }
 
