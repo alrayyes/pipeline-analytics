@@ -67,6 +67,8 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("POST /api/auth/login/options", authH.loginOptions)
 	mux.HandleFunc("POST /api/auth/login", authH.login)
 	mux.HandleFunc("POST /api/auth/logout", authH.logout)
+	mux.HandleFunc("POST /api/auth/tokens", authH.issueToken)
+	mux.HandleFunc("DELETE /api/auth/tokens/{tokenId}", authH.revokeToken)
 
 	webhooks := &webhooksHandler{store: deps.RunStore, reconciler: deps.Reconciler}
 	mux.HandleFunc("POST /webhooks/github", webhooks.github)

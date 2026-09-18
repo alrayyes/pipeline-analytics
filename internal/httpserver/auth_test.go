@@ -2,6 +2,7 @@ package httpserver_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -137,6 +138,117 @@ func TestAuthHTTPFlow(t *testing.T) {
 		afterRec := httptest.NewRecorder()
 		srv.ServeHTTP(afterRec, after)
 		require.Equal(t, http.StatusUnauthorized, afterRec.Code)
+	})
+}
+
+// registerAndLogin drives the full WebAuthn ceremony against srv and
+// returns a valid session cookie -- shared setup for tests that need an
+// authenticated session but aren't testing the ceremony itself.
+func registerAndLogin(t *testing.T, srv http.Handler) *http.Cookie {
+	t.Helper()
+
+	rp := virtualwebauthn.RelyingParty{Name: "pipeline-analytics", ID: authTestRPID, Origin: authTestOrigin}
+	authenticator := virtualwebauthn.NewAuthenticator()
+	credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+
+	optsReq := httptest.NewRequest(http.MethodPost, "/api/auth/register/options", nil)
+	optsRec := httptest.NewRecorder()
+	srv.ServeHTTP(optsRec, optsReq)
+	require.Equal(t, http.StatusOK, optsRec.Code)
+
+	ceremonyCookie := findCookie(t, optsRec, "pa_ceremony")
+
+	attestationOptions, err := virtualwebauthn.ParseAttestationOptions(optsRec.Body.String())
+	require.NoError(t, err)
+
+	attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, authenticator, credential, *attestationOptions)
+
+	finishReq := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(attestationResponse))
+	finishReq.AddCookie(ceremonyCookie)
+	finishRec := httptest.NewRecorder()
+	srv.ServeHTTP(finishRec, finishReq)
+	require.Equal(t, http.StatusCreated, finishRec.Code)
+
+	return findCookie(t, finishRec, "session")
+}
+
+// TestAPITokenHTTPFlow drives issuance, bearer-authenticated use, and
+// revocation of an API token through the real HTTP handlers -- per #178's
+// acceptance criteria.
+func TestAPITokenHTTPFlow(t *testing.T) {
+	t.Parallel()
+
+	srv := newAuthTestServer(t)
+	sessionCookie := registerAndLogin(t, srv)
+
+	t.Run("issuing a token without a session is denied", func(t *testing.T) {
+		t.Parallel()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/tokens", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("issuing, using, and revoking a token", func(t *testing.T) {
+		t.Parallel()
+
+		issueReq := httptest.NewRequest(http.MethodPost, "/api/auth/tokens", nil)
+		issueReq.AddCookie(sessionCookie)
+		issueRec := httptest.NewRecorder()
+		srv.ServeHTTP(issueRec, issueReq)
+		require.Equal(t, http.StatusCreated, issueRec.Code)
+
+		var issued struct {
+			ID    string `json:"id"`
+			Token string `json:"token"`
+		}
+		require.NoError(t, json.NewDecoder(issueRec.Body).Decode(&issued))
+		require.NotEmpty(t, issued.ID)
+		require.NotEmpty(t, issued.Token)
+
+		// The raw token authenticates a gated endpoint with no session
+		// cookie at all.
+		useReq := httptest.NewRequest(http.MethodGet, "/api/repos", nil)
+		useReq.Header.Set("Authorization", "Bearer "+issued.Token)
+		useRec := httptest.NewRecorder()
+		srv.ServeHTTP(useRec, useReq)
+		require.NotEqual(t, http.StatusUnauthorized, useRec.Code)
+
+		// A bearer token alone can't issue or revoke tokens.
+		bearerIssueReq := httptest.NewRequest(http.MethodPost, "/api/auth/tokens", nil)
+		bearerIssueReq.Header.Set("Authorization", "Bearer "+issued.Token)
+		bearerIssueRec := httptest.NewRecorder()
+		srv.ServeHTTP(bearerIssueRec, bearerIssueReq)
+		require.Equal(t, http.StatusUnauthorized, bearerIssueRec.Code)
+
+		bearerRevokeReq := httptest.NewRequest(http.MethodDelete, "/api/auth/tokens/"+issued.ID, nil)
+		bearerRevokeReq.Header.Set("Authorization", "Bearer "+issued.Token)
+		bearerRevokeRec := httptest.NewRecorder()
+		srv.ServeHTTP(bearerRevokeRec, bearerRevokeReq)
+		require.Equal(t, http.StatusUnauthorized, bearerRevokeRec.Code)
+
+		// Revoking with the session works, and the token stops working.
+		revokeReq := httptest.NewRequest(http.MethodDelete, "/api/auth/tokens/"+issued.ID, nil)
+		revokeReq.AddCookie(sessionCookie)
+		revokeRec := httptest.NewRecorder()
+		srv.ServeHTTP(revokeRec, revokeReq)
+		require.Equal(t, http.StatusNoContent, revokeRec.Code)
+
+		afterReq := httptest.NewRequest(http.MethodGet, "/api/repos", nil)
+		afterReq.Header.Set("Authorization", "Bearer "+issued.Token)
+		afterRec := httptest.NewRecorder()
+		srv.ServeHTTP(afterRec, afterReq)
+		require.Equal(t, http.StatusUnauthorized, afterRec.Code)
+
+		var errBody struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}
+		require.NoError(t, json.NewDecoder(afterRec.Body).Decode(&errBody))
+		require.NotEmpty(t, errBody.Code)
+		require.NotEmpty(t, errBody.Message)
 	})
 }
 

@@ -159,6 +159,39 @@ func (s *Service) Logout(ctx context.Context, sessionID string) error {
 	return nil
 }
 
+// IssueToken creates a new API token for userID, returning its metadata
+// and its raw secret -- the only time the raw secret is ever available.
+func (s *Service) IssueToken(ctx context.Context, userID string) (Token, string, error) {
+	tok, raw, err := s.store.CreateToken(ctx, userID)
+	if err != nil {
+		return Token{}, "", fmt.Errorf("create token: %w", err)
+	}
+
+	return tok, raw, nil
+}
+
+// AuthenticateToken returns the userID a raw API token belongs to. Returns
+// ErrTokenNotFound if the token doesn't exist, has expired, or has been
+// revoked.
+func (s *Service) AuthenticateToken(ctx context.Context, rawToken string) (string, error) {
+	userID, err := s.store.TokenUserID(ctx, rawToken)
+	if err != nil {
+		return "", fmt.Errorf("look up token: %w", err)
+	}
+
+	return userID, nil
+}
+
+// RevokeToken revokes tokenID, scoped to userID. Returns ErrTokenNotFound
+// if no such token exists for that user.
+func (s *Service) RevokeToken(ctx context.Context, userID, tokenID string) error {
+	if err := s.store.RevokeToken(ctx, userID, tokenID); err != nil {
+		return fmt.Errorf("revoke token: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Service) userWithCredentials(ctx context.Context) (User, []webauthn.Credential, error) {
 	user, err := s.store.GetUser(ctx)
 	if err != nil {

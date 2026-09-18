@@ -18,6 +18,7 @@ var (
 	ErrNoUser           = errors.New("no user account has been registered yet")
 	ErrCeremonyNotFound = errors.New("ceremony not found or expired")
 	ErrSessionNotFound  = errors.New("session not found or expired")
+	ErrTokenNotFound    = errors.New("token not found, expired, or revoked")
 )
 
 // User is the dashboard's single account.
@@ -26,6 +27,16 @@ type User struct {
 	UserHandle  []byte
 	DisplayName string
 	CreatedAt   time.Time
+}
+
+// Token is an API token's metadata -- never its raw secret, which is only
+// ever available at creation. See add-api-token-auth/design.md's "Hash the
+// token at rest" decision.
+type Token struct {
+	ID        string
+	UserID    string
+	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 // Store is the port the domain persists users, credentials, in-flight
@@ -62,6 +73,18 @@ type Store interface {
 	Session(ctx context.Context, sessionID string) (string, error)
 	// DeleteSession ends a session.
 	DeleteSession(ctx context.Context, sessionID string) error
+
+	// CreateToken creates a new API token for userID, returning its
+	// metadata and its raw secret -- the only time the raw secret is ever
+	// available.
+	CreateToken(ctx context.Context, userID string) (Token, string, error)
+	// TokenUserID returns the userID a raw token belongs to. Returns
+	// ErrTokenNotFound if the token doesn't exist, has expired, or has
+	// been revoked.
+	TokenUserID(ctx context.Context, rawToken string) (string, error)
+	// RevokeToken revokes a token by id, scoped to userID. Returns
+	// ErrTokenNotFound if no such token exists for that user.
+	RevokeToken(ctx context.Context, userID, tokenID string) error
 }
 
 // webauthnUser adapts a User and its credentials to webauthn.User.

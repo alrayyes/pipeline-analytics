@@ -128,6 +128,56 @@ func TestService_FullCeremony(t *testing.T) {
 	})
 }
 
+func TestService_Token(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	service := newTestService(t)
+
+	// The token store is keyed by user id -- create a real one via
+	// registration rather than an arbitrary string, so this exercises the
+	// same path a real issuance would.
+	creation, ceremonyID, err := service.BeginRegistration(ctx)
+	require.NoError(t, err)
+
+	creationJSON, err := json.Marshal(creation)
+	require.NoError(t, err)
+
+	rp := virtualwebauthn.RelyingParty{Name: "pipeline-analytics", ID: testRPID, Origin: testOrigin}
+	authenticator := virtualwebauthn.NewAuthenticator()
+	credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+
+	attestationOptions, err := virtualwebauthn.ParseAttestationOptions(string(creationJSON))
+	require.NoError(t, err)
+
+	attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, authenticator, credential, *attestationOptions)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(attestationResponse))
+	req.Header.Set("Content-Type", "application/json")
+
+	user, _, err := service.FinishRegistration(ctx, ceremonyID, req)
+	require.NoError(t, err)
+
+	t.Run("issues a token that authenticates, then revokes it", func(t *testing.T) {
+		tok, raw, err := service.IssueToken(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, raw)
+
+		gotUserID, err := service.AuthenticateToken(ctx, raw)
+		require.NoError(t, err)
+		require.Equal(t, user.ID, gotUserID)
+
+		require.NoError(t, service.RevokeToken(ctx, user.ID, tok.ID))
+
+		_, err = service.AuthenticateToken(ctx, raw)
+		require.ErrorIs(t, err, auth.ErrTokenNotFound)
+	})
+
+	t.Run("an unknown raw token does not authenticate", func(t *testing.T) {
+		_, err := service.AuthenticateToken(ctx, "not-a-real-token")
+		require.ErrorIs(t, err, auth.ErrTokenNotFound)
+	})
+}
+
 func TestService_BeginLogin_NoUser(t *testing.T) {
 	t.Parallel()
 

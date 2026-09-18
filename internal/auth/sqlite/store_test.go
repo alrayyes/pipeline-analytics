@@ -141,6 +141,42 @@ func TestStore_Ceremony(t *testing.T) {
 	})
 }
 
+func TestStore_Token(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+	user, err := store.CreateUser(ctx, []byte("handle-1"), "admin")
+	require.NoError(t, err)
+
+	t.Run("round trips, is not recoverable from the row, and revokes", func(t *testing.T) {
+		t.Parallel()
+
+		tok, raw, err := store.CreateToken(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, raw)
+		require.NotEmpty(t, tok.ID)
+		require.Equal(t, user.ID, tok.UserID)
+		require.NotEqual(t, raw, tok.ID, "the id must not be the raw secret")
+
+		gotUserID, err := store.TokenUserID(ctx, raw)
+		require.NoError(t, err)
+		require.Equal(t, user.ID, gotUserID)
+
+		require.NoError(t, store.RevokeToken(ctx, user.ID, tok.ID))
+
+		_, err = store.TokenUserID(ctx, raw)
+		require.ErrorIs(t, err, auth.ErrTokenNotFound)
+	})
+
+	t.Run("an unknown raw token is not found", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.TokenUserID(ctx, "not-a-real-token")
+		require.ErrorIs(t, err, auth.ErrTokenNotFound)
+	})
+}
+
 func TestStore_Session(t *testing.T) {
 	t.Parallel()
 
