@@ -1,7 +1,9 @@
 <script lang="ts">
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+import HistoryIcon from '@lucide/svelte/icons/history';
 import { defaultChartPadding, LineChart } from 'layerchart';
 import { onMount } from 'svelte';
+import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { Badge } from '$lib/components/ui/badge/index.js';
 import {
@@ -61,6 +63,7 @@ interface Step {
 	queueSeconds: number;
 	execSeconds: number;
 	failureRate: number;
+	failureCount: number;
 	flaky: boolean;
 	forgeUrl?: string;
 }
@@ -76,6 +79,8 @@ let notFound = $state(false);
 let error = $state<string | null>(null);
 let steps = $state<Step[] | null>(null);
 let stepsError = $state<string | null>(null);
+
+const pipelineId = $derived(page.params.id ?? '');
 
 async function load(): Promise<void> {
 	try {
@@ -130,6 +135,13 @@ function formatSeconds(seconds: number): string {
 
 function formatRate(rate: number): string {
 	return `${Math.round(rate * 100)}%`;
+}
+
+// A flaky step's forgeUrl is one arbitrarily-picked occurrence (#216) --
+// often a run that's since passed -- so a flaky step routes to the list of
+// runs it actually failed on instead of linking straight out.
+function flakyRunsHref(pipelineId: string, stepName: string): string {
+	return `/pipelines/${pipelineId}/flaky-runs?step=${encodeURIComponent(stepName)}`;
 }
 
 // LayerChart takes one row per point; the API returns parallel arrays, one
@@ -269,17 +281,19 @@ function failureRateSeries(trend: Trend) {
 							<TableBody>
 								{#each steps as step (step.id)}
 									<TableRow
-										class={step.forgeUrl ? 'cursor-pointer' : ''}
-										onclick={step.forgeUrl
-											? (event: MouseEvent) => {
-													// Skip when the click already came from the real
-													// "View on forge" link -- it already navigated, so
-													// opening a second tab here would be a duplicate.
-													if ((event.target as HTMLElement).closest('a')) return;
+										class={step.flaky || step.forgeUrl ? 'cursor-pointer' : ''}
+										onclick={step.flaky
+											? () => goto(flakyRunsHref(pipelineId, step.name))
+											: step.forgeUrl
+												? (event: MouseEvent) => {
+														// Skip when the click already came from the real
+														// link -- it already navigated, so opening a
+														// second tab/page here would be a duplicate.
+														if ((event.target as HTMLElement).closest('a')) return;
 
-													window.open(step.forgeUrl, '_blank', 'noopener,noreferrer');
-												}
-											: undefined}
+														window.open(step.forgeUrl, '_blank', 'noopener,noreferrer');
+													}
+												: undefined}
 									>
 										<TableCell class="max-w-[16rem] truncate font-medium" title={step.name}>
 											{step.name}
@@ -288,7 +302,7 @@ function failureRateSeries(trend: Trend) {
 										<TableCell>
 											{formatSeconds(step.queueSeconds)} / {formatSeconds(step.execSeconds)}
 										</TableCell>
-										<TableCell>{formatRate(step.failureRate)}</TableCell>
+										<TableCell>{formatRate(step.failureRate)} ({step.failureCount})</TableCell>
 										<TableCell>
 											{#if step.flaky}
 												<Badge
@@ -306,7 +320,16 @@ function failureRateSeries(trend: Trend) {
 											{/if}
 										</TableCell>
 										<TableCell>
-											{#if step.forgeUrl}
+											{#if step.flaky}
+												<a
+													href={flakyRunsHref(pipelineId, step.name)}
+													aria-label="View flaky runs"
+													title="View flaky runs"
+													class="inline-flex items-center text-muted-foreground hover:text-foreground"
+												>
+													<HistoryIcon class="size-4" aria-hidden="true" />
+												</a>
+											{:else if step.forgeUrl}
 												<a
 													href={step.forgeUrl}
 													target="_blank"
