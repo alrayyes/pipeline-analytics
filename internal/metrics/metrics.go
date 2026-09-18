@@ -151,8 +151,34 @@ type Step struct {
 	QueueSeconds                float64
 	ExecSeconds                 float64
 	FailureRate                 float64
+	FailureCount                int
 	Flaky                       bool
 	ForgeURL                    string
+}
+
+// FlakyRun is one run in which a specific step failed -- the step-scoped
+// drill-down from a flaky step, so a click lands on a run it actually
+// failed on instead of an arbitrarily-picked occurrence.
+type FlakyRun struct {
+	RunID     string
+	StartedAt *time.Time
+	ForgeURL  string
+}
+
+// RunStep is one step's status within a single run, for the drill-down a
+// FlakyRun leads to.
+type RunStep struct {
+	Name       string
+	Status     string
+	Conclusion string
+	ForgeURL   string
+}
+
+// RunDetail is one run's own steps, in recorded order.
+type RunDetail struct {
+	RunID     string
+	StartedAt *time.Time
+	Steps     []RunStep
 }
 
 // UsageEntry is runner-minutes consumed by one workflow.
@@ -183,6 +209,8 @@ type StepOccurrence struct {
 	JobQueuedAt  *time.Time
 	JobStartedAt *time.Time
 	JobForgeURL  string
+	RunID        string
+	RunStartedAt *time.Time
 }
 
 // UsageRecord is one job's execution duration, attributed to its pipeline
@@ -208,11 +236,17 @@ type Store interface {
 	// RepoUsage returns every job's execution duration within window for a
 	// tracked repo, one entry per job.
 	RepoUsage(ctx context.Context, repoID string, window Window) ([]UsageRecord, error)
+	// RunSteps returns every step occurrence recorded within one run's
+	// jobs, in recorded order. Empty for an unknown runID.
+	RunSteps(ctx context.Context, runID string) ([]StepOccurrence, error)
 }
 
 // ErrPipelineNotFound is returned when a PipelineID resolves to no
 // recorded run history.
 var ErrPipelineNotFound = errors.New("pipeline not found")
+
+// ErrRunNotFound is returned when a run id resolves to no recorded steps.
+var ErrRunNotFound = errors.New("run not found")
 
 // Service computes health, trends, step rankings, and usage from a Store.
 type Service struct {
@@ -291,6 +325,84 @@ func (s *Service) GetPipelineSteps(ctx context.Context, id PipelineID, window Wi
 	}
 
 	return aggregateSteps(occurrences), nil
+}
+
+// ListFlakyRuns returns every run in which the named step failed within
+// window, most-recent-first -- the step-scoped drill-down from a flaky
+// step in GetPipelineSteps.
+func (s *Service) ListFlakyRuns(ctx context.Context, id PipelineID, stepName string, window Window) ([]FlakyRun, error) {
+	ref, err := ParsePipelineID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	occurrences, err := s.store.PipelineSteps(ctx, ref, window)
+	if err != nil {
+		return nil, fmt.Errorf("load pipeline steps: %w", err)
+	}
+
+	var runs []FlakyRun
+
+	for _, occ := range occurrences {
+		if occ.Name != stepName || occ.Conclusion != "failure" {
+			continue
+		}
+
+		runs = append(runs, FlakyRun{
+			RunID:     occ.RunID,
+			StartedAt: occ.RunStartedAt,
+			ForgeURL:  occ.JobForgeURL,
+		})
+	}
+
+	sort.Slice(runs, func(i, j int) bool {
+		return startedAfter(runs[i].StartedAt, runs[j].StartedAt)
+	})
+
+	return runs, nil
+}
+
+// GetRunSteps returns one run's own steps and statuses, in recorded
+// order -- the drill-down a FlakyRun leads to.
+func (s *Service) GetRunSteps(ctx context.Context, runID string) (RunDetail, error) {
+	occurrences, err := s.store.RunSteps(ctx, runID)
+	if err != nil {
+		return RunDetail{}, fmt.Errorf("load run steps: %w", err)
+	}
+
+	if len(occurrences) == 0 {
+		return RunDetail{}, ErrRunNotFound
+	}
+
+	steps := make([]RunStep, 0, len(occurrences))
+	for _, occ := range occurrences {
+		steps = append(steps, RunStep{
+			Name:       occ.Name,
+			Status:     occ.Status,
+			Conclusion: occ.Conclusion,
+			ForgeURL:   occ.JobForgeURL,
+		})
+	}
+
+	return RunDetail{
+		RunID:     runID,
+		StartedAt: occurrences[0].RunStartedAt,
+		Steps:     steps,
+	}, nil
+}
+
+// startedAfter orders FlakyRun.StartedAt most-recent-first, with an
+// unknown (nil) time sorting last rather than panicking on the dereference.
+func startedAfter(a, b *time.Time) bool {
+	if a == nil {
+		return false
+	}
+
+	if b == nil {
+		return true
+	}
+
+	return a.After(*b)
 }
 
 // PipelineStepsGroup is one pipeline's flaky or failing steps, for the
@@ -674,6 +786,7 @@ func aggregateSteps(occurrences []StepOccurrence) []Step {
 			QueueSeconds:                average(a.queueSecs),
 			ExecSeconds:                 average(a.execSecs),
 			FailureRate:                 rate(a.failed, a.total),
+			FailureCount:                a.failed,
 			Flaky:                       a.sawSuccess && a.sawFailure,
 			ForgeURL:                    a.forgeURL,
 		})

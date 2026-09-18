@@ -63,6 +63,7 @@ type stepDTO struct {
 	QueueSeconds                float64 `json:"queueSeconds"`
 	ExecSeconds                 float64 `json:"execSeconds"`
 	FailureRate                 float64 `json:"failureRate"`
+	FailureCount                int     `json:"failureCount"`
 	Flaky                       bool    `json:"flaky"`
 	ForgeURL                    string  `json:"forgeUrl,omitempty"`
 }
@@ -75,9 +76,37 @@ func toStepDTO(s metrics.Step) stepDTO {
 		QueueSeconds:                s.QueueSeconds,
 		ExecSeconds:                 s.ExecSeconds,
 		FailureRate:                 s.FailureRate,
+		FailureCount:                s.FailureCount,
 		Flaky:                       s.Flaky,
 		ForgeURL:                    s.ForgeURL,
 	}
+}
+
+type flakyRunDTO struct {
+	RunID     string     `json:"runId"`
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+	ForgeURL  string     `json:"forgeUrl"`
+}
+
+func toFlakyRunDTO(r metrics.FlakyRun) flakyRunDTO {
+	return flakyRunDTO{RunID: r.RunID, StartedAt: r.StartedAt, ForgeURL: r.ForgeURL}
+}
+
+type runStepDTO struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Conclusion string `json:"conclusion,omitempty"`
+	ForgeURL   string `json:"forgeUrl,omitempty"`
+}
+
+func toRunStepDTO(s metrics.RunStep) runStepDTO {
+	return runStepDTO{Name: s.Name, Status: s.Status, Conclusion: s.Conclusion, ForgeURL: s.ForgeURL}
+}
+
+type runDetailDTO struct {
+	RunID     string       `json:"runId"`
+	StartedAt *time.Time   `json:"startedAt,omitempty"`
+	Steps     []runStepDTO `json:"steps"`
 }
 
 type pipelinesHandler struct {
@@ -151,6 +180,57 @@ func (h *pipelinesHandler) steps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, dtos)
+}
+
+// flakyRuns returns every run in which the step named by the "step" query
+// parameter failed -- the step-scoped drill-down GetPipelineSteps' Steps
+// table links a flaky step into, rather than an arbitrary occurrence.
+func (h *pipelinesHandler) flakyRuns(w http.ResponseWriter, r *http.Request) {
+	window := metrics.ParseWindow(r.URL.Query().Get("window"))
+
+	runs, err := h.service.ListFlakyRuns(r.Context(), metrics.PipelineID(r.PathValue("pipelineId")), r.URL.Query().Get("step"), window)
+	if err != nil {
+		if errors.Is(err, metrics.ErrInvalidPipelineID) {
+			writeError(w, http.StatusNotFound, "not_found", "pipeline not found")
+
+			return
+		}
+
+		writeError(w, http.StatusInternalServerError, "internal_error", "list flaky runs")
+
+		return
+	}
+
+	dtos := make([]flakyRunDTO, 0, len(runs))
+	for _, run := range runs {
+		dtos = append(dtos, toFlakyRunDTO(run))
+	}
+
+	writeJSON(w, http.StatusOK, dtos)
+}
+
+// runSteps returns one run's own steps and statuses -- what a flaky run
+// drills down into, so its forgeUrl points at the exact job that ran.
+func (h *pipelinesHandler) runSteps(w http.ResponseWriter, r *http.Request) {
+	detail, err := h.service.GetRunSteps(r.Context(), r.PathValue("runId"))
+	if err != nil {
+		if errors.Is(err, metrics.ErrRunNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "run not found")
+
+			return
+		}
+
+		writeError(w, http.StatusInternalServerError, "internal_error", "get run steps")
+
+		return
+	}
+
+	steps := make([]runStepDTO, 0, len(detail.Steps))
+	for _, s := range detail.Steps {
+		steps = append(steps, toRunStepDTO(s))
+	}
+
+	writeJSON(w, http.StatusOK, runDetailDTO{RunID: detail.RunID, StartedAt: detail.StartedAt, Steps: steps})
 }
 
 type pipelineStepsGroupDTO struct {
