@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.35.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.34.0...v0.35.0) (2026-09-18)
+
+
+### Features
+
+* **metrics:** implement the flaky-run drill-down endpoints ([#219](https://github.com/alrayyes/pipeline-analytics/issues/219)) ([04c13b4](https://github.com/alrayyes/pipeline-analytics/commit/04c13b4c02629d3b04acbd98b613ac69830eff37))
+* **web:** drill down a flaky step through its failed runs ([#220](https://github.com/alrayyes/pipeline-analytics/issues/220)) ([14c19ae](https://github.com/alrayyes/pipeline-analytics/commit/14c19ae9e126e2f172ce200078b40ef6423acdb7))
+
 ## [0.34.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.33.0...v0.34.0) (2026-09-18)
 
 
