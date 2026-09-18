@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.31.1...v0.32.0) (2026-09-18)
+
+
+### Features
+
+* **settings:** persist theme and filter settings per account ([#208](https://github.com/alrayyes/pipeline-analytics/issues/208)) ([e1370c6](https://github.com/alrayyes/pipeline-analytics/commit/e1370c65207ac604a94ba1b72e0dc43863b32e88))
+
 ## [0.31.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.31.0...v0.31.1) (2026-09-18)
 
 
