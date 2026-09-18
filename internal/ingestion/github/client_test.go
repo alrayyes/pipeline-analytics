@@ -384,3 +384,130 @@ func TestClient_ListAccessibleRepos(t *testing.T) {
 		require.Equal(t, []string{"alrayyes/normal-repo"}, repos)
 	})
 }
+
+func TestClient_GetRepo(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns a normal repo's status", func(t *testing.T) {
+		t.Parallel()
+
+		var gotPath, gotAuth string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotAuth = r.Header.Get("Authorization")
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/pipeline-analytics", "archived": false, "fork": false}`))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, "/repos/alrayyes/pipeline-analytics", gotPath)
+		require.Equal(t, "Bearer ghp_test", gotAuth)
+		require.Equal(t, ingestion.RepoMetadata{}, meta)
+	})
+
+	t.Run("reports an archived repo", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/old-repo", "archived": true}`))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			Identifier: "alrayyes/old-repo",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+		require.True(t, meta.Archived)
+	})
+
+	t.Run("reports a fork", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/a-fork", "fork": true}`))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			Identifier: "alrayyes/a-fork",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+		require.True(t, meta.Fork)
+	})
+
+	t.Run("reports a mirror", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/a-mirror", "mirror_url": "https://svn.example.com/repo"}`))
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			Identifier: "alrayyes/a-mirror",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+		require.True(t, meta.Mirror)
+	})
+
+	t.Run("rejects an identifier not in owner/name form", func(t *testing.T) {
+		t.Parallel()
+
+		client, err := ghclient.NewClient("")
+		require.NoError(t, err)
+
+		_, err = client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			Identifier: "not-owner-slash-name",
+			Token:      "ghp_test",
+		})
+		require.ErrorIs(t, err, ghclient.ErrInvalidIdentifier)
+	})
+
+	t.Run("wraps a forge-side failure", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		client, err := ghclient.NewClient(server.URL + "/")
+		require.NoError(t, err)
+
+		_, err = client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			Identifier: "alrayyes/gone",
+			Token:      "ghp_test",
+		})
+		require.Error(t, err)
+	})
+}

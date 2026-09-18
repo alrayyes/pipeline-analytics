@@ -27,16 +27,43 @@ func NewRegistrar(store Store, clients map[Forge]ForgeClient, callbackURL string
 	return &Registrar{store: store, clients: clients, callbackURL: callbackURL}
 }
 
-// Register persists in and attempts to create its webhook. A storage
-// failure is returned as an error; a webhook-creation failure is instead
-// recorded on the returned Repo as a degraded ingestion status.
+// Register verifies the repo isn't archived, a fork, or a mirror, then
+// persists it and attempts to create its webhook. A storage failure, or
+// the repo being archived/a fork/a mirror, is returned as an error before
+// anything is persisted; a webhook-creation failure is instead recorded on
+// the returned Repo as a degraded ingestion status, once it's already
+// tracked.
 func (r *Registrar) Register(ctx context.Context, in NewRepo) (Repo, error) {
+	client, ok := r.clients[in.Forge]
+	if ok {
+		// No client configured for the forge falls through to CreateRepo
+		// below, same as the analogous case after it -- there's nothing to
+		// check the repo's status against, and that gap already degrades
+		// the repo rather than failing registration outright.
+		meta, err := client.GetRepo(ctx, GetRepoRequest{
+			InstanceURL: in.ForgejoInstanceURL,
+			Identifier:  in.Identifier,
+			Token:       in.Token,
+		})
+		if err != nil {
+			return Repo{}, fmt.Errorf("check repo status: %w", err)
+		}
+
+		switch {
+		case meta.Archived:
+			return Repo{}, ErrRepoArchived
+		case meta.Fork:
+			return Repo{}, ErrRepoFork
+		case meta.Mirror:
+			return Repo{}, ErrRepoMirror
+		}
+	}
+
 	repo, err := r.store.CreateRepo(ctx, in)
 	if err != nil {
 		return Repo{}, fmt.Errorf("create repo: %w", err)
 	}
 
-	client, ok := r.clients[repo.Forge]
 	if !ok {
 		return r.degrade(ctx, repo, fmt.Sprintf("no client configured for forge %q", repo.Forge))
 	}

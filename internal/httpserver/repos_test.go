@@ -27,6 +27,11 @@ type fakeForgeClient struct {
 	discoveredRepos []string
 	discoverErr     error
 	rateLimits      map[string]ingestion.RateLimitSnapshot
+	// getRepoMeta/getRepoErr are separate from err -- a test exercising a
+	// CreateWebhook failure (via err) shouldn't also fail the GetRepo
+	// check Register now runs first.
+	getRepoMeta ingestion.RepoMetadata
+	getRepoErr  error
 }
 
 func (f *fakeForgeClient) RateLimitFor(token string) (ingestion.RateLimitSnapshot, bool) {
@@ -41,6 +46,10 @@ func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhook
 
 func (f *fakeForgeClient) ListRecentRuns(context.Context, ingestion.ListRunsRequest) (ingestion.ListRunsResult, error) {
 	return ingestion.ListRunsResult{}, nil
+}
+
+func (f *fakeForgeClient) GetRepo(context.Context, ingestion.GetRepoRequest) (ingestion.RepoMetadata, error) {
+	return f.getRepoMeta, f.getRepoErr
 }
 
 func (f *fakeForgeClient) ListAccessibleRepos(context.Context, ingestion.ListAccessibleReposRequest) ([]string, error) {
@@ -107,6 +116,51 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testSer
 		AuthStore:      authStore,
 		Version:        "test-version",
 		Assets:         assets,
+	})
+
+	cookie := &http.Cookie{
+		Name:     "session",
+		Value:    sessionID,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	return testServer{Handler: handler, sessionCookie: cookie, runStore: ingestionStore}
+}
+
+// newTestServerWithRepoMeta is newTestServer, but the fake forge clients
+// report meta from GetRepo -- for exercising Register's archived/fork/
+// mirror rejection.
+func newTestServerWithRepoMeta(t *testing.T, meta ingestion.RepoMetadata) testServer {
+	t.Helper()
+
+	conn, err := db.Open(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	require.NoError(t, db.Migrate(context.Background(), conn))
+
+	ingestionStore := ingestionsqlite.NewStore(conn, make([]byte, 32))
+	registrar := ingestion.NewRegistrar(ingestionStore, map[ingestion.Forge]ingestion.ForgeClient{
+		ingestion.ForgeGitHub:  &fakeForgeClient{getRepoMeta: meta},
+		ingestion.ForgeForgejo: &fakeForgeClient{getRepoMeta: meta},
+	}, "https://example.com")
+
+	authStore := authsqlite.NewStore(conn)
+	ctx := context.Background()
+	user, err := authStore.CreateUser(ctx, []byte("test-handle"), "admin")
+	require.NoError(t, err)
+	sessionID, err := authStore.CreateSession(ctx, user.ID)
+	require.NoError(t, err)
+
+	handler := httpserver.New(httpserver.Deps{
+		Registrar:      registrar,
+		IngestionStore: ingestionStore,
+		RunStore:       ingestionStore,
+		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
+		AuthStore:      authStore,
+		Version:        "test-version",
+		Assets:         testAssets,
 	})
 
 	cookie := &http.Cookie{
@@ -469,6 +523,89 @@ func TestReposRegister_AlreadyTracked(t *testing.T) {
 		var got repoListResponse
 		require.NoError(t, json.Unmarshal(listRec.Body.Bytes(), &got))
 		require.Len(t, got.Repos, 1)
+	})
+}
+
+func TestReposRegister_ArchivedForkMirror(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		meta         ingestion.RepoMetadata
+		wantCode     string
+		wantContains string
+	}{
+		{
+			name:         "an archived repo",
+			meta:         ingestion.RepoMetadata{Archived: true},
+			wantCode:     "repo_archived",
+			wantContains: "archived",
+		},
+		{
+			name:         "a fork",
+			meta:         ingestion.RepoMetadata{Fork: true},
+			wantCode:     "repo_fork",
+			wantContains: "fork",
+		},
+		{
+			name:         "a mirror",
+			meta:         ingestion.RepoMetadata{Mirror: true},
+			wantCode:     "repo_mirror",
+			wantContains: "mirror",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name+" is rejected with 409 and a distinct reason", func(t *testing.T) {
+			t.Parallel()
+
+			srv := newTestServerWithRepoMeta(t, tc.meta)
+
+			body, err := json.Marshal(map[string]string{
+				"forge":      "github",
+				"identifier": "alrayyes/some-repo",
+				"token":      "ghp_supersecrettoken1234",
+			})
+			require.NoError(t, err)
+
+			req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusConflict, rec.Code)
+
+			var got map[string]any
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+			require.Equal(t, tc.wantCode, got["code"])
+			require.Contains(t, got["message"], tc.wantContains)
+
+			listReq := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos", nil))
+			listRec := httptest.NewRecorder()
+			srv.ServeHTTP(listRec, listReq)
+
+			var list repoListResponse
+			require.NoError(t, json.Unmarshal(listRec.Body.Bytes(), &list))
+			require.Empty(t, list.Repos)
+		})
+	}
+
+	t.Run("a normal repo still registers", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithRepoMeta(t, ingestion.RepoMetadata{})
+
+		body, err := json.Marshal(map[string]string{
+			"forge":      "github",
+			"identifier": "alrayyes/pipeline-analytics",
+			"token":      "ghp_supersecrettoken1234",
+		})
+		require.NoError(t, err)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", bytes.NewReader(body)))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusCreated, rec.Code)
 	})
 }
 
