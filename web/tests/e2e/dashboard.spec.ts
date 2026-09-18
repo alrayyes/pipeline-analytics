@@ -117,11 +117,19 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		nav.getByRole('link', { name: 'Register a repository' }),
 	).toBeVisible();
 
-	// Dark mode (cycles system -> light -> dark), persisted across a
-	// reload, and re-scanned since contrast is theme-sensitive.
-	const themeToggle = page.getByRole('button', { name: /Theme:/ });
-	await themeToggle.click();
-	await themeToggle.click();
+	// Theme now lives on its own Settings page (persist-account-settings),
+	// synced through PATCH /api/settings rather than only localStorage --
+	// dark mode persisted across a reload (a real server round trip, not
+	// just the cache) and re-scanned since contrast is theme-sensitive.
+	await page.getByRole('link', { name: 'Settings' }).click();
+	await expect(page).toHaveURL('/settings');
+
+	const settingsScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(settingsScan.violations).toEqual([]);
+
+	await page.getByRole('radio', { name: 'Dark' }).click();
 	await expect(page.locator('html')).toHaveClass('dark');
 	await page.reload();
 	await expect(page.locator('html')).toHaveClass('dark');
@@ -131,7 +139,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(darkModeScan.violations).toEqual([]);
 
-	await page.getByRole('button', { name: /Theme:/ }).click();
+	await page.getByRole('radio', { name: 'Light' }).click();
 	await expect(page.locator('html')).not.toHaveClass('dark');
 
 	// Repo management (register/list/untrack) is exercised against the
@@ -378,7 +386,16 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	await page.unroute('**/api/repos/discover');
 
-	await page.getByRole('link', { name: 'Pipelines' }).click();
+	// A real, unmocked reload -- the first one since the pagination fixture
+	// above took over every /api/repos* request -- so this is genuinely the
+	// slowest transition in the journey: real GET /api/repos?limit=1 and
+	// GET /api/settings round trips plus hydration, not just a mocked
+	// response. The default 5s web-first-assertion budget is tight for
+	// that, same reasoning as the >20-repo pagination test's own timeout
+	// bump (#197).
+	await page
+		.getByRole('link', { name: 'Pipelines' })
+		.click({ timeout: 10_000 });
 	await expect(page).toHaveURL('/');
 
 	// The overview's own rendering logic (health badges, per-pipeline
@@ -459,24 +476,28 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	// The new success/destructive health badges are theme-sensitive colors
 	// (#101) -- the earlier dark-mode scan ran before any pipeline data
-	// existed, so it never actually rendered one. Set the theme directly
-	// (rather than clicking the cycling toggle, whose position at this
-	// point in the flow isn't guaranteed) and reload, then revert the same
-	// way for the rest of the flow.
-	await page.evaluate(() => localStorage.setItem('theme', 'dark'));
-	await page.reload();
+	// existed, so it never actually rendered one. Theme now persists
+	// server-side (persist-account-settings) -- a direct localStorage write
+	// would just be reverted by the layout's own reconciliation against the
+	// server value on the very next load, so go through the real Settings
+	// page instead, same as the earlier theme section of this journey.
+	await page.getByRole('link', { name: 'Settings' }).click();
+	await page.getByRole('radio', { name: 'Dark' }).click();
 	await expect(page.locator('html')).toHaveClass('dark');
-	// A reload is a fresh page load, so the unhealthy-only filter is back to
-	// its default -- set it back to "All" to get both badge colors on screen.
-	await healthFilter.getByRole('radio', { name: 'All' }).click();
+	await page.getByRole('link', { name: 'Pipelines' }).click();
+	// The health filter is still "All" from earlier in this journey (it
+	// persists across navigation too now), so both badge colors are already
+	// on screen.
 	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
 	const overviewDarkScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
 		.analyze();
 	expect(overviewDarkScan.violations).toEqual([]);
-	await page.evaluate(() => localStorage.setItem('theme', 'light'));
-	await page.reload();
+	await page.getByRole('link', { name: 'Settings' }).click();
+	await page.getByRole('radio', { name: 'Light' }).click();
 	await expect(page.locator('html')).not.toHaveClass('dark');
+	await page.getByRole('link', { name: 'Pipelines' }).click();
+	await expect(page).toHaveURL('/');
 
 	// Grouped by repo (#102): a pipeline name alone ("CI") is ambiguous
 	// across more than one tracked repo, so a second repo with its own "CI"
@@ -533,13 +554,20 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		}),
 	);
 	await page.reload();
-
 	await expect(
 		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
 	).toBeVisible();
 	await expect(
 		page.getByRole('heading', { name: 'alrayyes/other-repo' }),
 	).toBeVisible();
+
+	// The health filter still reads "All" from earlier in this journey (it
+	// persists server-side now, across the reload above too) -- set it back
+	// to its "Unhealthy" default to exercise the actually-hidden case below.
+	// Waited for the repo headings above first, so this isn't racing the
+	// reload's own hydration.
+	await healthFilter.getByRole('radio', { name: 'Unhealthy' }).click();
+
 	// Unhealthy-only by default: both repos' "Deploy"/"CI" show, but
 	// repo-1's healthy "CI" stays hidden -- exactly one "CI" heading, not
 	// two, confirming the two same-named pipelines didn't merge into one.
