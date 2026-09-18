@@ -59,6 +59,8 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("GET /api/pipelines", pipelines.list)
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}", pipelines.get)
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}/steps", pipelines.steps)
+	mux.HandleFunc("GET /api/pipelines/{pipelineId}/flaky-runs", pipelines.flakyRuns)
+	mux.HandleFunc("GET /api/runs/{runId}/steps", pipelines.runSteps)
 	mux.HandleFunc("GET /api/steps/unhealthy", pipelines.unhealthySteps)
 
 	insights := &insightsHandler{repos: deps.IngestionStore, rateLimits: deps.GitHubRateLimits}

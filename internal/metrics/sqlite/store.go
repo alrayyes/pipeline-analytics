@@ -86,9 +86,10 @@ func (s *Store) PipelineRuns(ctx context.Context, ref metrics.PipelineRef, windo
 // PipelineSteps implements metrics.Store.
 func (s *Store) PipelineSteps(ctx context.Context, ref metrics.PipelineRef, window metrics.Window) ([]metrics.StepOccurrence, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url
+		SELECT s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url, j.run_id, r.started_at
 		FROM steps s
 		JOIN jobs j ON j.id = s.job_id
+		JOIN runs r ON r.id = j.run_id
 		WHERE j.run_id IN (
 			SELECT id FROM runs WHERE repo_id = ? AND pipeline_name = ? ORDER BY started_at DESC, id DESC LIMIT ?
 		)
@@ -98,6 +99,28 @@ func (s *Store) PipelineSteps(ctx context.Context, ref metrics.PipelineRef, wind
 	}
 	defer func() { _ = rows.Close() }()
 
+	return scanStepOccurrences(rows)
+}
+
+// RunSteps implements metrics.Store.
+func (s *Store) RunSteps(ctx context.Context, runID string) ([]metrics.StepOccurrence, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url, j.run_id, r.started_at
+		FROM steps s
+		JOIN jobs j ON j.id = s.job_id
+		JOIN runs r ON r.id = j.run_id
+		WHERE j.run_id = ?
+		ORDER BY j.started_at, s.number
+	`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("query run steps: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	return scanStepOccurrences(rows)
+}
+
+func scanStepOccurrences(rows *sql.Rows) ([]metrics.StepOccurrence, error) {
 	var occurrences []metrics.StepOccurrence
 
 	for rows.Next() {
@@ -108,7 +131,7 @@ func (s *Store) PipelineSteps(ctx context.Context, ref metrics.PipelineRef, wind
 
 		err := rows.Scan(
 			&occ.Name, &occ.Status, &conclusion, &occ.StartedAt, &occ.CompletedAt,
-			&occ.JobQueuedAt, &occ.JobStartedAt, &occ.JobForgeURL,
+			&occ.JobQueuedAt, &occ.JobStartedAt, &occ.JobForgeURL, &occ.RunID, &occ.RunStartedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan step: %w", err)
@@ -119,7 +142,7 @@ func (s *Store) PipelineSteps(ctx context.Context, ref metrics.PipelineRef, wind
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate pipeline steps: %w", err)
+		return nil, fmt.Errorf("iterate steps: %w", err)
 	}
 
 	return occurrences, nil

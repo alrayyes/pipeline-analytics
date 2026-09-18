@@ -172,6 +172,37 @@ func TestStore_PipelineSteps(t *testing.T) {
 	require.NotNil(t, steps[0].JobQueuedAt)
 	require.NotNil(t, steps[0].JobStartedAt)
 	require.Contains(t, steps[0].JobForgeURL, "/job/100")
+	require.Equal(t, run.ID, steps[0].RunID)
+	require.NotNil(t, steps[0].RunStartedAt)
+}
+
+func TestStore_RunSteps(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t)
+	run := f.seedRun(t, "CI", "1", 0, 30, "failure")
+	f.seedJobWithStep(t, run.ID, "100", "test", 0, 10, 25, "failure")
+
+	t.Run("returns the run's own steps, tagged with the run they belong to", func(t *testing.T) {
+		t.Parallel()
+
+		steps, err := f.metrics.RunSteps(context.Background(), run.ID)
+		require.NoError(t, err)
+		require.Len(t, steps, 1)
+		require.Equal(t, "test", steps[0].Name)
+		require.Equal(t, "failure", steps[0].Conclusion)
+		require.Equal(t, run.ID, steps[0].RunID)
+		require.NotNil(t, steps[0].RunStartedAt)
+		require.Contains(t, steps[0].JobForgeURL, "/job/100")
+	})
+
+	t.Run("an unknown run returns an empty slice", func(t *testing.T) {
+		t.Parallel()
+
+		steps, err := f.metrics.RunSteps(context.Background(), "ghost")
+		require.NoError(t, err)
+		require.Empty(t, steps)
+	})
 }
 
 func TestStore_RepoUsage(t *testing.T) {

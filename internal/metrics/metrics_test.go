@@ -54,6 +54,7 @@ type fakeStore struct {
 	pipelines []metrics.PipelineRef
 	runs      map[metrics.PipelineRef][]metrics.RunRecord
 	steps     map[metrics.PipelineRef][]metrics.StepOccurrence
+	runSteps  map[string][]metrics.StepOccurrence
 	usage     map[string][]metrics.UsageRecord
 }
 
@@ -76,6 +77,10 @@ func (f *fakeStore) PipelineSteps(_ context.Context, ref metrics.PipelineRef, _ 
 
 func (f *fakeStore) RepoUsage(_ context.Context, repoID string, _ metrics.Window) ([]metrics.UsageRecord, error) {
 	return f.usage[repoID], nil
+}
+
+func (f *fakeStore) RunSteps(_ context.Context, runID string) ([]metrics.StepOccurrence, error) {
+	return f.runSteps[runID], nil
 }
 
 func t1(offsetMinutes int) *time.Time {
@@ -343,6 +348,95 @@ func TestService_GetPipelineSteps(t *testing.T) {
 		require.False(t, byName["broken"].Flaky)
 		require.InDelta(t, 1.0, byName["broken"].FailureRate, 0.001)
 		require.InDelta(t, 0.5, byName["flaky"].FailureRate, 0.001)
+		require.Equal(t, 2, byName["broken"].FailureCount)
+		require.Equal(t, 1, byName["flaky"].FailureCount)
+	})
+}
+
+func TestService_ListFlakyRuns(t *testing.T) {
+	t.Parallel()
+
+	t.Run("only the step's failed occurrences show, most-recent-first", func(t *testing.T) {
+		t.Parallel()
+
+		ref := metrics.PipelineRef{RepoID: "repo-1", Name: "CI"}
+		store := &fakeStore{
+			steps: map[metrics.PipelineRef][]metrics.StepOccurrence{
+				ref: {
+					{Name: "flaky", Conclusion: "success", RunID: "run-1", RunStartedAt: t1(0), JobForgeURL: "https://forge/run-1"},
+					{Name: "flaky", Conclusion: "failure", RunID: "run-2", RunStartedAt: t1(10), JobForgeURL: "https://forge/run-2"},
+					{Name: "flaky", Conclusion: "failure", RunID: "run-3", RunStartedAt: t1(20), JobForgeURL: "https://forge/run-3"},
+					{Name: "other-step", Conclusion: "failure", RunID: "run-4", RunStartedAt: t1(30), JobForgeURL: "https://forge/run-4"},
+				},
+			},
+		}
+
+		service := metrics.NewService(store)
+		runs, err := service.ListFlakyRuns(context.Background(), ref.ID(), "flaky", metrics.Window{RunCount: 10})
+		require.NoError(t, err)
+		require.Len(t, runs, 2)
+		require.Equal(t, "run-3", runs[0].RunID) // most recent first
+		require.Equal(t, "run-2", runs[1].RunID)
+		require.Equal(t, "https://forge/run-3", runs[0].ForgeURL)
+	})
+
+	t.Run("a step with no failures in the window reports an empty list", func(t *testing.T) {
+		t.Parallel()
+
+		ref := metrics.PipelineRef{RepoID: "repo-1", Name: "CI"}
+		store := &fakeStore{
+			steps: map[metrics.PipelineRef][]metrics.StepOccurrence{
+				ref: {{Name: "solid", Conclusion: "success", RunID: "run-1", RunStartedAt: t1(0)}},
+			},
+		}
+
+		service := metrics.NewService(store)
+		runs, err := service.ListFlakyRuns(context.Background(), ref.ID(), "solid", metrics.Window{RunCount: 10})
+		require.NoError(t, err)
+		require.Empty(t, runs)
+	})
+
+	t.Run("an invalid pipeline id is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		service := metrics.NewService(&fakeStore{})
+		_, err := service.ListFlakyRuns(context.Background(), "not-valid-base64!!!", "solid", metrics.Window{RunCount: 10})
+		require.ErrorIs(t, err, metrics.ErrInvalidPipelineID)
+	})
+}
+
+func TestService_GetRunSteps(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the run's own steps in recorded order", func(t *testing.T) {
+		t.Parallel()
+
+		store := &fakeStore{
+			runSteps: map[string][]metrics.StepOccurrence{
+				"run-1": {
+					{Name: "checkout", Status: "completed", Conclusion: "success", RunID: "run-1", RunStartedAt: t1(0), JobForgeURL: "https://forge/run-1/job/1"},
+					{Name: "test", Status: "completed", Conclusion: "failure", RunID: "run-1", RunStartedAt: t1(0), JobForgeURL: "https://forge/run-1/job/2"},
+				},
+			},
+		}
+
+		service := metrics.NewService(store)
+		detail, err := service.GetRunSteps(context.Background(), "run-1")
+		require.NoError(t, err)
+		require.Equal(t, "run-1", detail.RunID)
+		require.Len(t, detail.Steps, 2)
+		require.Equal(t, "checkout", detail.Steps[0].Name)
+		require.Equal(t, "test", detail.Steps[1].Name)
+		require.Equal(t, "failure", detail.Steps[1].Conclusion)
+		require.Equal(t, "https://forge/run-1/job/2", detail.Steps[1].ForgeURL)
+	})
+
+	t.Run("an unknown run is not found", func(t *testing.T) {
+		t.Parallel()
+
+		service := metrics.NewService(&fakeStore{})
+		_, err := service.GetRunSteps(context.Background(), "ghost")
+		require.ErrorIs(t, err, metrics.ErrRunNotFound)
 	})
 }
 

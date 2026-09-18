@@ -206,6 +206,194 @@ func TestPipelineSteps(t *testing.T) {
 	})
 }
 
+func TestFlakyRuns(t *testing.T) {
+	t.Parallel()
+
+	t.Run("lists only the runs where the named step failed, most-recent-first", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+
+		passingRun := seedRun(t, srv, repoID, "1", 0, 5)
+		seedJobStep(t, srv, passingRun.ID, "100", "test", "success")
+
+		firstFailingRun := seedRun(t, srv, repoID, "2", 10, 5)
+		seedJobStep(t, srv, firstFailingRun.ID, "200", "test", "failure")
+
+		secondFailingRun := seedRun(t, srv, repoID, "3", 20, 5)
+		seedJobStep(t, srv, secondFailingRun.ID, "300", "test", "failure")
+
+		pipelineID := pipelineIDFromList(t, srv)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines/"+pipelineID+"/flaky-runs?step=test", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var runs []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &runs))
+		require.Len(t, runs, 2)
+		require.Equal(t, secondFailingRun.ID, runs[0]["runId"])
+		require.Equal(t, firstFailingRun.ID, runs[1]["runId"])
+		require.Contains(t, runs[0]["forgeUrl"], "/job/300")
+	})
+
+	t.Run("a step with no failures reports an empty list", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		run := seedRun(t, srv, repoID, "1", 0, 5)
+		seedJobStep(t, srv, run.ID, "100", "test", "success")
+
+		pipelineID := pipelineIDFromList(t, srv)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines/"+pipelineID+"/flaky-runs?step=test", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var runs []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &runs))
+		require.Empty(t, runs)
+	})
+
+	t.Run("requires a session", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/pipelines/bm9wZQ/flaky-runs?step=test", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}
+
+func TestRunSteps(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the run's own steps", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		run := seedRun(t, srv, repoID, "1", 0, 5)
+		seedJobStep(t, srv, run.ID, "100", "checkout", "success")
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/runs/"+run.ID+"/steps", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var detail map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &detail))
+		require.Equal(t, run.ID, detail["runId"])
+
+		steps, _ := detail["steps"].([]any)
+		require.Len(t, steps, 1)
+		step, _ := steps[0].(map[string]any)
+		require.Equal(t, "checkout", step["name"])
+		require.Contains(t, step["forgeUrl"], "/job/100")
+	})
+
+	t.Run("an unknown run is not found", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/runs/does-not-exist/steps", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("requires a session", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/runs/does-not-exist/steps", nil)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}
+
+// TestPipelineHealth_SelfHeals pins down behavior the flaky-runs drill-down
+// (#216) relies on already being true: health is recomputed live from the
+// window on every request, nothing persisted, so a step's failure aging out
+// of the window flips the pipeline back to healthy on its own.
+func TestPipelineHealth_SelfHeals(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	repoID := seedRepo(t, srv)
+
+	failingRun := seedRun(t, srv, repoID, "1", 0, 5)
+	seedJobStep(t, srv, failingRun.ID, "100", "test", "failure")
+
+	passingRun := seedRun(t, srv, repoID, "2", 10, 5)
+	seedJobStep(t, srv, passingRun.ID, "200", "test", "success")
+
+	t.Run("the failure still counts within a window wide enough to include it", func(t *testing.T) {
+		t.Parallel()
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?window=2", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		var pipelines []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
+		require.Equal(t, "unhealthy", pipelines[0]["healthStatus"])
+	})
+
+	t.Run("once the failure ages out of a narrower window, the pipeline reports healthy again", func(t *testing.T) {
+		t.Parallel()
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?window=1", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		var pipelines []map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
+		require.Equal(t, "healthy", pipelines[0]["healthStatus"])
+	})
+}
+
+// seedJobStep records a completed job with a single step -- the shared
+// shape TestFlakyRuns/TestRunSteps/TestPipelineHealth_SelfHeals need,
+// where TestPipelineSteps and TestUnhealthySteps below construct jobs with
+// more than one step by hand instead.
+func seedJobStep(t *testing.T, srv testServer, runID, forgeJobID, stepName, conclusion string) {
+	t.Helper()
+
+	job, err := srv.runStore.UpsertJob(context.Background(), ingestion.Job{
+		RunID:       runID,
+		ForgeJobID:  forgeJobID,
+		Name:        "build",
+		Status:      "completed",
+		Conclusion:  conclusion,
+		QueuedAt:    at(0),
+		StartedAt:   at(0),
+		CompletedAt: at(5),
+		ForgeURL:    "https://github.com/alrayyes/pipeline-analytics/actions/runs/" + runID + "/job/" + forgeJobID,
+	})
+	require.NoError(t, err)
+
+	err = srv.runStore.ReplaceSteps(context.Background(), job.ID, []ingestion.Step{
+		{Number: 1, Name: stepName, Status: "completed", Conclusion: conclusion, StartedAt: at(0), CompletedAt: at(1)},
+	})
+	require.NoError(t, err)
+}
+
 func TestUnhealthySteps(t *testing.T) {
 	t.Parallel()
 
