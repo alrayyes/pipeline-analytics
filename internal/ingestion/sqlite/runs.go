@@ -29,6 +29,38 @@ func (s *Store) RepoByIdentifier(ctx context.Context, forge ingestion.Forge, ide
 	return repo, nil
 }
 
+// RunStates implements ingestion.RunStore.
+func (s *Store) RunStates(ctx context.Context, repoID string) (map[string]ingestion.RunState, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT forge_run_id, status, conclusion FROM runs WHERE repo_id = ?", repoID)
+	if err != nil {
+		return nil, fmt.Errorf("query run states: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	states := make(map[string]ingestion.RunState)
+
+	for rows.Next() {
+		var (
+			forgeRunID string
+			state      ingestion.RunState
+			conclusion sql.NullString
+		)
+
+		if err := rows.Scan(&forgeRunID, &state.Status, &conclusion); err != nil {
+			return nil, fmt.Errorf("scan run state: %w", err)
+		}
+
+		state.Conclusion = conclusion.String
+		states[forgeRunID] = state
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate run states: %w", err)
+	}
+
+	return states, nil
+}
+
 // UpsertRun implements ingestion.RunStore.
 func (s *Store) UpsertRun(ctx context.Context, run ingestion.Run) (ingestion.Run, error) {
 	existingID, err := s.findID(ctx, "SELECT id FROM runs WHERE repo_id = ? AND forge_run_id = ?", run.RepoID, run.ForgeRunID)

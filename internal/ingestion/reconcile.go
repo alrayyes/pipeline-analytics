@@ -74,11 +74,17 @@ func (r *Reconciler) ReconcileRepo(ctx context.Context, repo Repo) error {
 		return fmt.Errorf("load repo token: %w", err)
 	}
 
+	knownRuns, err := r.runStore.RunStates(ctx, repo.ID)
+	if err != nil {
+		return fmt.Errorf("load known run states: %w", err)
+	}
+
 	result, err := client.ListRecentRuns(ctx, ListRunsRequest{
 		InstanceURL: repo.ForgejoInstanceURL,
 		Identifier:  repo.Identifier,
 		Token:       token,
 		ETag:        repo.ReconcileETag,
+		KnownRuns:   knownRuns,
 	})
 	if err != nil {
 		return fmt.Errorf("list recent runs: %w", err)
