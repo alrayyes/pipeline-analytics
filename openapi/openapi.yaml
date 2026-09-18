@@ -517,6 +517,122 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/auth/credentials/options:
+    post:
+      operationId: addCredentialOptions
+      summary: Begin an authenticated "add another passkey" ceremony
+      description: >
+        Session-only -- an API token can't enroll another credential on the
+        account any more than it can mint another token. Distinct from
+        POST /api/auth/register/options: that ceremony is the anonymous
+        first-run registration and only ever runs once per account; this
+        one runs from within an existing session and excludes credentials
+        already registered to it.
+      tags: [auth]
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: >
+            WebAuthn PublicKeyCredentialCreationOptions. The Set-Cookie header
+            carries an opaque, server-side ceremony reference (not the
+            session itself) that the subsequent POST /api/auth/credentials
+            call must present back to complete the ceremony it belongs to.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnCreationOptions"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/credentials:
+    get:
+      operationId: listCredentials
+      summary: List the account's registered credentials
+      description: Session-only, same reasoning as addCredentialOptions.
+      tags: [auth]
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Every credential registered to the account
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Credential"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: addCredential
+      summary: Complete the "add another passkey" ceremony
+      description: Session-only, same reasoning as addCredentialOptions.
+      tags: [auth]
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: label
+          in: query
+          required: false
+          description: >
+            A caller-supplied name for the new credential (e.g. "MacBook",
+            "iPhone"), shown in the credential list. Defaults to an empty
+            label if omitted.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebAuthnAttestationResponse"
+      responses:
+        "201":
+          description: Credential added
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/credentials/{credentialId}:
+    delete:
+      operationId: revokeCredential
+      summary: Revoke a credential
+      description: >
+        Session-only, same reasoning as addCredentialOptions. Rejected with
+        409 if credentialId is the account's last remaining credential --
+        revoking it would leave the account with no way to log in.
+      tags: [auth]
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: credentialId
+          in: path
+          required: true
+          description: The credential's id, base64url-encoded.
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Credential revoked
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: credentialId is the account's last remaining credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /webhooks/github:
     post:
       operationId: githubWebhook
@@ -766,6 +882,26 @@ components:
           type: string
           format: date-time
         expiresAt:
+          type: string
+          format: date-time
+
+    Credential:
+      type: object
+      required: [id, label, createdAt]
+      properties:
+        id:
+          type: string
+          description: >
+            The credential's id, base64url-encoded -- identifies it for
+            revocation (DELETE /api/auth/credentials/{credentialId}), not a
+            usable credential itself.
+        label:
+          type: string
+          description: >
+            A caller-supplied name (e.g. "MacBook", "iPhone"), set once at
+            enrollment. Empty for a credential added before this existed, or
+            for the account's original anonymous-registration credential.
+        createdAt:
           type: string
           format: date-time
 

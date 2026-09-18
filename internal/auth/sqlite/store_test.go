@@ -111,6 +111,64 @@ func TestStore_Credentials(t *testing.T) {
 	})
 }
 
+func TestStore_CredentialInfosAndRevoke(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+	user, err := store.CreateUser(ctx, []byte("handle-1"), "admin")
+	require.NoError(t, err)
+
+	firstCred := webauthn.Credential{ID: []byte("cred-1"), PublicKey: []byte("pubkey-1")}
+	require.NoError(t, store.PutCredential(ctx, user.ID, firstCred))
+
+	secondCred := webauthn.Credential{ID: []byte("cred-2"), PublicKey: []byte("pubkey-2")}
+	require.NoError(t, store.PutCredentialLabeled(ctx, user.ID, secondCred, "MacBook"))
+
+	t.Run("lists label and creation date per credential", func(t *testing.T) {
+		infos, err := store.CredentialInfosForUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, infos, 2)
+		require.Equal(t, firstCred.ID, infos[0].ID)
+		require.Empty(t, infos[0].Label)
+		require.Equal(t, secondCred.ID, infos[1].ID)
+		require.Equal(t, "MacBook", infos[1].Label)
+	})
+
+	t.Run("rejects revoking the last remaining credential", func(t *testing.T) {
+		// This app is single-account, so a second CreateUser against the
+		// same store is rejected -- a fresh store's own solo user is what
+		// exercises the single-credential case.
+		soloStore := newTestStore(t)
+		soloUser, err := soloStore.CreateUser(ctx, []byte("handle-solo"), "solo")
+		require.NoError(t, err)
+
+		soloCred := webauthn.Credential{ID: []byte("cred-solo"), PublicKey: []byte("pubkey-solo")}
+		require.NoError(t, soloStore.PutCredential(ctx, soloUser.ID, soloCred))
+
+		err = soloStore.RevokeCredential(ctx, soloUser.ID, soloCred.ID)
+		require.ErrorIs(t, err, auth.ErrLastCredential)
+
+		infos, err := soloStore.CredentialInfosForUser(ctx, soloUser.ID)
+		require.NoError(t, err)
+		require.Len(t, infos, 1)
+	})
+
+	t.Run("an unknown credential id is not found", func(t *testing.T) {
+		err := store.RevokeCredential(ctx, user.ID, []byte("does-not-exist"))
+		require.ErrorIs(t, err, auth.ErrCredentialNotFound)
+	})
+
+	t.Run("revokes one of two credentials", func(t *testing.T) {
+		require.NoError(t, store.RevokeCredential(ctx, user.ID, firstCred.ID))
+
+		infos, err := store.CredentialInfosForUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, infos, 1)
+		require.Equal(t, secondCred.ID, infos[0].ID)
+	})
+}
+
 func TestStore_Ceremony(t *testing.T) {
 	t.Parallel()
 

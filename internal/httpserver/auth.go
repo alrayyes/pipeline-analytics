@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"time"
@@ -139,6 +140,110 @@ func (h *authHandler) revokeToken(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// addCredentialOptions starts the authenticated "add another passkey"
+// ceremony. Session-only, matching issueToken/revokeToken's reasoning: an
+// API token shouldn't be able to enroll another credential on the account
+// any more than it can mint another token.
+func (h *authHandler) addCredentialOptions(w http.ResponseWriter, r *http.Request) {
+	info, ok := authInfoFromContext(r)
+	if !ok || !info.ViaSession {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to add a credential")
+
+		return
+	}
+
+	creation, ceremonyID, err := h.service.BeginAddCredential(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "begin add credential")
+
+		return
+	}
+
+	setCookie(w, ceremonyCookieName, ceremonyID, 5*time.Minute)
+	writeJSON(w, http.StatusOK, creation)
+}
+
+// addCredential completes the ceremony started by addCredentialOptions,
+// storing the new credential under the caller-supplied label.
+func (h *authHandler) addCredential(w http.ResponseWriter, r *http.Request) {
+	info, ok := authInfoFromContext(r)
+	if !ok || !info.ViaSession {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to add a credential")
+
+		return
+	}
+
+	ceremonyID, ok := ceremonyCookie(r)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid_body", "no add-credential ceremony in progress")
+
+		return
+	}
+
+	label := r.URL.Query().Get("label")
+
+	err := h.service.FinishAddCredential(r.Context(), ceremonyID, label, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "add credential failed")
+
+		return
+	}
+
+	clearCookie(w, ceremonyCookieName)
+	w.WriteHeader(http.StatusCreated)
+}
+
+// listCredentials lists the account's registered credentials. Session-only,
+// same reasoning as addCredentialOptions.
+func (h *authHandler) listCredentials(w http.ResponseWriter, r *http.Request) {
+	info, ok := authInfoFromContext(r)
+	if !ok || !info.ViaSession {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to list credentials")
+
+		return
+	}
+
+	infos, err := h.service.ListCredentials(r.Context(), info.UserID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "list credentials")
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toCredentialDTOs(infos))
+}
+
+// revokeCredential revokes a credential by its base64url-encoded id.
+// Session-only, same reasoning as addCredentialOptions.
+func (h *authHandler) revokeCredential(w http.ResponseWriter, r *http.Request) {
+	info, ok := authInfoFromContext(r)
+	if !ok || !info.ViaSession {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to revoke a credential")
+
+		return
+	}
+
+	credentialID, err := base64.RawURLEncoding.DecodeString(r.PathValue("credentialId"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "malformed credential id")
+
+		return
+	}
+
+	err = h.service.RevokeCredential(r.Context(), info.UserID, credentialID)
+
+	switch {
+	case errors.Is(err, auth.ErrLastCredential):
+		writeError(w, http.StatusConflict, "last_credential", "cannot revoke the account's last remaining credential")
+	case errors.Is(err, auth.ErrCredentialNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "credential not found")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal_error", "revoke credential")
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 type userDTO struct {
 	DisplayName string `json:"displayName"`
 }
@@ -159,6 +264,30 @@ type tokenDTO struct {
 
 func toTokenDTO(t auth.Token, raw string) tokenDTO {
 	return tokenDTO{ID: t.ID, Token: raw, CreatedAt: t.CreatedAt, ExpiresAt: t.ExpiresAt}
+}
+
+// credentialDTO is a registered credential's listing metadata -- the
+// credential id is base64url-encoded for the wire (support-multiple-
+// passkeys/design.md's "Credential identifier over the wire" decision),
+// matching the same encoding already used for other WebAuthn binary fields
+// in this codebase's ceremony JSON.
+type credentialDTO struct {
+	ID        string    `json:"id"`
+	Label     string    `json:"label"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+func toCredentialDTOs(infos []auth.CredentialInfo) []credentialDTO {
+	dtos := make([]credentialDTO, len(infos))
+	for i, info := range infos {
+		dtos[i] = credentialDTO{
+			ID:        base64.RawURLEncoding.EncodeToString(info.ID),
+			Label:     info.Label,
+			CreatedAt: info.CreatedAt,
+		}
+	}
+
+	return dtos
 }
 
 func ceremonyCookie(r *http.Request) (string, bool) {
