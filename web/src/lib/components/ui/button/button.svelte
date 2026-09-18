@@ -7,7 +7,16 @@ import { tv, type VariantProps } from 'tailwind-variants';
 import { cn, type WithElementRef } from '$lib/utils.js';
 
 export const buttonVariants = tv({
-	base: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 rounded-md border border-transparent bg-clip-padding text-sm font-medium focus-visible:ring-3 aria-invalid:ring-3 active:not-aria-[haspopup]:translate-y-px [&_svg:not([class*='size-'])]:size-4 group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none select-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+	// disabled:opacity-60, not the more conventional -50: a disabled
+	// button's text is still oklch(0.145 0 0) (near-black) on a white
+	// card/page background, and -50 blends that down to ~4:1 contrast --
+	// under WCAG AA's 4.5:1 floor for normal text. -60 clears it with
+	// margin (measured ~5.7:1) while still reading as visually disabled.
+	// Caught by settings/support-multiple-passkeys' axe-core scan of a
+	// genuinely-disabled "Revoke" button -- every other disabled control
+	// in this app so far happened to never be on screen, still disabled,
+	// during its own page's scan.
+	base: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 rounded-md border border-transparent bg-clip-padding text-sm font-medium focus-visible:ring-3 aria-invalid:ring-3 active:not-aria-[haspopup]:translate-y-px [&_svg:not([class*='size-'])]:size-4 group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none select-none disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:shrink-0",
 	variants: {
 		variant: {
 			default: 'bg-primary text-primary-foreground hover:bg-primary/80',
