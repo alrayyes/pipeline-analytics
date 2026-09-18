@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.31.0...v0.31.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **repos:** reject archived, forked, and mirror repos at registration ([#201](https://github.com/alrayyes/pipeline-analytics/issues/201)) ([81d6031](https://github.com/alrayyes/pipeline-analytics/commit/81d603192a41969d5fd46cf7ba2d680e4b380887))
+
 ## [0.31.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.30.1...v0.31.0) (2026-09-18)
 
 
