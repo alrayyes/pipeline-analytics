@@ -1,14 +1,11 @@
 <script lang="ts">
 import MenuIcon from '@lucide/svelte/icons/menu';
-import MonitorIcon from '@lucide/svelte/icons/monitor';
-import MoonIcon from '@lucide/svelte/icons/moon';
-import SunIcon from '@lucide/svelte/icons/sun';
+import SettingsIcon from '@lucide/svelte/icons/settings';
 import XIcon from '@lucide/svelte/icons/x';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import logo from '$lib/assets/favicon.svg';
 import { Button } from '$lib/components/ui/button/index.js';
-import { cycleTheme, getTheme } from '$lib/theme.svelte.js';
 import { cn } from '$lib/utils.js';
 
 let { hasRepos }: { hasRepos: boolean } = $props();
@@ -28,12 +25,6 @@ $effect(() => {
 	page.url.pathname;
 	mobileMenuOpen = false;
 });
-
-const THEME_LABELS = {
-	light: 'Light',
-	dark: 'Dark',
-	system: 'System',
-} as const;
 
 const links = [
 	{ href: '/', label: 'Pipelines' },
@@ -106,17 +97,12 @@ async function handleLogout(): Promise<void> {
 			<Button
 				variant="outline"
 				size="icon"
-				onclick={cycleTheme}
-				aria-label="Theme: {THEME_LABELS[getTheme()]}. Click to change."
-				title="Theme: {THEME_LABELS[getTheme()]}. Click to change."
+				href="/settings"
+				aria-label="Settings"
+				title="Settings"
+				aria-current={page.url.pathname === '/settings' ? 'page' : undefined}
 			>
-				{#if getTheme() === 'light'}
-					<SunIcon />
-				{:else if getTheme() === 'dark'}
-					<MoonIcon />
-				{:else}
-					<MonitorIcon />
-				{/if}
+				<SettingsIcon />
 			</Button>
 			<Button variant="outline" size="sm" onclick={handleLogout} disabled={logoutBusy}>
 				{logoutBusy ? 'Logging out…' : 'Log out'}

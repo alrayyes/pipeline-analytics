@@ -8,6 +8,7 @@ import (
 	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
+	"github.com/alrayyes/pipeline-analytics/internal/settings"
 )
 
 // Deps are New's dependencies.
@@ -21,6 +22,7 @@ type Deps struct {
 	Metrics    *metrics.Service
 	Auth       *auth.Service
 	AuthStore  auth.Store
+	Settings   *settings.Service
 	// GitHubRateLimits reports the rate-limit status last observed for a
 	// GitHub token, for GET /api/insights/github-rate-limit. nil is fine --
 	// the endpoint just reports every token with no status yet.
@@ -70,6 +72,10 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("POST /api/auth/logout", authH.logout)
 	mux.HandleFunc("POST /api/auth/tokens", authH.issueToken)
 	mux.HandleFunc("DELETE /api/auth/tokens/{tokenId}", authH.revokeToken)
+
+	settingsH := &settingsHandler{service: deps.Settings}
+	mux.HandleFunc("GET /api/settings", settingsH.get)
+	mux.HandleFunc("PATCH /api/settings", settingsH.patch)
 
 	webhooks := &webhooksHandler{store: deps.RunStore, reconciler: deps.Reconciler}
 	mux.HandleFunc("POST /webhooks/github", webhooks.github)

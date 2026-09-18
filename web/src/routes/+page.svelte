@@ -3,6 +3,7 @@ import { onMount } from 'svelte';
 import { page } from '$app/state';
 import ForgeFilter from '$lib/components/ForgeFilter.svelte';
 import { Badge } from '$lib/components/ui/badge/index.js';
+import { Button } from '$lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -21,6 +22,18 @@ import {
 	ToggleGroupItem,
 } from '$lib/components/ui/toggle-group/index.js';
 import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
+import {
+	getHealthFilter,
+	getRepoSelector,
+	getSortBy,
+	type HealthFilter,
+	isAtDefaults,
+	resetFilters,
+	type SortBy,
+	setHealthFilter,
+	setRepoSelector,
+	setSortBy,
+} from '$lib/pipelinesFilters.svelte.js';
 import { formatRelativeTime } from '$lib/relativeTime.js';
 
 interface PipelineSummary {
@@ -45,9 +58,6 @@ interface PipelineGroup {
 	pipelines: PipelineSummary[];
 }
 
-type HealthFilter = 'all' | 'healthy' | 'unhealthy';
-type SortBy = 'name' | 'lastRun';
-
 const SIGNAL_LABELS: Record<string, string> = {
 	failure_rate: 'elevated failure rate',
 	duration_regression: 'duration regression',
@@ -71,14 +81,6 @@ let pipelines = $state<PipelineSummary[] | null>(null);
 let repos = $state<Repo[] | null>(null);
 let error = $state<string | null>(null);
 
-// Defaults to unhealthy-only (#101): this is a monitoring dashboard, so
-// leading with what needs attention beats an everything-at-once list --
-// per dashboard filtering research, surfacing only what needs attention
-// first reads better on load than mixing it into everything that's fine.
-let healthFilter = $state<HealthFilter>('unhealthy');
-let selectedRepoId = $state('all');
-let sortBy = $state<SortBy>('name');
-
 // Grouped by repo (#102) -- a pipeline name alone ("CI") is ambiguous
 // across more than one tracked repo, so each repo's pipelines get their
 // own section rather than one flat list. Falls back to the bare repoId as
@@ -98,6 +100,8 @@ const forgeFilteredPipelines = $derived.by(() => {
 });
 
 const repoFilteredPipelines = $derived.by(() => {
+	const selectedRepoId = getRepoSelector();
+
 	if (selectedRepoId === 'all' || !forgeFilteredPipelines)
 		return forgeFilteredPipelines;
 
@@ -105,6 +109,8 @@ const repoFilteredPipelines = $derived.by(() => {
 });
 
 const visiblePipelines = $derived.by(() => {
+	const healthFilter = getHealthFilter();
+
 	if (!repoFilteredPipelines) return null;
 	if (healthFilter === 'all') return repoFilteredPipelines;
 
@@ -115,7 +121,7 @@ const visiblePipelines = $derived.by(() => {
 // /api/pipelines happened to return -- the point of offering it as a choice
 // is that it's deterministic, the same way "Most recently run" is.
 function comparePipelines(a: PipelineSummary, b: PipelineSummary): number {
-	if (sortBy === 'lastRun') {
+	if (getSortBy() === 'lastRun') {
 		if (!a.lastRunAt && !b.lastRunAt) return 0;
 		if (!a.lastRunAt) return 1;
 		if (!b.lastRunAt) return -1;
@@ -220,9 +226,9 @@ function signalLabel(signal: string): string {
 				<ToggleGroup
 					type="single"
 					variant="outline"
-					value={healthFilter}
+					value={getHealthFilter()}
 					onValueChange={(value) => {
-						if (value) healthFilter = value as HealthFilter;
+						if (value) setHealthFilter(value as HealthFilter);
 					}}
 				>
 					{#each HEALTH_OPTIONS as option (option.value)}
@@ -237,15 +243,15 @@ function signalLabel(signal: string): string {
 				<Label for="repo-filter">Repo</Label>
 				<Select
 					type="single"
-					value={selectedRepoId}
+					value={getRepoSelector()}
 					onValueChange={(value) => {
-						if (value) selectedRepoId = value;
+						if (value) setRepoSelector(value);
 					}}
 				>
 					<SelectTrigger id="repo-filter" class="w-48">
-						{selectedRepoId === 'all'
+						{getRepoSelector() === 'all'
 							? 'All repos'
-							: (repoById.get(selectedRepoId)?.identifier ?? selectedRepoId)}
+							: (repoById.get(getRepoSelector())?.identifier ?? getRepoSelector())}
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="all" label="All repos">All repos</SelectItem>
@@ -262,13 +268,13 @@ function signalLabel(signal: string): string {
 				<Label for="sort-by">Sort</Label>
 				<Select
 					type="single"
-					value={sortBy}
+					value={getSortBy()}
 					onValueChange={(value) => {
-						if (value) sortBy = value as SortBy;
+						if (value) setSortBy(value as SortBy);
 					}}
 				>
 					<SelectTrigger id="sort-by" class="w-44">
-						{SORT_LABELS[sortBy]}
+						{SORT_LABELS[getSortBy()]}
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="name" label={SORT_LABELS.name}>{SORT_LABELS.name}</SelectItem>
@@ -278,17 +284,26 @@ function signalLabel(signal: string): string {
 					</SelectContent>
 				</Select>
 			</div>
+
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={isAtDefaults()}
+				onclick={resetFilters}
+			>
+				Reset filters
+			</Button>
 		</div>
 
 		{#if visiblePipelines?.length === 0}
 			<p class="mt-6 text-muted-foreground">No pipelines match the selected filters.</p>
 		{:else}
 			<p class="mt-4 text-sm text-muted-foreground">
-				{#if healthFilter === 'all'}
+				{#if getHealthFilter() === 'all'}
 					Showing all {visiblePipelines?.length ?? 0}
 					{visiblePipelines?.length === 1 ? 'pipeline' : 'pipelines'}.
 				{:else}
-					Showing {visiblePipelines?.length ?? 0} {healthFilter} of {repoFilteredPipelines?.length ??
+					Showing {visiblePipelines?.length ?? 0} {getHealthFilter()} of {repoFilteredPipelines?.length ??
 						0}.
 				{/if}
 			</p>
