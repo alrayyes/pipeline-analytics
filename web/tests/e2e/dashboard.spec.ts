@@ -700,8 +700,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		}),
 	);
 	// Step breakdown (tasks 5.5/5.6): one flaky step and one consistently
-	// failing step, so the two get visibly distinct treatment, and the
-	// flaky step's forgeUrl exercises the deep-link-to-forge requirement.
+	// failing step, so the two get visibly distinct treatment.
 	await page.route('**/api/pipelines/unhealthy-1/steps', (route) =>
 		route.fulfill({
 			json: [
@@ -712,6 +711,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 					queueSeconds: 30,
 					execSeconds: 390,
 					failureRate: 0,
+					failureCount: 0,
 					flaky: false,
 				},
 				{
@@ -721,6 +721,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 					queueSeconds: 5,
 					execSeconds: 115,
 					failureRate: 0.3,
+					failureCount: 3,
 					flaky: true,
 					forgeUrl: 'https://forge.example/owner/repo/actions/runs/1/job/2',
 				},
@@ -731,6 +732,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 					queueSeconds: 2,
 					execSeconds: 58,
 					failureRate: 1,
+					failureCount: 4,
 					flaky: false,
 				},
 			],
@@ -782,39 +784,82 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		stepsOverflow.clientWidth,
 	);
 
-	// Deep link to the originating forge (5.6).
-	const forgeLink = page.getByRole('link', { name: 'View on forge' });
-	await expect(forgeLink).toHaveAttribute(
-		'href',
-		'https://forge.example/owner/repo/actions/runs/1/job/2',
+	// A flaky step has no direct forge link any more (#216) -- its
+	// aggregate forgeUrl can point at a run that's since passed, so it
+	// drills into the runs it actually failed on instead.
+	await expect(
+		flakyRow.getByRole('link', { name: 'View flaky runs' }),
+	).toBeVisible();
+	await expect(page.getByRole('link', { name: 'View on forge' })).toHaveCount(
+		0,
 	);
-
-	// The whole row is clickable through to the forge, not just the small
-	// link (#101) -- click near the row's start, away from the link itself.
-	// Stubbing window.open rather than letting a real popup navigate to
-	// forge.example, which isn't a real reachable host.
-	await page.evaluate(() => {
-		(window as unknown as { __openedUrls: string[] }).__openedUrls = [];
-		window.open = (url) => {
-			(window as unknown as { __openedUrls: string[] }).__openedUrls.push(
-				String(url),
-			);
-
-			return null;
-		};
-	});
-	await flakyRow.click({ position: { x: 10, y: 10 } });
-	const openedUrls = await page.evaluate(
-		() => (window as unknown as { __openedUrls: string[] }).__openedUrls,
-	);
-	expect(openedUrls).toEqual([
-		'https://forge.example/owner/repo/actions/runs/1/job/2',
-	]);
 
 	const detailScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
 		.analyze();
 	expect(detailScan.violations).toEqual([]);
+
+	// Flaky-run drill-down (#216): the flaky step's own failed occurrences,
+	// each carrying the run it happened on.
+	const stepName =
+		'Install dependencies and run the full integration test suite with coverage';
+	await page.route('**/api/pipelines/unhealthy-1/flaky-runs**', (route) =>
+		route.fulfill({
+			json: [{ runId: 'run-123', startedAt: '2026-09-10T12:00:00Z' }],
+		}),
+	);
+	// The whole row is clickable through to the drill-down, not just the
+	// small link (#101) -- click near the row's start, away from the link
+	// itself.
+	await flakyRow.click({ position: { x: 10, y: 10 } });
+	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1\/flaky-runs\?step=/);
+	await expect(page.getByRole('heading', { name: 'Flaky runs' })).toBeVisible();
+	await expect(page.getByText(stepName)).toBeVisible();
+
+	const flakyRunsScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(flakyRunsScan.violations).toEqual([]);
+
+	// The run it drills into: that run's own steps, so the forge link there
+	// is guaranteed to point at the occurrence that actually failed.
+	await page.route('**/api/runs/run-123/steps', (route) =>
+		route.fulfill({
+			json: {
+				runId: 'run-123',
+				startedAt: '2026-09-10T12:00:00Z',
+				steps: [
+					{ name: 'checkout', status: 'completed', conclusion: 'success' },
+					{
+						name: stepName,
+						status: 'completed',
+						conclusion: 'failure',
+						forgeUrl: 'https://forge.example/owner/repo/actions/runs/1/job/2',
+					},
+				],
+			},
+		}),
+	);
+	await page.getByRole('link', { name: /2026/ }).click();
+	await expect(page).toHaveURL(/\/runs\/run-123\?/);
+	await expect(page.getByRole('heading', { name: /2026/ })).toBeVisible();
+	await expect(page.getByRole('cell', { name: stepName })).toBeVisible();
+	await expect(
+		page.getByRole('link', { name: 'View on forge' }),
+	).toHaveAttribute(
+		'href',
+		'https://forge.example/owner/repo/actions/runs/1/job/2',
+	);
+
+	const runScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(runScan.violations).toEqual([]);
+
+	// Breadcrumb navigation back up (#216) -- each level actually returns to
+	// the one above it, not just to the Pipelines overview.
+	await page.getByRole('link', { name: 'Back to flaky runs' }).click();
+	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1\/flaky-runs\?step=/);
+	await page.getByRole('link', { name: 'Back to pipeline' }).click();
+	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1$/);
 
 	// Usage view (task 5.7), reached from the pipeline detail page's repoId.
 	await page.route('**/api/repos/repo-1/usage', (route) =>
@@ -894,6 +939,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 							name: 'flaky integration test',
 							durationContributionSeconds: 120,
 							failureRate: 0.3,
+							failureCount: 3,
 							flaky: true,
 							forgeUrl: 'https://forge.example/owner/repo/actions/runs/1/job/2',
 						},
@@ -915,6 +961,22 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.analyze();
 	expect(stepsOverviewScan.violations).toEqual([]);
 
+	// Same fix as the pipeline detail page's own Steps table (#216): a
+	// flaky step here drills into its failed runs too, not a raw forge link.
+	await page.route('**/api/pipelines/unhealthy-1/flaky-runs**', (route) =>
+		route.fulfill({
+			json: [{ runId: 'run-456', startedAt: '2026-09-11T09:00:00Z' }],
+		}),
+	);
+	await page.getByRole('link', { name: 'View flaky runs' }).click();
+	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1\/flaky-runs\?step=/);
+	await expect(page.getByText('flaky integration test')).toBeVisible();
+	await page.unroute('**/api/pipelines/unhealthy-1/flaky-runs**');
+
+	await page.getByRole('link', { name: 'Back to pipeline' }).click();
+	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1$/);
+	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
+	await expect(page).toHaveURL('/');
 	await page.unroute('**/api/steps/unhealthy');
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
 	await expect(page).toHaveURL('/');

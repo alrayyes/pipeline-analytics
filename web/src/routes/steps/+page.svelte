@@ -1,5 +1,6 @@
 <script lang="ts">
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+import HistoryIcon from '@lucide/svelte/icons/history';
 import { onMount } from 'svelte';
 import ForgeFilter from '$lib/components/ForgeFilter.svelte';
 import { Badge } from '$lib/components/ui/badge/index.js';
@@ -24,6 +25,7 @@ interface Step {
 	name: string;
 	durationContributionSeconds: number;
 	failureRate: number;
+	failureCount: number;
 	flaky: boolean;
 	forgeUrl?: string;
 }
@@ -135,6 +137,13 @@ function formatSeconds(seconds: number): string {
 function formatRate(rate: number): string {
 	return `${Math.round(rate * 100)}%`;
 }
+
+// Same reasoning as the pipeline detail page's Steps table (#216): a flaky
+// step's forgeUrl is one arbitrarily-picked occurrence, so it routes to
+// the runs it actually failed on instead of linking straight out.
+function flakyRunsHref(pipelineId: string, stepName: string): string {
+	return `/pipelines/${pipelineId}/flaky-runs?step=${encodeURIComponent(stepName)}`;
+}
 </script>
 
 <svelte:head>
@@ -201,7 +210,7 @@ function formatRate(rate: number): string {
 														{step.name}
 													</TableCell>
 													<TableCell>{formatSeconds(step.durationContributionSeconds)}</TableCell>
-													<TableCell>{formatRate(step.failureRate)}</TableCell>
+													<TableCell>{formatRate(step.failureRate)} ({step.failureCount})</TableCell>
 													<TableCell>
 														{#if step.flaky}
 															<Badge
@@ -217,7 +226,16 @@ function formatRate(rate: number): string {
 														{/if}
 													</TableCell>
 													<TableCell>
-														{#if step.forgeUrl}
+														{#if step.flaky}
+															<a
+																href={flakyRunsHref(pipeline.pipelineId, step.name)}
+																aria-label="View flaky runs"
+																title="View flaky runs"
+																class="inline-flex items-center text-muted-foreground hover:text-foreground"
+															>
+																<HistoryIcon class="size-4" aria-hidden="true" />
+															</a>
+														{:else if step.forgeUrl}
 															<a
 																href={step.forgeUrl}
 																target="_blank"
