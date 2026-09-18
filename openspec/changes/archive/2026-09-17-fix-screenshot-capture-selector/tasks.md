@@ -10,4 +10,4 @@
 
 ## 2. Ship it
 
-- [ ] 2.1 Open a pull request with `Closes #182` and verify CI passes
+- [x] 2.1 Open a pull request with `Closes #182` and verify CI passes

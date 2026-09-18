@@ -33,7 +33,8 @@
 			"forge-ingestion",
 			"pipeline-metrics",
 			"dashboard-auth",
-			"ETag"
+			"ETag",
+			"radiogroup"
 		]
 	},
 	"ltex.disabledRules": {
