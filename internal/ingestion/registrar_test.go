@@ -135,6 +135,12 @@ type fakeForgeClient struct {
 	err             error
 	listRunsFunc    func(context.Context, ingestion.ListRunsRequest) (ingestion.ListRunsResult, error)
 	discoveredRepos []string
+	// getRepoMeta/getRepoErr are separate from err -- a test exercising a
+	// CreateWebhook failure (via err) shouldn't also fail the GetRepo
+	// check Register now runs first, or it'd never reach the webhook
+	// step it means to exercise.
+	getRepoMeta ingestion.RepoMetadata
+	getRepoErr  error
 }
 
 func (f *fakeForgeClient) CreateWebhook(context.Context, ingestion.CreateWebhookRequest) error {
@@ -147,6 +153,10 @@ func (f *fakeForgeClient) ListRecentRuns(ctx context.Context, req ingestion.List
 	}
 
 	return ingestion.ListRunsResult{}, nil
+}
+
+func (f *fakeForgeClient) GetRepo(context.Context, ingestion.GetRepoRequest) (ingestion.RepoMetadata, error) {
+	return f.getRepoMeta, f.getRepoErr
 }
 
 func (f *fakeForgeClient) ListAccessibleRepos(context.Context, ingestion.ListAccessibleReposRequest) ([]string, error) {
@@ -204,6 +214,114 @@ func TestRegistrar_Register(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, ingestion.StatusDegraded, repo.IngestionStatus)
+	})
+
+	t.Run("registering an archived repo is rejected, no record created", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{getRepoMeta: ingestion.RepoMetadata{Archived: true}},
+		}, "https://example.com")
+
+		_, err := registrar.Register(context.Background(), ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/old-repo",
+			Token:      "ghp_test",
+		})
+		require.ErrorIs(t, err, ingestion.ErrRepoArchived)
+		require.Empty(t, store.repos)
+	})
+
+	t.Run("registering a fork is rejected, no record created", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{getRepoMeta: ingestion.RepoMetadata{Fork: true}},
+		}, "https://example.com")
+
+		_, err := registrar.Register(context.Background(), ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/a-fork",
+			Token:      "ghp_test",
+		})
+		require.ErrorIs(t, err, ingestion.ErrRepoFork)
+		require.Empty(t, store.repos)
+	})
+
+	t.Run("registering a mirror is rejected, no record created", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{getRepoMeta: ingestion.RepoMetadata{Mirror: true}},
+		}, "https://example.com")
+
+		_, err := registrar.Register(context.Background(), ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/a-mirror",
+			Token:      "ghp_test",
+		})
+		require.ErrorIs(t, err, ingestion.ErrRepoMirror)
+		require.Empty(t, store.repos)
+	})
+
+	t.Run("a normal repo still registers", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{},
+		}, "https://example.com")
+
+		repo, err := registrar.Register(context.Background(), ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+		require.Equal(t, ingestion.StatusActive, repo.IngestionStatus)
+	})
+
+	t.Run("a GetRepo failure doesn't block registration -- falls through to the usual degrade path", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		// Both GetRepo and CreateWebhook fail here, the realistic shape of
+		// a token that can't reach the forge at all (this app's own
+		// end-to-end suite registers against exactly such a token) --
+		// GetRepo's failure alone must not turn into a hard registration
+		// error, since that'd make registration brittle against the same
+		// reachability problem the degrade path already exists to absorb.
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{getRepoErr: errInsufficientScope, err: errInsufficientScope},
+		}, "https://example.com")
+
+		repo, err := registrar.Register(context.Background(), ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+		require.Equal(t, ingestion.StatusDegraded, repo.IngestionStatus)
+	})
+
+	t.Run("a GetRepo failure with webhook creation still succeeding leaves the repo active", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{getRepoErr: errInsufficientScope},
+		}, "https://example.com")
+
+		repo, err := registrar.Register(context.Background(), ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+		require.Equal(t, ingestion.StatusActive, repo.IngestionStatus)
 	})
 }
 

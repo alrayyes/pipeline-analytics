@@ -431,3 +431,136 @@ func TestClient_ListAccessibleRepos(t *testing.T) {
 		require.Equal(t, []string{"alrayyes/normal-repo"}, repos)
 	})
 }
+
+func TestClient_GetRepo(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns a normal repo's status", func(t *testing.T) {
+		t.Parallel()
+
+		var gotPath, gotAuth string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotAuth = r.Header.Get("Authorization")
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/dotfiles", "archived": false, "fork": false, "mirror": false}`))
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/dotfiles",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, "/api/v1/repos/alrayyes/dotfiles", gotPath)
+		require.Equal(t, "token forgejo_test_token", gotAuth)
+		require.Equal(t, ingestion.RepoMetadata{}, meta)
+	})
+
+	t.Run("reports an archived repo", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/old-repo", "archived": true}`))
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/old-repo",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+		require.True(t, meta.Archived)
+	})
+
+	t.Run("reports a fork", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/a-fork", "fork": true}`))
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/a-fork",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+		require.True(t, meta.Fork)
+	})
+
+	t.Run("reports a mirror", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"full_name": "alrayyes/a-mirror", "mirror": true}`))
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		meta, err := client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/a-mirror",
+			Token:       "forgejo_test_token",
+		})
+		require.NoError(t, err)
+		require.True(t, meta.Mirror)
+	})
+
+	t.Run("rejects an identifier not in owner/name form", func(t *testing.T) {
+		t.Parallel()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		_, err = client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			InstanceURL: "https://example.com",
+			Identifier:  "not-owner-slash-name",
+			Token:       "forgejo_test_token",
+		})
+		require.ErrorIs(t, err, forgejoclient.ErrInvalidIdentifier)
+	})
+
+	t.Run("wraps a forge-side failure", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		client, err := forgejoclient.NewClient()
+		require.NoError(t, err)
+
+		_, err = client.GetRepo(context.Background(), ingestion.GetRepoRequest{
+			InstanceURL: server.URL,
+			Identifier:  "alrayyes/gone",
+			Token:       "forgejo_test_token",
+		})
+		require.Error(t, err)
+	})
+}

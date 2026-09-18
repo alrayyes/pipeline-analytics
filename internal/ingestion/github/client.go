@@ -124,6 +124,32 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAcce
 	}
 }
 
+// GetRepo implements ingestion.ForgeClient. A single-repo lookup, not
+// ListAccessibleRepos filtered client-side -- the authoritative check
+// registration needs, independent of whatever a prior Discover call saw.
+func (c *Client) GetRepo(ctx context.Context, req ingestion.GetRepoRequest) (ingestion.RepoMetadata, error) {
+	owner, name, err := splitIdentifier(req.Identifier)
+	if err != nil {
+		return ingestion.RepoMetadata{}, err
+	}
+
+	api := ghapi.NewClient(nil).WithAuthToken(req.Token)
+	if c.baseURL != nil {
+		api.BaseURL = c.baseURL
+	}
+
+	r, _, err := api.Repositories.Get(ctx, owner, name)
+	if err != nil {
+		return ingestion.RepoMetadata{}, fmt.Errorf("get github repo: %w", err)
+	}
+
+	return ingestion.RepoMetadata{
+		Archived: r.GetArchived(),
+		Fork:     r.GetFork(),
+		Mirror:   r.GetMirrorURL() != "",
+	}, nil
+}
+
 // ListRecentRuns implements ingestion.ForgeClient. The run-list request is
 // conditional (If-None-Match/ETag); a 304 short-circuits before any jobs
 // are fetched, since nothing about the run list changed. go-github's typed

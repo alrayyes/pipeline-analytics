@@ -123,6 +123,38 @@ func (c *Client) ListAccessibleRepos(ctx context.Context, req ingestion.ListAcce
 	}
 }
 
+// GetRepo implements ingestion.ForgeClient. A single-repo lookup, not
+// ListAccessibleRepos filtered client-side -- the authoritative check
+// registration needs, independent of whatever a prior Discover call saw
+// (and of whether the bulk listing endpoint populates these flags as
+// reliably as a single-repo fetch does).
+func (c *Client) GetRepo(ctx context.Context, req ingestion.GetRepoRequest) (ingestion.RepoMetadata, error) {
+	owner, name, err := splitIdentifier(req.Identifier)
+	if err != nil {
+		return ingestion.RepoMetadata{}, err
+	}
+
+	api, err := gitea.NewClient(req.InstanceURL,
+		gitea.SetToken(req.Token),
+		gitea.SetContext(ctx),
+		gitea.SetGiteaVersion(""), // skip the live version-check request
+	)
+	if err != nil {
+		return ingestion.RepoMetadata{}, fmt.Errorf("create forgejo client: %w", err)
+	}
+
+	r, _, err := api.GetRepo(owner, name)
+	if err != nil {
+		return ingestion.RepoMetadata{}, fmt.Errorf("get forgejo repo: %w", err)
+	}
+
+	return ingestion.RepoMetadata{
+		Archived: r.Archived,
+		Fork:     r.Fork,
+		Mirror:   r.Mirror,
+	}, nil
+}
+
 // ListRecentRuns implements ingestion.ForgeClient. Forgejo has no default
 // rate limit and no documented conditional-request support for this
 // endpoint (design.md's "Ingestion" decision), so every poll fetches the

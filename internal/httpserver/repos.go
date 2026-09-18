@@ -104,10 +104,10 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 		Token:              in.Token,
 	})
 	if err != nil {
-		if errors.Is(err, ingestion.ErrRepoAlreadyTracked) {
-			slog.ErrorContext(r.Context(), "rejected duplicate repo registration",
-				"forge", in.Forge, "identifier", in.Identifier)
-			writeError(w, http.StatusConflict, "already_tracked", "this repo is already tracked")
+		if code, message, ok := registrationConflict(err); ok {
+			slog.ErrorContext(r.Context(), "rejected repo registration",
+				"forge", in.Forge, "identifier", in.Identifier, "reason", code)
+			writeError(w, http.StatusConflict, code, message)
 
 			return
 		}
@@ -120,6 +120,26 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, toRepoDTO(repo))
+}
+
+// registrationConflict maps a Registrar.Register error to the (code,
+// message) pair register's 409 response uses, if err is one of the
+// registration-rejection sentinels -- already-tracked, or archived/fork/
+// mirror (exclude-forge-mirrors-from-registration). Every other error stays
+// a 500.
+func registrationConflict(err error) (code, message string, ok bool) {
+	switch {
+	case errors.Is(err, ingestion.ErrRepoAlreadyTracked):
+		return "already_tracked", "this repo is already tracked", true
+	case errors.Is(err, ingestion.ErrRepoArchived):
+		return "repo_archived", "this repo is archived", true
+	case errors.Is(err, ingestion.ErrRepoFork):
+		return "repo_fork", "this repo is a fork", true
+	case errors.Is(err, ingestion.ErrRepoMirror):
+		return "repo_mirror", "this repo is a mirror", true
+	default:
+		return "", "", false
+	}
 }
 
 type repoIdentifiersDTO struct {

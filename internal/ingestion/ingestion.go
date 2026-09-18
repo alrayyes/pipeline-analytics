@@ -13,6 +13,15 @@ import (
 // forge, identifier, and (for Forgejo) instance URL is already tracked.
 var ErrRepoAlreadyTracked = errors.New("repo already tracked")
 
+// Returned by Register when the repo being registered is archived, a fork,
+// or a mirror -- checked authoritatively via GetRepo, not trusted from a
+// prior Discover result.
+var (
+	ErrRepoArchived = errors.New("repo is archived")
+	ErrRepoFork     = errors.New("repo is a fork")
+	ErrRepoMirror   = errors.New("repo is a mirror")
+)
+
 // Forge identifies which forge a tracked repo lives on.
 type Forge string
 
@@ -133,6 +142,27 @@ type ForgeClient interface {
 	// access, for the registration UI's repo picker. Called with a token
 	// that hasn't been stored yet -- never persisted or logged.
 	ListAccessibleRepos(ctx context.Context, req ListAccessibleReposRequest) ([]string, error)
+	// GetRepo looks up one repo's current archived/fork/mirror status
+	// directly, for an authoritative check at registration time rather
+	// than trusting a possibly-stale ListAccessibleRepos result.
+	GetRepo(ctx context.Context, req GetRepoRequest) (RepoMetadata, error)
+}
+
+// GetRepoRequest is what GetRepo needs to look up one repo.
+type GetRepoRequest struct {
+	// InstanceURL is set for Forgejo, empty for GitHub.
+	InstanceURL string
+	Identifier  string
+	Token       string
+}
+
+// RepoMetadata is a repo's archived/fork/mirror status, from a single-repo
+// lookup at registration time -- see ErrRepoArchived/ErrRepoFork/
+// ErrRepoMirror.
+type RepoMetadata struct {
+	Archived bool
+	Fork     bool
+	Mirror   bool
 }
 
 // RateLimitSnapshot is a forge API's most recently observed rate-limit

@@ -27,16 +27,46 @@ func NewRegistrar(store Store, clients map[Forge]ForgeClient, callbackURL string
 	return &Registrar{store: store, clients: clients, callbackURL: callbackURL}
 }
 
-// Register persists in and attempts to create its webhook. A storage
-// failure is returned as an error; a webhook-creation failure is instead
-// recorded on the returned Repo as a degraded ingestion status.
+// Register verifies the repo isn't archived, a fork, or a mirror, then
+// persists it and attempts to create its webhook. A storage failure, or the
+// repo actually being archived/a fork/a mirror, is returned as an error
+// before anything is persisted; a webhook-creation failure -- and a
+// GetRepo failure, which leaves that status genuinely unverified rather
+// than known-rejectable -- is instead recorded on the returned Repo as a
+// degraded ingestion status, once it's already tracked. Blocking outright
+// on a GetRepo failure (a bad token, a network blip) would make
+// registration itself brittle against exactly the kind of forge
+// reachability issue the existing degrade path already exists to absorb;
+// confirmed live via this app's own end-to-end suite, which registers
+// against a token that can't reach the real forge at all.
 func (r *Registrar) Register(ctx context.Context, in NewRepo) (Repo, error) {
+	client, ok := r.clients[in.Forge]
+	if ok {
+		meta, err := client.GetRepo(ctx, GetRepoRequest{
+			InstanceURL: in.ForgejoInstanceURL,
+			Identifier:  in.Identifier,
+			Token:       in.Token,
+		})
+		if err == nil {
+			switch {
+			case meta.Archived:
+				return Repo{}, ErrRepoArchived
+			case meta.Fork:
+				return Repo{}, ErrRepoFork
+			case meta.Mirror:
+				return Repo{}, ErrRepoMirror
+			}
+		}
+		// A GetRepo error falls through to CreateRepo below and on to the
+		// CreateWebhook attempt, which degrades on the same class of
+		// failure -- no separate degrade path needed for this case.
+	}
+
 	repo, err := r.store.CreateRepo(ctx, in)
 	if err != nil {
 		return Repo{}, fmt.Errorf("create repo: %w", err)
 	}
 
-	client, ok := r.clients[repo.Forge]
 	if !ok {
 		return r.degrade(ctx, repo, fmt.Sprintf("no client configured for forge %q", repo.Forge))
 	}
