@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.32.0...v0.32.1) (2026-09-18)
+
+
+### Performance Improvements
+
+* **reconcile:** skip refetching jobs for unchanged completed runs ([#207](https://github.com/alrayyes/pipeline-analytics/issues/207)) ([88f4128](https://github.com/alrayyes/pipeline-analytics/commit/88f41282a6305179b0c266e5a1eb4299fd07af59)), closes [#206](https://github.com/alrayyes/pipeline-analytics/issues/206)
+
 ## [0.32.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.31.1...v0.32.0) (2026-09-18)
 
 
