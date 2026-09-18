@@ -142,6 +142,47 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('radio', { name: 'Light' }).click();
 	await expect(page.locator('html')).not.toHaveClass('dark');
 
+	// Passkey management (#188): a second, authenticated "add a passkey"
+	// ceremony against the real /api/auth/credentials endpoints, distinct
+	// from the anonymous first-run registration ceremony this journey
+	// already exercised above. The account has exactly one credential at
+	// this point, so its Revoke action starts out disabled -- the
+	// last-credential guard, not hidden, per this app's existing
+	// convention for a currently-inapplicable action.
+	const passkeysTable = page.getByRole('table').filter({ hasText: 'Label' });
+	const revokeButtons = passkeysTable.getByRole('button', { name: 'Revoke' });
+	await expect(revokeButtons).toBeDisabled();
+
+	await page.getByRole('button', { name: 'Add a passkey' }).click();
+	await page.getByLabel('Label').fill('MacBook');
+	await page.getByRole('button', { name: 'Add passkey' }).click();
+
+	await expect(page.getByText('MacBook')).toBeVisible();
+	await expect(revokeButtons.first()).toBeEnabled();
+	// Same dialog-closing-animation guard as the repo registration dialog
+	// above -- the "Add a passkey" dialog's own fade-out otherwise reads
+	// as a real contrast failure if axe catches it mid-transition.
+	await expect(
+		page.getByRole('dialog', { name: 'Add a passkey' }),
+	).not.toBeVisible();
+
+	const passkeysScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(passkeysScan.violations).toEqual([]);
+
+	// Revokes the original (unlabeled) credential, listed first --
+	// "MacBook" is the account's sole remaining credential afterward, so
+	// its own Revoke button is what the last-credential guard disables.
+	await revokeButtons.first().click();
+	await page
+		.getByRole('alertdialog')
+		.getByRole('button', { name: 'Revoke' })
+		.click();
+	await expect(page.getByText('MacBook')).toBeVisible();
+	await expect(revokeButtons).toHaveCount(1);
+	await expect(revokeButtons).toBeDisabled();
+
 	// Repo management (register/list/untrack) is exercised against the
 	// real POST/DELETE /api/repos endpoints, not mocked -- same reasoning
 	// as the login/registration ceremony above: this is what those

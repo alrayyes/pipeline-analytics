@@ -22,13 +22,13 @@
 
 ## 2. Frontend: credential management UI
 
-- [ ] 2.1 Add a credential-management section to the Settings page:
+- [x] 2.1 Add a credential-management section to the Settings page:
       list with label/date, an "Add a passkey" flow prompting for a
       label, and a revoke action per credential
-- [ ] 2.2 Disable/hide the revoke action on the only remaining
+- [x] 2.2 Disable/hide the revoke action on the only remaining
       credential, matching the backend's last-credential guard, and
       verify manually with one and with two credentials registered
-- [ ] 2.3 Run the Playwright suite (including the axe-core scan on the
+- [x] 2.3 Run the Playwright suite (including the axe-core scan on the
       updated Settings page) and verify it passes
 
 ## 3. Ship it
