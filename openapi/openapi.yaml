@@ -304,6 +304,55 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/settings:
+    get:
+      operationId: getSettings
+      summary: The dashboard account's persisted UI settings
+      description: >
+        Every setting is always present in the response, each one either
+        an explicitly-stored value or its documented default -- never
+        null or missing.
+      tags: [settings]
+      responses:
+        "200":
+          description: Every setting, fully resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updateSettings
+      summary: Update one or more settings
+      description: >
+        A key present with a value sets it. A key present with JSON
+        null clears it, reverting to its documented default on the
+        next read -- this is also how the Pipelines page's "Reset
+        filters" works: a single PATCH setting
+        pipelinesHealthFilter/pipelinesRepoSelector/pipelinesSortOrder
+        to null. A key absent from the body is left untouched. An
+        invalid key or an enum value outside its documented set
+        rejects the whole request; nothing already stored changes.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Every setting, fully resolved, after applying the update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/auth/register/options:
     post:
       operationId: webauthnRegisterOptions
@@ -646,6 +695,58 @@ components:
         version:
           type: string
           description: "The build's tagged version (e.g. \"v1.2.3\"), or \"dev\" for an untagged local build."
+
+    Settings:
+      type: object
+      required:
+        [
+          theme,
+          forgeFilter,
+          pipelinesHealthFilter,
+          pipelinesRepoSelector,
+          pipelinesSortOrder,
+        ]
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+        forgeFilter:
+          type: string
+          enum: [all, github, forgejo]
+        pipelinesHealthFilter:
+          type: string
+          enum: [all, healthy, unhealthy]
+        pipelinesRepoSelector:
+          type: string
+          description: >
+            A tracked repo's id, or "all" for every repo -- not
+            validated against an enum, since the set of valid values
+            changes with what's currently tracked.
+        pipelinesSortOrder:
+          type: string
+          enum: [name, lastRun]
+
+    SettingsUpdate:
+      type: object
+      description: >
+        Every property is optional; an absent one is left untouched. A
+        property set to null clears it back to its documented default
+        instead of setting it.
+      properties:
+        theme:
+          type: [string, "null"]
+          enum: [light, dark, system, null]
+        forgeFilter:
+          type: [string, "null"]
+          enum: [all, github, forgejo, null]
+        pipelinesHealthFilter:
+          type: [string, "null"]
+          enum: [all, healthy, unhealthy, null]
+        pipelinesRepoSelector:
+          type: [string, "null"]
+        pipelinesSortOrder:
+          type: [string, "null"]
+          enum: [name, lastRun, null]
 
     ApiToken:
       type: object
