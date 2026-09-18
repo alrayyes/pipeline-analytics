@@ -77,5 +77,5 @@ func New(deps Deps) http.Handler {
 
 	mux.Handle("/", staticHandler(deps.Assets))
 
-	return requireSession(deps.AuthStore, mux)
+	return requestLogger(requireSession(deps.AuthStore, mux))
 }
