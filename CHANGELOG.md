@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.30.0...v0.30.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **repos:** reject duplicate repo registration clearly, not opaquely ([#199](https://github.com/alrayyes/pipeline-analytics/issues/199)) ([2aa6272](https://github.com/alrayyes/pipeline-analytics/commit/2aa62722dcf25ab29bc3be655005c2c65e2f8c5d)), closes [#197](https://github.com/alrayyes/pipeline-analytics/issues/197)
+
 ## [0.30.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.29.2...v0.30.0) (2026-09-18)
 
 
