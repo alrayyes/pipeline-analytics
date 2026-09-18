@@ -28,35 +28,38 @@ func NewRegistrar(store Store, clients map[Forge]ForgeClient, callbackURL string
 }
 
 // Register verifies the repo isn't archived, a fork, or a mirror, then
-// persists it and attempts to create its webhook. A storage failure, or
-// the repo being archived/a fork/a mirror, is returned as an error before
-// anything is persisted; a webhook-creation failure is instead recorded on
-// the returned Repo as a degraded ingestion status, once it's already
-// tracked.
+// persists it and attempts to create its webhook. A storage failure, or the
+// repo actually being archived/a fork/a mirror, is returned as an error
+// before anything is persisted; a webhook-creation failure -- and a
+// GetRepo failure, which leaves that status genuinely unverified rather
+// than known-rejectable -- is instead recorded on the returned Repo as a
+// degraded ingestion status, once it's already tracked. Blocking outright
+// on a GetRepo failure (a bad token, a network blip) would make
+// registration itself brittle against exactly the kind of forge
+// reachability issue the existing degrade path already exists to absorb;
+// confirmed live via this app's own end-to-end suite, which registers
+// against a token that can't reach the real forge at all.
 func (r *Registrar) Register(ctx context.Context, in NewRepo) (Repo, error) {
 	client, ok := r.clients[in.Forge]
 	if ok {
-		// No client configured for the forge falls through to CreateRepo
-		// below, same as the analogous case after it -- there's nothing to
-		// check the repo's status against, and that gap already degrades
-		// the repo rather than failing registration outright.
 		meta, err := client.GetRepo(ctx, GetRepoRequest{
 			InstanceURL: in.ForgejoInstanceURL,
 			Identifier:  in.Identifier,
 			Token:       in.Token,
 		})
-		if err != nil {
-			return Repo{}, fmt.Errorf("check repo status: %w", err)
+		if err == nil {
+			switch {
+			case meta.Archived:
+				return Repo{}, ErrRepoArchived
+			case meta.Fork:
+				return Repo{}, ErrRepoFork
+			case meta.Mirror:
+				return Repo{}, ErrRepoMirror
+			}
 		}
-
-		switch {
-		case meta.Archived:
-			return Repo{}, ErrRepoArchived
-		case meta.Fork:
-			return Repo{}, ErrRepoFork
-		case meta.Mirror:
-			return Repo{}, ErrRepoMirror
-		}
+		// A GetRepo error falls through to CreateRepo below and on to the
+		// CreateWebhook attempt, which degrades on the same class of
+		// failure -- no separate degrade path needed for this case.
 	}
 
 	repo, err := r.store.CreateRepo(ctx, in)

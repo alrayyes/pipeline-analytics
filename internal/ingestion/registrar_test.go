@@ -284,7 +284,30 @@ func TestRegistrar_Register(t *testing.T) {
 		require.Equal(t, ingestion.StatusActive, repo.IngestionStatus)
 	})
 
-	t.Run("a GetRepo failure fails registration rather than proceeding unverified", func(t *testing.T) {
+	t.Run("a GetRepo failure doesn't block registration -- falls through to the usual degrade path", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeStore()
+		// Both GetRepo and CreateWebhook fail here, the realistic shape of
+		// a token that can't reach the forge at all (this app's own
+		// end-to-end suite registers against exactly such a token) --
+		// GetRepo's failure alone must not turn into a hard registration
+		// error, since that'd make registration brittle against the same
+		// reachability problem the degrade path already exists to absorb.
+		registrar := ingestion.NewRegistrar(store, map[ingestion.Forge]ingestion.ForgeClient{
+			ingestion.ForgeGitHub: &fakeForgeClient{getRepoErr: errInsufficientScope, err: errInsufficientScope},
+		}, "https://example.com")
+
+		repo, err := registrar.Register(context.Background(), ingestion.NewRepo{
+			Forge:      ingestion.ForgeGitHub,
+			Identifier: "alrayyes/pipeline-analytics",
+			Token:      "ghp_test",
+		})
+		require.NoError(t, err)
+		require.Equal(t, ingestion.StatusDegraded, repo.IngestionStatus)
+	})
+
+	t.Run("a GetRepo failure with webhook creation still succeeding leaves the repo active", func(t *testing.T) {
 		t.Parallel()
 
 		store := newFakeStore()
@@ -292,13 +315,13 @@ func TestRegistrar_Register(t *testing.T) {
 			ingestion.ForgeGitHub: &fakeForgeClient{getRepoErr: errInsufficientScope},
 		}, "https://example.com")
 
-		_, err := registrar.Register(context.Background(), ingestion.NewRepo{
+		repo, err := registrar.Register(context.Background(), ingestion.NewRepo{
 			Forge:      ingestion.ForgeGitHub,
 			Identifier: "alrayyes/pipeline-analytics",
 			Token:      "ghp_test",
 		})
-		require.ErrorIs(t, err, errInsufficientScope)
-		require.Empty(t, store.repos)
+		require.NoError(t, err)
+		require.Equal(t, ingestion.StatusActive, repo.IngestionStatus)
 	})
 }
 

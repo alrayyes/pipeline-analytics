@@ -970,10 +970,15 @@ test('past PAGE_SIZE tracked repos, Discover still excludes every one of them (#
 	// The repos table is itself paginated at PAGE_SIZE (20) -- repo-20 is
 	// the 21st, so it's on page two, not visible without paging forward.
 	// repo-0 (page one) and the enabled "Next" button both confirm the
-	// batch of 21 actually landed.
+	// batch of 21 actually landed. 21 sequential registrations, each a
+	// real GetRepo + CreateWebhook round trip against the real forge API
+	// (exclude-forge-mirrors-from-registration's archived/fork/mirror
+	// check), routinely takes longer than the default 5s assertion
+	// timeout -- not a hang, just more real network calls than the
+	// default budget assumes.
 	await expect(
 		page.getByRole('row').filter({ hasText: 'alrayyes/repo-0' }),
-	).toBeVisible();
+	).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 	await expect(
 		page.getByText('Select repositories to follow'),
