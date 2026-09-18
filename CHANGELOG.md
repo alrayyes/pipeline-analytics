@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.30.1...v0.31.0) (2026-09-18)
+
+
+### Features
+
+* **http:** log every request, not almost nothing ([#200](https://github.com/alrayyes/pipeline-analytics/issues/200)) ([f7df62b](https://github.com/alrayyes/pipeline-analytics/commit/f7df62bbe2e98a76933f133d80dc89ea5d498174)), closes [#196](https://github.com/alrayyes/pipeline-analytics/issues/196)
+
 ## [0.30.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.30.0...v0.30.1) (2026-09-18)
 
 
