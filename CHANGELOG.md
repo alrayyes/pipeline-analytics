@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.33.0...v0.34.0) (2026-09-18)
+
+
+### Features
+
+* **api:** spec the flaky-run drill-down endpoints ([#217](https://github.com/alrayyes/pipeline-analytics/issues/217)) ([feb11bb](https://github.com/alrayyes/pipeline-analytics/commit/feb11bb3750b6d9f735178c62ac4033fb1cc13ab))
+
 ## [0.33.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.32.1...v0.33.0) (2026-09-18)
 
 
