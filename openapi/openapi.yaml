@@ -5,7 +5,9 @@ info:
   description: >
     Self-hosted CI pipeline analytics for GitHub Actions and Forgejo Actions.
     Every endpoint except the WebAuthn ceremony and the forge webhook
-    receivers requires an authenticated session (see dashboard-auth/spec.md).
+    receivers requires an authenticated session or a bearer API token (see
+    dashboard-auth/spec.md); token issuance and revocation require a
+    session specifically.
   license:
     name: AGPL-3.0
     identifier: AGPL-3.0-only
@@ -14,6 +16,7 @@ servers:
 
 security:
   - sessionCookie: []
+  - apiKey: []
 
 paths:
   /api/version:
@@ -379,6 +382,49 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/auth/tokens:
+    post:
+      operationId: issueApiToken
+      summary: Issue a new API token
+      description: >
+        Session-only -- an API token can't be used to issue another one.
+        The raw token value is returned once, here, and is never
+        recoverable afterward.
+      tags: [auth]
+      security:
+        - sessionCookie: []
+      responses:
+        "201":
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiToken"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/tokens/{tokenId}:
+    delete:
+      operationId: revokeApiToken
+      summary: Revoke an API token
+      description: Session-only, same reasoning as issuing one.
+      tags: [auth]
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Token revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /webhooks/github:
     post:
       operationId: githubWebhook
@@ -455,6 +501,13 @@ components:
       type: apiKey
       in: cookie
       name: session
+    apiKey:
+      type: http
+      scheme: bearer
+      description: >
+        A long-lived, revocable token from POST /api/auth/tokens.
+        Authenticates the same way sessionCookie does for every endpoint
+        except token issuance/revocation, which are session-only.
 
   parameters:
     RepoId:
@@ -509,7 +562,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     Unauthorized:
-      description: No valid session
+      description: No valid session or API token
       content:
         application/json:
           schema:
@@ -544,6 +597,27 @@ components:
         version:
           type: string
           description: "The build's tagged version (e.g. \"v1.2.3\"), or \"dev\" for an untagged local build."
+
+    ApiToken:
+      type: object
+      required: [id, token, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+          description: >
+            Identifies the token for revocation (DELETE
+            /api/auth/tokens/{tokenId}) -- not itself a usable credential.
+        token:
+          type: string
+          description: >
+            The raw token value. Returned only here, at creation; store it
+            now, it can't be retrieved again.
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
 
     Forge:
       type: string
