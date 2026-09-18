@@ -257,6 +257,61 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/pipelines/{pipelineId}/flaky-runs:
+    get:
+      operationId: listFlakyRuns
+      summary: Every run in which one named step failed, most-recent-first
+      description: >
+        The step-scoped drill-down from a flaky (or previously flaky) step
+        in GET .../steps -- lets a click land on the run that actually
+        failed instead of an aggregate link that may point at a run which
+        has since passed. Available regardless of the pipeline's current
+        health status, since a step's failures can age out of the live
+        window before anyone gets a chance to look.
+      tags: [pipelines]
+      parameters:
+        - $ref: "#/components/parameters/PipelineId"
+        - $ref: "#/components/parameters/StepName"
+        - $ref: "#/components/parameters/Window"
+      responses:
+        "200":
+          description: >
+            Runs in which the named step failed, most-recent-first. Empty
+            when the step has no failed occurrence in the window.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FlakyRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/runs/{runId}/steps:
+    get:
+      operationId: getRunSteps
+      summary: One run's own steps and their statuses
+      description: >
+        What a flaky run in GET .../flaky-runs drills down into -- scoped
+        to a single run, so each step's forgeUrl points at the exact job
+        that ran, never a different occurrence of the same step name.
+      tags: [pipelines]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: The run's steps, in recorded order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/insights/github-rate-limit:
     get:
       operationId: getGitHubRateLimitInsights
@@ -730,6 +785,19 @@ components:
       required: true
       schema:
         type: string
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+    StepName:
+      name: step
+      in: query
+      required: true
+      description: A step's name, exactly as GET .../steps reports it.
+      schema:
+        type: string
     Window:
       name: window
       in: query
@@ -1041,7 +1109,7 @@ components:
 
     Step:
       type: object
-      required: [id, name, durationContributionSeconds, queueSeconds, execSeconds, failureRate, flaky]
+      required: [id, name, durationContributionSeconds, queueSeconds, execSeconds, failureRate, failureCount, flaky]
       properties:
         id:
           type: string
@@ -1055,12 +1123,19 @@ components:
           type: number
         failureRate:
           type: number
+        failureCount:
+          type: integer
+          description: Times this step failed within the window.
         flaky:
           type: boolean
         forgeUrl:
           type: string
           format: uri
-          description: Deep link to this step's log on the originating forge.
+          description: >
+            Deep link to one occurrence's log on the originating forge --
+            not necessarily one where the step failed. GET
+            .../flaky-runs is the reliable way to reach a run the step
+            actually failed on.
 
     PipelineStepsGroup:
       type: object
@@ -1076,6 +1151,49 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Step"
+
+    FlakyRun:
+      type: object
+      required: [runId, forgeUrl]
+      properties:
+        runId:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        forgeUrl:
+          type: string
+          format: uri
+          description: Deep link to the job this step failed in, on this specific run.
+
+    RunStep:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+        conclusion:
+          type: string
+        forgeUrl:
+          type: string
+          format: uri
+          description: Deep link to this exact occurrence's job on the originating forge.
+
+    RunDetail:
+      type: object
+      required: [runId, steps]
+      properties:
+        runId:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/RunStep"
 
     UsageEntry:
       type: object
