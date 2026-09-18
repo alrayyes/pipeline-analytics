@@ -64,4 +64,4 @@
 
 - [x] 5.1 Run `go test ./...` and verify everything passes
 - [x] 5.2 Run `golangci-lint run` and verify it's clean
-- [ ] 5.3 Open a pull request with `Closes #178` and verify CI passes
+- [x] 5.3 Open a pull request with `Closes #178` and verify CI passes
