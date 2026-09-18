@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.29.2...v0.30.0) (2026-09-18)
+
+
+### Features
+
+* **auth:** add revocable API token auth alongside sessions ([#186](https://github.com/alrayyes/pipeline-analytics/issues/186)) ([6a03692](https://github.com/alrayyes/pipeline-analytics/commit/6a036926ba3d7a6d1b653bcd56537fc509b103c1))
+
 ## [0.29.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.29.1...v0.29.2) (2026-09-17)
 
 
