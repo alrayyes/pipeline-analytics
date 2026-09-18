@@ -27,6 +27,8 @@ import (
 	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
 	metricssqlite "github.com/alrayyes/pipeline-analytics/internal/metrics/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/settings"
+	settingssqlite "github.com/alrayyes/pipeline-analytics/internal/settings/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/webassets"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/spf13/cobra"
@@ -228,6 +230,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		Metrics:          metrics.NewService(metricssqlite.NewStore(conn)),
 		Auth:             auth.NewService(webAuthn, authStore),
 		AuthStore:        authStore,
+		Settings:         settings.NewService(settingssqlite.NewStore(conn)),
 		Version:          version,
 		Assets:           assets,
 	}), nil
