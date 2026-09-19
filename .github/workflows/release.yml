@@ -131,6 +131,11 @@ jobs:
       - if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job's own git commit/push, not an interactive one -- cheap
+          # insurance against a later change adding a root `bun install`
+          # here and silently starting to fire lefthook's hooks in a
+          # container with no docker/browser (linting.md).
+          LEFTHOOK: 0
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
