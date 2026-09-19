@@ -26,7 +26,9 @@
 		"last 2 iOS versions"
 	],
 	"overrides": {
-		"cookie": "0.7.2"
+		"cookie": "0.7.2",
+		"qs": "6.16.0",
+		"smol-toml": "1.7.1"
 	},
 	"dependencies": {
 		"dompurify": "3.4.15",
