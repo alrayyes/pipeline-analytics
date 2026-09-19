@@ -4,11 +4,13 @@
 package metrics
 
 import (
+	"cmp"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -355,8 +357,8 @@ func (s *Service) ListFlakyRuns(ctx context.Context, id PipelineID, stepName str
 		})
 	}
 
-	sort.Slice(runs, func(i, j int) bool {
-		return startedAfter(runs[i].StartedAt, runs[j].StartedAt)
+	slices.SortFunc(runs, func(a, b FlakyRun) int {
+		return compareStartedDesc(a.StartedAt, b.StartedAt)
 	})
 
 	return runs, nil
@@ -391,18 +393,19 @@ func (s *Service) GetRunSteps(ctx context.Context, runID string) (RunDetail, err
 	}, nil
 }
 
-// startedAfter orders FlakyRun.StartedAt most-recent-first, with an
-// unknown (nil) time sorting last rather than panicking on the dereference.
-func startedAfter(a, b *time.Time) bool {
-	if a == nil {
-		return false
+// compareStartedDesc orders most-recent-first, with an unknown (nil) time
+// sorting last rather than panicking on the dereference.
+func compareStartedDesc(a, b *time.Time) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return 1
+	case b == nil:
+		return -1
+	default:
+		return b.Compare(*a)
 	}
-
-	if b == nil {
-		return true
-	}
-
-	return a.After(*b)
 }
 
 // PipelineStepsGroup is one pipeline's flaky or failing steps, for the
@@ -478,7 +481,9 @@ func (s *Service) GetRepoUsage(ctx context.Context, repoID string, window Window
 		entries = append(entries, UsageEntry{Workflow: name, RunnerMinutes: totals[name] / 60})
 	}
 
-	sort.Slice(entries, func(i, j int) bool { return entries[i].RunnerMinutes > entries[j].RunnerMinutes })
+	slices.SortFunc(entries, func(a, b UsageEntry) int {
+		return cmp.Compare(b.RunnerMinutes, a.RunnerMinutes)
+	})
 
 	return entries, nil
 }
@@ -792,8 +797,8 @@ func aggregateSteps(occurrences []StepOccurrence) []Step {
 		})
 	}
 
-	sort.Slice(steps, func(i, j int) bool {
-		return steps[i].DurationContributionSeconds > steps[j].DurationContributionSeconds
+	slices.SortFunc(steps, func(a, b Step) int {
+		return cmp.Compare(b.DurationContributionSeconds, a.DurationContributionSeconds)
 	})
 
 	return steps
