@@ -135,9 +135,7 @@ jobs:
         with:
           bun-version: "1.3.14"
       - run: bun install --frozen-lockfile
-      - run: >
-          bunx prettier --check README.md CONTRIBUTING.md SECURITY.md
-          .github/PULL_REQUEST_TEMPLATE.md
+      - run: bunx prettier --check '**/*.{md,yml,yaml}'
 
   markdown-lint:
     name: markdown structure (markdownlint)
