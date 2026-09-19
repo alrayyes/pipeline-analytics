@@ -19,3 +19,9 @@ updates:
     directory: /web
     schedule:
       interval: weekly
+  # The Dockerfile's pinned alpine base image otherwise has no bot watching
+  # it -- dependencies.md.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
