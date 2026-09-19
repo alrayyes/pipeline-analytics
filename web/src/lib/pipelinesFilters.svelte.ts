@@ -1,4 +1,4 @@
-import { patchSettings } from '$lib/settingsSync.js';
+import { patchSettings } from './settingsSync.js';
 
 export type HealthFilter = 'all' | 'healthy' | 'unhealthy';
 export type SortBy = 'name' | 'lastRun';

@@ -47,10 +47,16 @@ bun run check          # svelte-check
 bun run lint           # biome
 bun run test           # unit tests (bun:test)
 bun run test:coverage  # same, plus a coverage report
+bun run test:mutation  # mutation testing (Stryker), reports a score, doesn't gate on one
 bun run build
 bun audit
 bun run test:e2e       # Playwright, builds the real binary and runs against it
 ```
+
+`test:mutation` runs against
+[`@hughescr/stryker-bun-runner`](https://github.com/hughescr/stryker-bun-runner),
+the actively maintained one of the two community `Stryker` runners for Bun
+(no official one exists yet) -- see `stryker.conf.mjs` for why.
 
 OpenAPI spec:
 
@@ -80,8 +86,8 @@ runs, straight from [`lefthook.yml`](lefthook.yml):
   `golangci/golangci-lint:<CI's pin>`) so the version checking your push
   is always the one the repo declares, not whatever your package manager
   last updated -- plus `sort-package-json --check`, `bun run check`,
-  `bun run lint`, `bun run test`, an unconditional `docker build`, and the
-  Markdown/prose checks.
+  `bun run lint`, `bun run test`, `bun run test:mutation`, an
+  unconditional `docker build`, and the Markdown/prose checks.
 
 No hook reaches for a linter CI doesn't also run.
 

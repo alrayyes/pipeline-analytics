@@ -19,9 +19,29 @@ describe('formatRelativeTime', () => {
 		expect(formatRelativeTime(date, NOW)).toBe('3 hours ago');
 	});
 
+	test('an exact unit boundary already counts as that unit', () => {
+		const date = new Date(NOW.getTime() - 60 * 60 * 1000);
+		expect(formatRelativeTime(date, NOW)).toBe('1 hour ago');
+	});
+
 	test('picks days once at least one whole day has passed', () => {
 		const date = new Date(NOW.getTime() - 2 * 86400 * 1000);
 		expect(formatRelativeTime(date, NOW)).toBe('2 days ago');
+	});
+
+	test('picks weeks once at least one whole week has passed', () => {
+		const date = new Date(NOW.getTime() - 2 * 604800 * 1000);
+		expect(formatRelativeTime(date, NOW)).toBe('2 weeks ago');
+	});
+
+	test('picks months once at least one whole month has passed', () => {
+		const date = new Date(NOW.getTime() - 2 * 2592000 * 1000);
+		expect(formatRelativeTime(date, NOW)).toBe('2 months ago');
+	});
+
+	test('picks years once at least one whole year has passed', () => {
+		const date = new Date(NOW.getTime() - 2 * 31536000 * 1000);
+		expect(formatRelativeTime(date, NOW)).toBe('2 years ago');
 	});
 
 	test('a future date renders in the future tense', () => {
