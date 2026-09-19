@@ -92,8 +92,17 @@ docker run -d \
   -e PIPELINE_ANALYTICS_DB=/data/pipeline-analytics.db \
   -e PIPELINE_ANALYTICS_CALLBACK_URL=https://pipelines.example.com \
   -e PIPELINE_ANALYTICS_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
+  --cap-drop=ALL \
+  --security-opt=no-new-privileges \
+  --read-only \
+  --memory=256m \
   ghcr.io/alrayyes/pipeline-analytics:latest
 ```
+
+Everything the server writes goes to `/data` (the SQLite file and its
+WAL), so `--read-only` on the rest of the container is safe. Adjust
+`--memory` to what your host can spare — 256m is comfortable headroom
+for a single Go binary and SQLite, not a measured minimum.
 
 Put a reverse proxy (Caddy, Tailscale Funnel, your VPS's existing one) in
 front for TLS — the server itself speaks plain HTTP on `--addr`.

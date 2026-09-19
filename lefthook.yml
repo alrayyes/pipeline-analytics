@@ -34,9 +34,11 @@ pre-commit:
       run: bunx sort-package-json {staged_files}
       stage_fixed: true
     # Prettier decides layout; markdownlint then judges what it produced --
-    # never the other order (markdown.md).
+    # never the other order (markdown.md). Covers YAML too, named in the
+    # glob rather than left to *.md alone -- otherwise this quietly never
+    # formats lefthook.yml or a workflow file.
     prettier-md:
-      glob: "*.md"
+      glob: "*.{md,yml,yaml}"
       run: bunx prettier --write {staged_files}
       stage_fixed: true
     markdownlint:
@@ -124,11 +126,12 @@ pre-push:
     # ci.yml's docker job.
     docker-build:
       run: go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics
+    # Whole tree, not just the prose files mechanics/style below check --
+    # this is Prettier's own layout gate, and markdown.md wants YAML named
+    # in the glob so lefthook.yml and every workflow file are covered too.
     markdown-format:
-      glob: "*.md"
-      run: >
-        bunx prettier --check README.md CONTRIBUTING.md SECURITY.md
-        .github/PULL_REQUEST_TEMPLATE.md
+      glob: "*.{md,yml,yaml}"
+      run: bunx prettier --check '**/*.{md,yml,yaml}'
     markdown-lint:
       glob: "*.md"
       run: bunx markdownlint-cli2 "**/*.md"
