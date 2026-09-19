@@ -28,6 +28,7 @@ jobs:
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: go
           fail_ci_if_error: true
       - name: go mod tidy -diff
         run: go mod tidy -diff
@@ -90,9 +91,13 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run check
       - run: bun run lint
-      # No component tests yet -- `bun test` errors on zero matching
-      # files rather than passing trivially. Add it back once there's
-      # real frontend logic worth a unit test (dashboard-ui tasks).
+      - run: bun run test:coverage
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: web/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: true
       - run: bun run build
       - run: bun audit
 
