@@ -17,6 +17,15 @@ on:
         description: "Existing release tag to build artifacts for, e.g. v0.4.0"
         required: true
         type: string
+      skip:
+        description: >-
+          goreleaser --skip value to pass through (e.g. "archive"), for
+          exercising a new publish step against a tag that already shipped
+          its tarballs/checksums without re-uploading and conflicting with
+          them. Leave empty for a full rerun (the zero-binaries case this
+          escape hatch was built for).
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -79,12 +88,30 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # --skip only ever comes from the workflow_dispatch escape hatch,
+      # for rerunning a publish step against a tag whose tarballs/checksums
+      # already shipped without goreleaser re-uploading (and conflicting
+      # with) them -- a push-triggered release always runs the full
+      # `release --clean`.
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          args: release --clean
+          args: release --clean${{ github.event_name == 'workflow_dispatch' && inputs.skip && format(' --skip={0}', inputs.skip) || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      # `--skip=archive` (or any skip that drops the tarball artifact)
+      # leaves dist/*.tar.gz matching nothing, and attest-build-provenance
+      # fails the job outright with no subjects rather than no-op -- check
+      # for a real archive before attesting one, instead of assuming what
+      # a given --skip value does or doesn't produce.
+      - id: archives
+        run: |
+          if compgen -G "dist/*.tar.gz" > /dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.archives.outputs.found == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/*.tar.gz
       # dockers:/docker_manifests: build and push the multi-arch ghcr.io
@@ -94,6 +121,8 @@ jobs:
       # digest, "sha256:" prefix already stripped to match what this
       # action expects) specifically so actions/attest can attest all of
       # them in one call. https://goreleaser.com/customization/publish/attestations/
+      # Unaffected by an archive skip -- dockers:/docker_manifests: aren't
+      # gated by --skip=archive, only the archive/checksum pipes are.
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-checksums: dist/digests.txt
