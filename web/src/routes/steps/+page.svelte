@@ -18,7 +18,9 @@ import {
 	TableHeader,
 	TableRow,
 } from '$lib/components/ui/table/index.js';
+import { flakyRunsHref } from '$lib/flakyRuns.js';
 import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
+import { formatRate, formatSeconds } from '$lib/format.js';
 
 interface Step {
 	id: string;
@@ -127,23 +129,6 @@ onMount(() => {
 	loadUnhealthySteps();
 	loadRepos();
 });
-
-function formatSeconds(seconds: number): string {
-	return seconds >= 60
-		? `${(seconds / 60).toFixed(1)}m`
-		: `${seconds.toFixed(0)}s`;
-}
-
-function formatRate(rate: number): string {
-	return `${Math.round(rate * 100)}%`;
-}
-
-// Same reasoning as the pipeline detail page's Steps table (#216): a flaky
-// step's forgeUrl is one arbitrarily-picked occurrence, so it routes to
-// the runs it actually failed on instead of linking straight out.
-function flakyRunsHref(pipelineId: string, stepName: string): string {
-	return `/pipelines/${pipelineId}/flaky-runs?step=${encodeURIComponent(stepName)}`;
-}
 </script>
 
 <svelte:head>
