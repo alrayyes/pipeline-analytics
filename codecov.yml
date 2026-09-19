@@ -1,5 +1,31 @@
 coverage:
   status:
-    project: off
-    patch: off
+    project:
+      go:
+        flags:
+          - go
+        target: auto
+        threshold: 1%
+      frontend:
+        flags:
+          - frontend
+        target: auto
+        threshold: 1%
+    patch:
+      go:
+        flags:
+          - go
+        target: auto
+      frontend:
+        flags:
+          - frontend
+        target: auto
+flags:
+  go:
+    paths:
+      - internal/
+      - cmd/
+  frontend:
+    paths:
+      - web/src/
 comment: false
