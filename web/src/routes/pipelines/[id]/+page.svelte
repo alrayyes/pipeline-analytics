@@ -25,6 +25,8 @@ import {
 	TableHeader,
 	TableRow,
 } from '$lib/components/ui/table/index.js';
+import { flakyRunsHref } from '$lib/flakyRuns.js';
+import { formatRate, formatSeconds } from '$lib/format.js';
 
 // Categorical slots 1/2/8 of the validated default data-viz palette
 // (light/dark both fully specified, adjacent pairs pre-validated for CVD
@@ -125,23 +127,6 @@ onMount(() => {
 
 function signalLabel(signal: string): string {
 	return SIGNAL_LABELS[signal] ?? signal;
-}
-
-function formatSeconds(seconds: number): string {
-	return seconds >= 60
-		? `${(seconds / 60).toFixed(1)}m`
-		: `${seconds.toFixed(0)}s`;
-}
-
-function formatRate(rate: number): string {
-	return `${Math.round(rate * 100)}%`;
-}
-
-// A flaky step's forgeUrl is one arbitrarily-picked occurrence (#216) --
-// often a run that's since passed -- so a flaky step routes to the list of
-// runs it actually failed on instead of linking straight out.
-function flakyRunsHref(pipelineId: string, stepName: string): string {
-	return `/pipelines/${pipelineId}/flaky-runs?step=${encodeURIComponent(stepName)}`;
 }
 
 // LayerChart takes one row per point; the API returns parallel arrays, one

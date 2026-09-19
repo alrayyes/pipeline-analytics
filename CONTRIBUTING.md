@@ -43,11 +43,13 @@ golangci-lint run ./...
 Frontend (from `web/`):
 
 ```sh
-bun run check    # svelte-check
-bun run lint     # biome
+bun run check          # svelte-check
+bun run lint           # biome
+bun run test           # unit tests (bun:test)
+bun run test:coverage  # same, plus a coverage report
 bun run build
 bun audit
-bun run test:e2e # Playwright, builds the real binary and runs against it
+bun run test:e2e       # Playwright, builds the real binary and runs against it
 ```
 
 OpenAPI spec:
@@ -67,7 +69,9 @@ is the source of truth if anything here drifts from it.
 runs, straight from [`lefthook.yml`](lefthook.yml):
 
 - **`pre-commit`** (staged files only, fixes and restages): `gofmt`,
-  `go mod edit -fmt go.mod`, `biome check --write` for `web/`.
+  `go mod edit -fmt go.mod`, `biome check --write` for `web/`,
+  `sort-package-json`, Prettier/`markdownlint` for Markdown, and a scoped
+  `docker build` when the Dockerfile or Go sources changed.
 - **`commit-msg`**: [commitlint](https://commitlint.js.org) against
   `@commitlint/config-conventional`.
 - **`pre-push`** (whole tree, never writes): `go vet`, `go test -race -cover`,
@@ -75,8 +79,9 @@ runs, straight from [`lefthook.yml`](lefthook.yml):
   through Docker (`golang:<go.mod's version>-bookworm`,
   `golangci/golangci-lint:<CI's pin>`) so the version checking your push
   is always the one the repo declares, not whatever your package manager
-  last updated -- plus `bun run check`, `bun run lint`, and a scoped
-  `docker build` when the Dockerfile or Go sources changed.
+  last updated -- plus `sort-package-json --check`, `bun run check`,
+  `bun run lint`, `bun run test`, an unconditional `docker build`, and the
+  Markdown/prose checks.
 
 No hook reaches for a linter CI doesn't also run.
 
