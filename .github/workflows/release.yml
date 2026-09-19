@@ -87,6 +87,16 @@ jobs:
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/*.tar.gz
+      # dockers:/docker_manifests: build and push the multi-arch ghcr.io
+      # image through buildx, a separate path attest-build-provenance's
+      # subject-path glob doesn't reach -- goreleaser's docker_digest
+      # pipe above writes dist/digests.txt (every pushed image/manifest's
+      # digest, "sha256:" prefix already stripped to match what this
+      # action expects) specifically so actions/attest can attest all of
+      # them in one call. https://goreleaser.com/customization/publish/attestations/
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/digests.txt
 
   screenshots:
     name: refresh README screenshots

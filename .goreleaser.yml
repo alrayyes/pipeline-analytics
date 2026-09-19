@@ -55,6 +55,9 @@ dockers:
     build_flag_templates:
       - --platform=linux/arm64
 
+docker_digest:
+  name_template: "digests.txt"
+
 docker_manifests:
   - name_template: "ghcr.io/alrayyes/pipeline-analytics:{{ .Version }}"
     image_templates:
