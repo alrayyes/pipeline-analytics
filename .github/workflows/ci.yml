@@ -25,7 +25,14 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test -race -coverprofile=coverage.out ./...
-      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      # Dependabot-triggered runs get no repo secrets, only DEPENDABOT_-
+      # prefixed ones (releases.md's "Dependency bots" section) --
+      # CODECOV_TOKEN resolves empty there and main's branch protection
+      # makes Codecov reject an unauthenticated upload outright, failing
+      # this job on every Dependabot PR regardless of what it bumps.
+      # A version-bump PR has no coverage story of its own to report.
+      - if: github.actor != 'dependabot[bot]'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: go
@@ -92,7 +99,9 @@ jobs:
       - run: bun run check
       - run: bun run lint
       - run: bun run test:coverage
-      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      # Same reasoning as the Go job's identical guard above.
+      - if: github.actor != 'dependabot[bot]'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: web/coverage/lcov.info
