@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import {
-	DEFAULT_HEALTH_FILTER,
-	DEFAULT_REPO_SELECTOR,
-	DEFAULT_SORT_BY,
 	getHealthFilter,
 	getRepoSelector,
 	getSortBy,
@@ -50,9 +47,9 @@ describe('resetFilters', () => {
 
 		resetFilters();
 
-		expect(getHealthFilter()).toBe(DEFAULT_HEALTH_FILTER);
-		expect(getRepoSelector()).toBe(DEFAULT_REPO_SELECTOR);
-		expect(getSortBy()).toBe(DEFAULT_SORT_BY);
+		expect(getHealthFilter()).toBe('unhealthy');
+		expect(getRepoSelector()).toBe('all');
+		expect(getSortBy()).toBe('name');
 	});
 });
 
@@ -72,8 +69,8 @@ describe('initPipelinesFilters', () => {
 	test('falls back to the documented default when no server value is given', () => {
 		initPipelinesFilters(undefined);
 
-		expect(getHealthFilter()).toBe(DEFAULT_HEALTH_FILTER);
-		expect(getRepoSelector()).toBe(DEFAULT_REPO_SELECTOR);
-		expect(getSortBy()).toBe(DEFAULT_SORT_BY);
+		expect(getHealthFilter()).toBe('unhealthy');
+		expect(getRepoSelector()).toBe('all');
+		expect(getSortBy()).toBe('name');
 	});
 });

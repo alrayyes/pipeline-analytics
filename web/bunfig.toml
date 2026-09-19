@@ -1,2 +1,6 @@
 [install]
 exact = true
+
+[test]
+root = "src"
+preload = ["./test/svelte-module-loader.ts"]

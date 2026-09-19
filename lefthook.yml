@@ -123,6 +123,12 @@ pre-push:
       root: "web/"
       glob: "web/**/*"
       run: bun run test
+    # Reports, doesn't gate -- no mutation-score threshold decided yet
+    # (same reasoning as ci.yml's mutation job).
+    frontend-mutation:
+      root: "web/"
+      glob: "web/**/*"
+      run: bun run test:mutation
     # Unconditional, same as every other pre-push check -- containers.md:
     # pre-commit's own copy above is the one that's glob-scoped. The
     # Dockerfile only COPYs a prebuilt binary (go-releases.md), so this

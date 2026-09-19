@@ -25,3 +25,7 @@ vite.config.ts.timestamp-*
 
 # bun test --coverage
 /coverage
+
+# Stryker
+/.stryker-tmp
+/reports
