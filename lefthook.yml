@@ -41,6 +41,20 @@ pre-commit:
     vale:
       glob: "*.md"
       run: vale {staged_files} || true
+    # Glob-scoped to the Dockerfile plus what its COPY instructions pull
+    # in, so a commit touching neither skips it entirely -- containers.md.
+    # pre-push/CI run the same build unconditionally.
+    docker-build:
+      glob:
+        - "Dockerfile"
+        - "**/*.go"
+        - "go.mod"
+        - "go.sum"
+      run: >
+        go build -o pipeline-analytics ./cmd/pipeline-analytics &&
+        docker build -t pipeline-analytics:pre-commit-check . &&
+        docker rmi pipeline-analytics:pre-commit-check &&
+        rm -f pipeline-analytics
 
 commit-msg:
   commands:
@@ -92,16 +106,12 @@ pre-push:
       root: "web/"
       glob: "web/**/*"
       run: bun run lint
-    # Scoped to what the Docker image actually depends on -- go-releases.md:
-    # the Dockerfile only COPYs a prebuilt binary, so this rebuilds that
-    # binary itself before building the image, same shape as ci.yml's
-    # docker job.
+    # Unconditional, same as every other pre-push check -- containers.md:
+    # pre-commit's own copy above is the one that's glob-scoped. The
+    # Dockerfile only COPYs a prebuilt binary (go-releases.md), so this
+    # rebuilds that binary itself before building the image, same shape as
+    # ci.yml's docker job.
     docker-build:
-      glob:
-        - "Dockerfile"
-        - "**/*.go"
-        - "go.mod"
-        - "go.sum"
       run: go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics
     markdown-format:
       glob: "*.md"
