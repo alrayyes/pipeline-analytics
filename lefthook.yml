@@ -27,6 +27,12 @@ pre-commit:
       glob: "web/**/*.{js,ts,svelte,json,css}"
       run: bunx biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    sort-package-json:
+      glob:
+        - "package.json"
+        - "web/package.json"
+      run: bunx sort-package-json {staged_files}
+      stage_fixed: true
     # Prettier decides layout; markdownlint then judges what it produced --
     # never the other order (markdown.md).
     prettier-md:
@@ -98,6 +104,11 @@ pre-push:
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
         golangci/golangci-lint:v2.13.2 golangci-lint run ./...
+    sort-package-json-check:
+      glob:
+        - "package.json"
+        - "web/package.json"
+      run: bunx sort-package-json --check package.json web/package.json
     frontend-check:
       root: "web/"
       glob: "web/**/*"
