@@ -131,6 +131,12 @@ interactive CLI a human persists a preference for:
   and each repo discovery request — useful when a repo's stuck at
   "degraded" and the reason isn't obvious from the dashboard alone.
 
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how it's put together and the
+[decision log](docs/adr/) behind the choices that would cost real rework
+to reverse.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
