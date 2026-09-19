@@ -11,6 +11,7 @@
     "@redocly/cli": "2.53.1",
     "lefthook": "2.1.14",
     "markdownlint-cli2": "0.23.2",
-    "prettier": "3.9.7"
+    "prettier": "3.9.7",
+    "sort-package-json": "4.0.0"
   }
 }

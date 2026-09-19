@@ -27,10 +27,18 @@ pre-commit:
       glob: "web/**/*.{js,ts,svelte,json,css}"
       run: bunx biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    sort-package-json:
+      glob:
+        - "package.json"
+        - "web/package.json"
+      run: bunx sort-package-json {staged_files}
+      stage_fixed: true
     # Prettier decides layout; markdownlint then judges what it produced --
-    # never the other order (markdown.md).
+    # never the other order (markdown.md). Covers YAML too, named in the
+    # glob rather than left to *.md alone -- otherwise this quietly never
+    # formats lefthook.yml or a workflow file.
     prettier-md:
-      glob: "*.md"
+      glob: "*.{md,yml,yaml}"
       run: bunx prettier --write {staged_files}
       stage_fixed: true
     markdownlint:
@@ -41,6 +49,20 @@ pre-commit:
     vale:
       glob: "*.md"
       run: vale {staged_files} || true
+    # Glob-scoped to the Dockerfile plus what its COPY instructions pull
+    # in, so a commit touching neither skips it entirely -- containers.md.
+    # pre-push/CI run the same build unconditionally.
+    docker-build:
+      glob:
+        - "Dockerfile"
+        - "**/*.go"
+        - "go.mod"
+        - "go.sum"
+      run: >
+        go build -o pipeline-analytics ./cmd/pipeline-analytics &&
+        docker build -t pipeline-analytics:pre-commit-check . &&
+        docker rmi pipeline-analytics:pre-commit-check &&
+        rm -f pipeline-analytics
 
 commit-msg:
   commands:
@@ -84,6 +106,11 @@ pre-push:
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
         golangci/golangci-lint:v2.13.2 golangci-lint run ./...
+    sort-package-json-check:
+      glob:
+        - "package.json"
+        - "web/package.json"
+      run: bunx sort-package-json --check package.json web/package.json
     frontend-check:
       root: "web/"
       glob: "web/**/*"
@@ -92,22 +119,19 @@ pre-push:
       root: "web/"
       glob: "web/**/*"
       run: bun run lint
-    # Scoped to what the Docker image actually depends on -- go-releases.md:
-    # the Dockerfile only COPYs a prebuilt binary, so this rebuilds that
-    # binary itself before building the image, same shape as ci.yml's
-    # docker job.
+    # Unconditional, same as every other pre-push check -- containers.md:
+    # pre-commit's own copy above is the one that's glob-scoped. The
+    # Dockerfile only COPYs a prebuilt binary (go-releases.md), so this
+    # rebuilds that binary itself before building the image, same shape as
+    # ci.yml's docker job.
     docker-build:
-      glob:
-        - "Dockerfile"
-        - "**/*.go"
-        - "go.mod"
-        - "go.sum"
       run: go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics
+    # Whole tree, not just the prose files mechanics/style below check --
+    # this is Prettier's own layout gate, and markdown.md wants YAML named
+    # in the glob so lefthook.yml and every workflow file are covered too.
     markdown-format:
-      glob: "*.md"
-      run: >
-        bunx prettier --check README.md CONTRIBUTING.md SECURITY.md
-        .github/PULL_REQUEST_TEMPLATE.md
+      glob: "*.{md,yml,yaml}"
+      run: bunx prettier --check '**/*.{md,yml,yaml}'
     markdown-lint:
       glob: "*.md"
       run: bunx markdownlint-cli2 "**/*.md"
