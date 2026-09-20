@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.36.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.35.0...v0.36.0) (2026-09-20)
+
+
+### Features
+
+* **openapi:** document pagination on GET /api/pipelines ([#246](https://github.com/alrayyes/pipeline-analytics/issues/246)) ([077f3c6](https://github.com/alrayyes/pipeline-analytics/commit/077f3c643221e880e406332aeb09cd3a203adb7d))
+
+
+### Bug Fixes
+
+* **db:** dedupe pre-existing repos before migration 5's unique index ([#248](https://github.com/alrayyes/pipeline-analytics/issues/248)) ([c854f35](https://github.com/alrayyes/pipeline-analytics/commit/c854f35de7db050b55962b04e04cdce3339eccfb)), closes [#247](https://github.com/alrayyes/pipeline-analytics/issues/247)
+
 ## [0.35.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.34.0...v0.35.0) (2026-09-18)
 
 
