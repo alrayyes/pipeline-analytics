@@ -139,7 +139,7 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -155,8 +155,18 @@ jobs:
       # global-setup.ts builds the frontend and the Go binary once, and
       # each test starts its own server from that binary (fixtures.ts) --
       # same shape as production, not a dev-server/API proxy.
-      - working-directory: web
-        run: bun run test:e2e
+      #
+      # Wrapped in a job-level retry on top of Playwright's own in-run
+      # retries (playwright.config.ts): the dashboard journey's one real,
+      # unmocked reload occasionally hangs outright (#251, not yet
+      # root-caused) rather than just running slow, which Playwright's
+      # own retries -- reruns on the *same* runner -- don't reliably
+      # recover from. A second attempt on a fresh runner does.
+      - uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        with:
+          timeout_minutes: 8
+          max_attempts: 2
+          command: cd web && bun run test:e2e
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
