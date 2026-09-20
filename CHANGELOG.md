@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.37.0...v0.38.0) (2026-09-20)
+
+
+### Features
+
+* **ui:** wire the app's own brand teal into the theme, not shadcn's placeholder ([#255](https://github.com/alrayyes/pipeline-analytics/issues/255)) ([8d2d3e3](https://github.com/alrayyes/pipeline-analytics/commit/8d2d3e39481175b10a1349ba6e091946db4e860c)), closes [#254](https://github.com/alrayyes/pipeline-analytics/issues/254)
+
 ## [0.37.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.36.0...v0.37.0) (2026-09-20)
 
 
