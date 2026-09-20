@@ -199,17 +199,20 @@ paths:
   /api/pipelines:
     get:
       operationId: listPipelines
-      summary: Overview of every tracked pipeline and its health status
+      summary: A page of tracked pipelines and their health status
       tags: [pipelines]
+      parameters:
+        - $ref: "#/components/parameters/PipelineRepoIdFilter"
+        - $ref: "#/components/parameters/RepoForgeFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
         "200":
-          description: Pipeline overview
+          description: A page of tracked pipelines, ordered by (repoId, name)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PipelineSummary"
+                $ref: "#/components/schemas/PipelineList"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -812,6 +815,13 @@ components:
       description: Restrict the list to one forge. Omitted returns every forge.
       schema:
         $ref: "#/components/schemas/Forge"
+    PipelineRepoIdFilter:
+      name: repoId
+      in: query
+      required: false
+      description: Restrict the list to one tracked repo. Omitted returns every repo's pipelines.
+      schema:
+        type: string
     Limit:
       name: limit
       in: query
@@ -1071,6 +1081,18 @@ components:
           type: string
           format: date-time
           description: The most recent run's start time. Absent if the pipeline has no runs.
+
+    PipelineList:
+      type: object
+      required: [pipelines, hasMore]
+      properties:
+        pipelines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineSummary"
+        hasMore:
+          type: boolean
+          description: True when pipelines beyond this page match the filter. Always false when limit was omitted.
 
     Trend:
       type: object
