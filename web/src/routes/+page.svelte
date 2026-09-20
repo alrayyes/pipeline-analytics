@@ -58,6 +58,14 @@ interface PipelineGroup {
 	pipelines: PipelineSummary[];
 }
 
+interface PipelineListResponse {
+	pipelines: PipelineSummary[];
+	hasMore: boolean;
+}
+
+// Mirrors the Repos page's PAGE_SIZE (#165/#166).
+const PAGE_SIZE = 20;
+
 const SIGNAL_LABELS: Record<string, string> = {
 	failure_rate: 'elevated failure rate',
 	duration_regression: 'duration regression',
@@ -80,6 +88,8 @@ const SORT_LABELS: Record<SortBy, string> = {
 let pipelines = $state<PipelineSummary[] | null>(null);
 let repos = $state<Repo[] | null>(null);
 let error = $state<string | null>(null);
+let offset = $state(0);
+let hasMore = $state(false);
 
 // Grouped by repo (#102) -- a pipeline name alone ("CI") is ambiguous
 // across more than one tracked repo, so each repo's pipelines get their
@@ -88,33 +98,21 @@ let error = $state<string | null>(null);
 // works, it just can't show a human-readable name yet.
 const repoById = $derived(new Map((repos ?? []).map((r) => [r.id, r])));
 
-// The forge filter is shared with the Repos page (issue #140), but applied
-// client-side here rather than as a query param -- unlike Repos, this page
-// already does a full unpaginated fetch and joins forge in from repoById,
-// so there's no server round trip to save by pushing the filter down.
-const forgeFilteredPipelines = $derived.by(() => {
-	const filter = getForgeFilter();
-	if (filter === 'all' || !pipelines) return pipelines;
-
-	return pipelines.filter((p) => repoById.get(p.repoId)?.forge === filter);
-});
-
-const repoFilteredPipelines = $derived.by(() => {
-	const selectedRepoId = getRepoSelector();
-
-	if (selectedRepoId === 'all' || !forgeFilteredPipelines)
-		return forgeFilteredPipelines;
-
-	return forgeFilteredPipelines.filter((p) => p.repoId === selectedRepoId);
-});
-
+// The forge filter and repo selector are pushed down to the server as
+// `forge`/`repoId` query params (#243) rather than filtered client-side --
+// unlike the pre-pagination version of this page, `pipelines` is now only
+// one page of the full result, so filtering after the fact would make a
+// page's size and hasMore both wrong (same fix #141 made for the Repos
+// page's forge filter). Health-status filtering and sort stay
+// client-side, applied to the current page only -- a scoped-down,
+// page-local behavior documented in design.md, not whole-set-correct.
 const visiblePipelines = $derived.by(() => {
 	const healthFilter = getHealthFilter();
 
-	if (!repoFilteredPipelines) return null;
-	if (healthFilter === 'all') return repoFilteredPipelines;
+	if (!pipelines) return null;
+	if (healthFilter === 'all') return pipelines;
 
-	return repoFilteredPipelines.filter((p) => p.healthStatus === healthFilter);
+	return pipelines.filter((p) => p.healthStatus === healthFilter);
 });
 
 // "Name" is an explicit alphabetical sort rather than whatever order
@@ -161,13 +159,26 @@ const groupedPipelines = $derived.by(() => {
 
 async function loadPipelines(): Promise<void> {
 	try {
-		const res = await fetch('/api/pipelines');
+		const params = new URLSearchParams({
+			limit: String(PAGE_SIZE),
+			offset: String(offset),
+		});
+
+		const filter = getForgeFilter();
+		if (filter !== 'all') params.set('forge', filter);
+
+		const selectedRepoId = getRepoSelector();
+		if (selectedRepoId !== 'all') params.set('repoId', selectedRepoId);
+
+		const res = await fetch(`/api/pipelines?${params}`);
 		if (!res.ok) {
 			error = 'Could not load pipelines.';
 			return;
 		}
 
-		pipelines = await res.json();
+		const body: PipelineListResponse = await res.json();
+		pipelines = body.pipelines;
+		hasMore = body.hasMore;
 	} catch {
 		error = 'Could not reach the server.';
 	}
@@ -185,8 +196,51 @@ async function loadRepos(): Promise<void> {
 	}
 }
 
-onMount(() => {
+function goToPreviousPage(): void {
+	offset = Math.max(0, offset - PAGE_SIZE);
+}
+
+function goToNextPage(): void {
+	if (!hasMore) return;
+
+	offset += PAGE_SIZE;
+}
+
+// Tracks the forge filter's and repo selector's previous values across
+// effect runs so a real change to either (not just re-running for some
+// other reason) is the only thing that resets the page -- changing either
+// with the reader on page 2+ shouldn't leave them on an offset the
+// newly-filtered result set might not even reach. Kept as its own effect,
+// separate from the one that actually fetches below, same reasoning as
+// the Repos page's identically-shaped `previousFilter` effect.
+let previousForgeFilter: ReturnType<typeof getForgeFilter> | undefined;
+let previousRepoSelector: string | undefined;
+
+$effect(() => {
+	const filter = getForgeFilter();
+	const selectedRepoId = getRepoSelector();
+
+	if (
+		filter !== previousForgeFilter ||
+		selectedRepoId !== previousRepoSelector
+	) {
+		previousForgeFilter = filter;
+		previousRepoSelector = selectedRepoId;
+		offset = 0;
+	}
+});
+
+// Reload with the current forge filter, repo selector, and page applied
+// server-side -- replaces the earlier onMount(loadPipelines), and also
+// covers the initial load.
+$effect(() => {
+	getForgeFilter();
+	getRepoSelector();
+	offset;
 	loadPipelines();
+});
+
+onMount(() => {
 	loadRepos();
 });
 
@@ -209,7 +263,7 @@ function signalLabel(signal: string): string {
 		<p role="alert" class="mt-6 text-destructive">{error}</p>
 	{:else if pipelines === null}
 		<p class="mt-6 text-muted-foreground">Loading…</p>
-	{:else if pipelines.length === 0}
+	{:else if pipelines.length === 0 && offset === 0}
 		<p class="mt-6 text-muted-foreground">
 			{#if page.data.hasRepos}
 				No pipeline runs ingested yet. New runs arrive by webhook, plus a
@@ -300,11 +354,11 @@ function signalLabel(signal: string): string {
 		{:else}
 			<p class="mt-4 text-sm text-muted-foreground">
 				{#if getHealthFilter() === 'all'}
-					Showing all {visiblePipelines?.length ?? 0}
-					{visiblePipelines?.length === 1 ? 'pipeline' : 'pipelines'}.
+					Showing {visiblePipelines?.length ?? 0}
+					{visiblePipelines?.length === 1 ? 'pipeline' : 'pipelines'} on this page.
 				{:else}
-					Showing {visiblePipelines?.length ?? 0} {getHealthFilter()} of {repoFilteredPipelines?.length ??
-						0}.
+					Showing {visiblePipelines?.length ?? 0} {getHealthFilter()} of {pipelines?.length ??
+						0} on this page.
 				{/if}
 			</p>
 
@@ -358,6 +412,20 @@ function signalLabel(signal: string): string {
 						</ul>
 					</section>
 				{/each}
+			</div>
+
+			<div class="mt-6 flex items-center justify-between gap-4">
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={offset === 0}
+					onclick={goToPreviousPage}
+				>
+					Previous
+				</Button>
+				<Button variant="outline" size="sm" disabled={!hasMore} onclick={goToNextPage}>
+					Next
+				</Button>
 			</div>
 		{/if}
 	{/if}

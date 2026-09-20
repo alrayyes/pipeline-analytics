@@ -20,11 +20,58 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
+// pipelineListQuery builds the SQL and args ListPipelines runs for filter.
+func pipelineListQuery(filter metrics.PipelineListFilter) (string, []any) {
+	query := "SELECT DISTINCT r.repo_id, r.pipeline_name FROM runs r"
+	args := []any{}
+
+	// The runs table has no forge column of its own, so filtering by forge
+	// needs a join to the owning repo -- skipped when Forge is unset, to
+	// keep the common (unfiltered) query simple.
+	if filter.Forge != "" {
+		query += " JOIN repos p ON p.id = r.repo_id"
+	}
+
+	var where string
+
+	if filter.RepoID != "" {
+		where += " r.repo_id = ?"
+		args = append(args, filter.RepoID)
+	}
+
+	if filter.Forge != "" {
+		if where != "" {
+			where += " AND"
+		}
+
+		where += " p.forge = ?"
+		args = append(args, filter.Forge)
+	}
+
+	if where != "" {
+		query += " WHERE"
+		query += where
+	}
+
+	query += " ORDER BY r.repo_id, r.pipeline_name"
+
+	// Fetching one extra row is what tells the caller whether a next page
+	// exists, without a separate COUNT(*) round trip.
+	if filter.Limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		args = append(args, filter.Limit+1, filter.Offset)
+	}
+
+	return query, args
+}
+
 // ListPipelines implements metrics.Store.
-func (s *Store) ListPipelines(ctx context.Context) ([]metrics.PipelineRef, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT DISTINCT repo_id, pipeline_name FROM runs")
+func (s *Store) ListPipelines(ctx context.Context, filter metrics.PipelineListFilter) ([]metrics.PipelineRef, bool, error) {
+	query, args := pipelineListQuery(filter)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query pipelines: %w", err)
+		return nil, false, fmt.Errorf("query pipelines: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -33,17 +80,22 @@ func (s *Store) ListPipelines(ctx context.Context) ([]metrics.PipelineRef, error
 	for rows.Next() {
 		var ref metrics.PipelineRef
 		if err := rows.Scan(&ref.RepoID, &ref.Name); err != nil {
-			return nil, fmt.Errorf("scan pipeline: %w", err)
+			return nil, false, fmt.Errorf("scan pipeline: %w", err)
 		}
 
 		refs = append(refs, ref)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate pipelines: %w", err)
+		return nil, false, fmt.Errorf("iterate pipelines: %w", err)
 	}
 
-	return refs, nil
+	hasMore := filter.Limit > 0 && len(refs) > filter.Limit
+	if hasMore {
+		refs = refs[:filter.Limit]
+	}
+
+	return refs, hasMore, nil
 }
 
 // PipelineRuns implements metrics.Store.

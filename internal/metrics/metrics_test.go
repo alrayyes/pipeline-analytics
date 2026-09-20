@@ -58,8 +58,31 @@ type fakeStore struct {
 	usage     map[string][]metrics.UsageRecord
 }
 
-func (f *fakeStore) ListPipelines(context.Context) ([]metrics.PipelineRef, error) {
-	return f.pipelines, nil
+// ListPipelines applies filter.RepoID and pagination the same way the real
+// store does, so a Service-level test can verify the filter reaches
+// through. filter.Forge is ignored -- the fake has no notion of a repo's
+// forge, and that filter is covered at the sqlite store layer, where the
+// join it needs actually exists.
+func (f *fakeStore) ListPipelines(_ context.Context, filter metrics.PipelineListFilter) ([]metrics.PipelineRef, bool, error) {
+	var matching []metrics.PipelineRef
+
+	for _, ref := range f.pipelines {
+		if filter.RepoID != "" && ref.RepoID != filter.RepoID {
+			continue
+		}
+
+		matching = append(matching, ref)
+	}
+
+	if filter.Limit <= 0 {
+		return matching, false, nil
+	}
+
+	offset := min(filter.Offset, len(matching))
+	end := min(offset+filter.Limit, len(matching))
+	hasMore := len(matching) > offset+filter.Limit
+
+	return matching[offset:end], hasMore, nil
 }
 
 func (f *fakeStore) PipelineRuns(_ context.Context, ref metrics.PipelineRef, window metrics.Window) ([]metrics.RunRecord, error) {
@@ -117,7 +140,7 @@ func TestService_ListPipelines(t *testing.T) {
 		}
 
 		service := metrics.NewService(store)
-		pipelines, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10})
+		pipelines, _, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10}, metrics.PipelineListFilter{})
 		require.NoError(t, err)
 		require.Len(t, pipelines, 1)
 		require.Equal(t, metrics.HealthHealthy, pipelines[0].HealthStatus)
@@ -142,7 +165,7 @@ func TestService_ListPipelines(t *testing.T) {
 		}
 
 		service := metrics.NewService(store)
-		pipelines, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10})
+		pipelines, _, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10}, metrics.PipelineListFilter{})
 		require.NoError(t, err)
 		require.Equal(t, metrics.HealthUnhealthy, pipelines[0].HealthStatus)
 		require.Contains(t, pipelines[0].TriggeredSignals, metrics.SignalFailureRate)
@@ -166,7 +189,7 @@ func TestService_ListPipelines(t *testing.T) {
 		}
 
 		service := metrics.NewService(store)
-		pipelines, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10})
+		pipelines, _, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10}, metrics.PipelineListFilter{})
 		require.NoError(t, err)
 		require.Equal(t, metrics.HealthUnhealthy, pipelines[0].HealthStatus)
 		require.Contains(t, pipelines[0].TriggeredSignals, metrics.SignalFlakyStep)
@@ -196,7 +219,7 @@ func TestService_ListPipelines(t *testing.T) {
 		}
 
 		service := metrics.NewService(store)
-		pipelines, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 5})
+		pipelines, _, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 5}, metrics.PipelineListFilter{})
 		require.NoError(t, err)
 		require.Equal(t, metrics.HealthUnhealthy, pipelines[0].HealthStatus)
 		require.Contains(t, pipelines[0].TriggeredSignals, metrics.SignalDurationRegression)
@@ -218,9 +241,30 @@ func TestService_ListPipelines(t *testing.T) {
 		}
 
 		service := metrics.NewService(store)
-		pipelines, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10})
+		pipelines, _, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10}, metrics.PipelineListFilter{})
 		require.NoError(t, err)
 		require.Equal(t, t1(100), pipelines[0].LastRunAt)
+	})
+
+	t.Run("the filter and its hasMore reach through to the store", func(t *testing.T) {
+		t.Parallel()
+
+		wanted := metrics.PipelineRef{RepoID: "repo-1", Name: "CI"}
+		other := metrics.PipelineRef{RepoID: "repo-2", Name: "Deploy"}
+		store := &fakeStore{
+			pipelines: []metrics.PipelineRef{wanted, other},
+			runs: map[metrics.PipelineRef][]metrics.RunRecord{
+				wanted: {completedRun(100, 5, "success")},
+				other:  {completedRun(100, 5, "success")},
+			},
+		}
+
+		service := metrics.NewService(store)
+		pipelines, hasMore, err := service.ListPipelines(context.Background(), metrics.Window{RunCount: 10}, metrics.PipelineListFilter{RepoID: "repo-1", Limit: 1})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, pipelines, 1)
+		require.Equal(t, "repo-1", pipelines[0].RepoID)
 	})
 }
 

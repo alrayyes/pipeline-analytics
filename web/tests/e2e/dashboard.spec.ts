@@ -7,6 +7,14 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	page,
 	context,
 }) => {
+	// This single journey covers dozens of interactions and axe scans, well
+	// past Playwright's 30s default -- the pagination scenarios below add
+	// their own real (unmocked-until-they-mock-it) round trips on top of
+	// what was already the slowest transition in the file (see the comment
+	// by the real, unmocked reload further down). Give it real headroom
+	// rather than let CI's own variance decide whether it fits.
+	test.setTimeout(150_000);
+
 	// A CDP virtual authenticator stands in for a real passkey device --
 	// there's no hardware authenticator in CI, and this is the same
 	// mechanism Chrome DevTools' own WebAuthn panel uses.
@@ -430,13 +438,17 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// A real, unmocked reload -- the first one since the pagination fixture
 	// above took over every /api/repos* request -- so this is genuinely the
 	// slowest transition in the journey: real GET /api/repos?limit=1 and
-	// GET /api/settings round trips plus hydration, not just a mocked
-	// response. The default 5s web-first-assertion budget is tight for
-	// that, same reasoning as the >20-repo pagination test's own timeout
-	// bump (#197).
+	// GET /api/settings round trips, a full client-side hydration (`ssr =
+	// false` -- there's no server-rendered shell to paint from meanwhile),
+	// not just a mocked response. 10s already proved tight under real CI
+	// load, and so did 25s once this file's other specs run alongside it
+	// under CI's own worker parallelism -- confirmed failing here on
+	// unmodified main too, not something this change introduced, same
+	// reasoning as the >20-repo pagination test's own timeout bump (#197),
+	// bumped substantially further here.
 	await page
 		.getByRole('link', { name: 'Pipelines' })
-		.click({ timeout: 10_000 });
+		.click({ timeout: 45_000 });
 	await expect(page).toHaveURL('/');
 
 	// The overview's own rendering logic (health badges, per-pipeline
@@ -452,25 +464,32 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		Date.now() - 2 * 24 * 60 * 60 * 1000,
 	).toISOString();
 	const deployLastRunAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-	await page.route('**/api/pipelines', (route) =>
+	// Pagination (#243) means the frontend now always appends limit/offset,
+	// so the route glob needs the trailing `*` to still match a request
+	// that now always carries a query string -- same reasoning as the
+	// Repos page's identical comment above.
+	await page.route('**/api/pipelines*', (route) =>
 		route.fulfill({
-			json: [
-				{
-					id: 'healthy-1',
-					repoId: 'repo-1',
-					name: 'CI',
-					healthStatus: 'healthy',
-					lastRunAt: ciLastRunAt,
-				},
-				{
-					id: 'unhealthy-1',
-					repoId: 'repo-1',
-					name: 'Deploy',
-					healthStatus: 'unhealthy',
-					triggeredSignals: ['failure_rate', 'flaky_step'],
-					lastRunAt: deployLastRunAt,
-				},
-			],
+			json: {
+				pipelines: [
+					{
+						id: 'healthy-1',
+						repoId: 'repo-1',
+						name: 'CI',
+						healthStatus: 'healthy',
+						lastRunAt: ciLastRunAt,
+					},
+					{
+						id: 'unhealthy-1',
+						repoId: 'repo-1',
+						name: 'Deploy',
+						healthStatus: 'unhealthy',
+						triggeredSignals: ['failure_rate', 'flaky_step'],
+						lastRunAt: deployLastRunAt,
+					},
+				],
+				hasMore: false,
+			},
 		}),
 	);
 	await page.reload();
@@ -514,6 +533,87 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.withTags(a11yTags)
 		.analyze();
 	expect(overviewWithDataScan.violations).toEqual([]);
+
+	// Pagination (#243): a mocked page-and-a-bit of pipelines so
+	// Previous/Next have two real pages to move between, without ingesting
+	// 21 pipelines' worth of real run history to get there for real.
+	const paginatedPipelines = Array.from({ length: 21 }, (_, i) => ({
+		id: `page-pipeline-${i}`,
+		repoId: 'repo-1',
+		name: `pipeline-${i}`,
+		healthStatus: 'healthy',
+	}));
+	await page.route('**/api/pipelines*', (route) => {
+		const url = new URL(route.request().url());
+		const limit = Number(url.searchParams.get('limit') ?? '20');
+		const offset = Number(url.searchParams.get('offset') ?? '0');
+		const pagePipelines = paginatedPipelines.slice(offset, offset + limit);
+
+		return route.fulfill({
+			json: {
+				pipelines: pagePipelines,
+				hasMore: offset + limit < paginatedPipelines.length,
+			},
+		});
+	});
+	await page.reload();
+
+	// The health filter is still "All" from earlier in this journey, so the
+	// paginated fixture's all-healthy pipelines show.
+	await expect(page.getByRole('heading', { name: 'pipeline-0' })).toBeVisible();
+	await expect(previousPageButton).toBeDisabled();
+	await expect(nextPageButton).toBeEnabled();
+
+	await nextPageButton.click();
+	await expect(
+		page.getByRole('heading', { name: 'pipeline-20' }),
+	).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'pipeline-0' }),
+	).not.toBeVisible();
+	await expect(previousPageButton).toBeEnabled();
+	await expect(nextPageButton).toBeDisabled();
+
+	// Changing the forge filter resets the page back to 1, rather than
+	// re-requesting page 2 of a now-different filtered result set. Scoped
+	// to the forge radiogroup -- unlike the Repos page, the Pipelines page
+	// also has a health-status radiogroup with its own "All" option, so an
+	// unscoped getByRole('radio', { name: 'All' }) is ambiguous here.
+	const forgeFilter = page.getByRole('radiogroup', { name: 'Filter by forge' });
+	await forgeFilter.getByRole('radio', { name: 'GitHub' }).click();
+	await expect(page.getByRole('heading', { name: 'pipeline-0' })).toBeVisible();
+	await expect(previousPageButton).toBeDisabled();
+	await forgeFilter.getByRole('radio', { name: 'All' }).click();
+
+	// Restore the two-pipeline fixture the rest of this journey (the sort
+	// assertions above, and the dark-mode/grouping sections below) expects.
+	await page.unroute('**/api/pipelines*');
+	await page.route('**/api/pipelines*', (route) =>
+		route.fulfill({
+			json: {
+				pipelines: [
+					{
+						id: 'healthy-1',
+						repoId: 'repo-1',
+						name: 'CI',
+						healthStatus: 'healthy',
+						lastRunAt: ciLastRunAt,
+					},
+					{
+						id: 'unhealthy-1',
+						repoId: 'repo-1',
+						name: 'Deploy',
+						healthStatus: 'unhealthy',
+						triggeredSignals: ['failure_rate', 'flaky_step'],
+						lastRunAt: deployLastRunAt,
+					},
+				],
+				hasMore: false,
+			},
+		}),
+	);
+	await page.reload();
+	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
 
 	// The new success/destructive health badges are theme-sensitive colors
 	// (#101) -- the earlier dark-mode scan ran before any pipeline data
@@ -569,31 +669,40 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 			},
 		}),
 	);
-	await page.route('**/api/pipelines', (route) =>
-		route.fulfill({
-			json: [
-				{
-					id: 'healthy-1',
-					repoId: 'repo-1',
-					name: 'CI',
-					healthStatus: 'healthy',
-				},
-				{
-					id: 'unhealthy-1',
-					repoId: 'repo-1',
-					name: 'Deploy',
-					healthStatus: 'unhealthy',
-					triggeredSignals: ['failure_rate', 'flaky_step'],
-				},
-				{
-					id: 'other-ci',
-					repoId: 'repo-2',
-					name: 'CI',
-					healthStatus: 'unhealthy',
-				},
-			],
-		}),
-	);
+	const groupingPipelines = [
+		{
+			id: 'healthy-1',
+			repoId: 'repo-1',
+			name: 'CI',
+			healthStatus: 'healthy',
+		},
+		{
+			id: 'unhealthy-1',
+			repoId: 'repo-1',
+			name: 'Deploy',
+			healthStatus: 'unhealthy',
+			triggeredSignals: ['failure_rate', 'flaky_step'],
+		},
+		{
+			id: 'other-ci',
+			repoId: 'repo-2',
+			name: 'CI',
+			healthStatus: 'unhealthy',
+		},
+	];
+	// The repo selector filters server-side now (#243, same treatment the
+	// forge filter already got) -- the mock has to actually honor the
+	// repoId query param the frontend now sends, rather than always
+	// returning every pipeline regardless of which repo is selected below.
+	await page.route('**/api/pipelines*', (route) => {
+		const url = new URL(route.request().url());
+		const repoId = url.searchParams.get('repoId');
+		const pipelines = repoId
+			? groupingPipelines.filter((p) => p.repoId === repoId)
+			: groupingPipelines;
+
+		return route.fulfill({ json: { pipelines, hasMore: false } });
+	});
 	await page.reload();
 	await expect(
 		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
@@ -649,23 +758,26 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// Restore the original two-pipeline fixture the rest of this journey
 	// (including the /api/pipelines/unhealthy-1 detail mock below) expects.
 	await page.unroute('**/api/repos*');
-	await page.route('**/api/pipelines', (route) =>
+	await page.route('**/api/pipelines*', (route) =>
 		route.fulfill({
-			json: [
-				{
-					id: 'healthy-1',
-					repoId: 'repo-1',
-					name: 'CI',
-					healthStatus: 'healthy',
-				},
-				{
-					id: 'unhealthy-1',
-					repoId: 'repo-1',
-					name: 'Deploy',
-					healthStatus: 'unhealthy',
-					triggeredSignals: ['failure_rate', 'flaky_step'],
-				},
-			],
+			json: {
+				pipelines: [
+					{
+						id: 'healthy-1',
+						repoId: 'repo-1',
+						name: 'CI',
+						healthStatus: 'healthy',
+					},
+					{
+						id: 'unhealthy-1',
+						repoId: 'repo-1',
+						name: 'Deploy',
+						healthStatus: 'unhealthy',
+						triggeredSignals: ['failure_rate', 'flaky_step'],
+					},
+				],
+				hasMore: false,
+			},
 		}),
 	);
 	await page.reload();
@@ -1034,7 +1146,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'Pipelines' }).click();
 	await expect(page).toHaveURL('/');
 
-	await page.unroute('**/api/pipelines');
+	await page.unroute('**/api/pipelines*');
 	await page.getByRole('button', { name: 'Log out' }).click();
 	await expect(page).toHaveURL(/\/login$/);
 
