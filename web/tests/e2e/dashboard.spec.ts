@@ -7,6 +7,14 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	page,
 	context,
 }) => {
+	// This single journey covers dozens of interactions and axe scans, well
+	// past Playwright's 30s default -- the pagination scenarios below add
+	// their own real (unmocked-until-they-mock-it) round trips on top of
+	// what was already the slowest transition in the file (see the comment
+	// by the real, unmocked reload further down). Give it real headroom
+	// rather than let CI's own variance decide whether it fits.
+	test.setTimeout(150_000);
+
 	// A CDP virtual authenticator stands in for a real passkey device --
 	// there's no hardware authenticator in CI, and this is the same
 	// mechanism Chrome DevTools' own WebAuthn panel uses.
@@ -430,13 +438,17 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// A real, unmocked reload -- the first one since the pagination fixture
 	// above took over every /api/repos* request -- so this is genuinely the
 	// slowest transition in the journey: real GET /api/repos?limit=1 and
-	// GET /api/settings round trips plus hydration, not just a mocked
-	// response. The default 5s web-first-assertion budget is tight for
-	// that, same reasoning as the >20-repo pagination test's own timeout
-	// bump (#197).
+	// GET /api/settings round trips, a full client-side hydration (`ssr =
+	// false` -- there's no server-rendered shell to paint from meanwhile),
+	// not just a mocked response. 10s already proved tight under real CI
+	// load, and so did 25s once this file's other specs run alongside it
+	// under CI's own worker parallelism -- confirmed failing here on
+	// unmodified main too, not something this change introduced, same
+	// reasoning as the >20-repo pagination test's own timeout bump (#197),
+	// bumped substantially further here.
 	await page
 		.getByRole('link', { name: 'Pipelines' })
-		.click({ timeout: 10_000 });
+		.click({ timeout: 45_000 });
 	await expect(page).toHaveURL('/');
 
 	// The overview's own rendering logic (health badges, per-pipeline
@@ -657,34 +669,40 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 			},
 		}),
 	);
-	await page.route('**/api/pipelines*', (route) =>
-		route.fulfill({
-			json: {
-				pipelines: [
-					{
-						id: 'healthy-1',
-						repoId: 'repo-1',
-						name: 'CI',
-						healthStatus: 'healthy',
-					},
-					{
-						id: 'unhealthy-1',
-						repoId: 'repo-1',
-						name: 'Deploy',
-						healthStatus: 'unhealthy',
-						triggeredSignals: ['failure_rate', 'flaky_step'],
-					},
-					{
-						id: 'other-ci',
-						repoId: 'repo-2',
-						name: 'CI',
-						healthStatus: 'unhealthy',
-					},
-				],
-				hasMore: false,
-			},
-		}),
-	);
+	const groupingPipelines = [
+		{
+			id: 'healthy-1',
+			repoId: 'repo-1',
+			name: 'CI',
+			healthStatus: 'healthy',
+		},
+		{
+			id: 'unhealthy-1',
+			repoId: 'repo-1',
+			name: 'Deploy',
+			healthStatus: 'unhealthy',
+			triggeredSignals: ['failure_rate', 'flaky_step'],
+		},
+		{
+			id: 'other-ci',
+			repoId: 'repo-2',
+			name: 'CI',
+			healthStatus: 'unhealthy',
+		},
+	];
+	// The repo selector filters server-side now (#243, same treatment the
+	// forge filter already got) -- the mock has to actually honor the
+	// repoId query param the frontend now sends, rather than always
+	// returning every pipeline regardless of which repo is selected below.
+	await page.route('**/api/pipelines*', (route) => {
+		const url = new URL(route.request().url());
+		const repoId = url.searchParams.get('repoId');
+		const pipelines = repoId
+			? groupingPipelines.filter((p) => p.repoId === repoId)
+			: groupingPipelines;
+
+		return route.fulfill({ json: { pipelines, hasMore: false } });
+	});
 	await page.reload();
 	await expect(
 		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
