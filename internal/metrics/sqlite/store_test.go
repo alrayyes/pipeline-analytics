@@ -18,7 +18,7 @@ import (
 // ingestion write path rather than hand-crafting rows.
 type testFixture struct {
 	metrics *metricssqlite.Store
-	runs    ingestion.RunStore
+	runs    *ingestionsqlite.Store
 	repo    ingestion.Repo
 }
 
@@ -96,23 +96,96 @@ func TestStore_ListPipelines(t *testing.T) {
 	t.Parallel()
 
 	f := newFixture(t)
-	f.seedRun(t, "CI", "1", 0, 5, "success")
-	f.seedRun(t, "Deploy", "2", 10, 5, "success")
+	f.seedRun(t, "Deploy", "1", 0, 5, "success")
+	f.seedRun(t, "CI", "2", 10, 5, "success")
 	f.seedRun(t, "CI", "3", 20, 5, "success") // same pipeline again -- must not duplicate
 
-	pipelines, err := f.metrics.ListPipelines(context.Background())
+	pipelines, hasMore, err := f.metrics.ListPipelines(context.Background(), metrics.PipelineListFilter{})
 	require.NoError(t, err)
+	require.False(t, hasMore)
 	require.Len(t, pipelines, 2)
 
-	names := map[string]bool{}
-	for _, p := range pipelines {
-		require.Equal(t, f.repo.ID, p.RepoID)
+	// Ordered by (repo_id, pipeline_name), not insertion order.
+	require.Equal(t, "CI", pipelines[0].Name)
+	require.Equal(t, "Deploy", pipelines[1].Name)
+	require.Equal(t, f.repo.ID, pipelines[0].RepoID)
+}
 
-		names[p.Name] = true
-	}
+func TestStore_ListPipelinesPagination(t *testing.T) {
+	t.Parallel()
 
-	require.True(t, names["CI"])
-	require.True(t, names["Deploy"])
+	f := newFixture(t)
+	f.seedRun(t, "Build", "1", 0, 5, "success")
+	f.seedRun(t, "CI", "2", 10, 5, "success")
+	f.seedRun(t, "Deploy", "3", 20, 5, "success")
+
+	t.Run("limit trims the page and reports more remain", func(t *testing.T) {
+		t.Parallel()
+
+		pipelines, hasMore, err := f.metrics.ListPipelines(context.Background(), metrics.PipelineListFilter{Limit: 2})
+		require.NoError(t, err)
+		require.True(t, hasMore)
+		require.Len(t, pipelines, 2)
+		require.Equal(t, "Build", pipelines[0].Name)
+		require.Equal(t, "CI", pipelines[1].Name)
+	})
+
+	t.Run("offset returns the next page", func(t *testing.T) {
+		t.Parallel()
+
+		pipelines, hasMore, err := f.metrics.ListPipelines(context.Background(), metrics.PipelineListFilter{Limit: 2, Offset: 2})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, pipelines, 1)
+		require.Equal(t, "Deploy", pipelines[0].Name)
+	})
+
+	t.Run("no limit returns every pipeline unpaginated", func(t *testing.T) {
+		t.Parallel()
+
+		pipelines, hasMore, err := f.metrics.ListPipelines(context.Background(), metrics.PipelineListFilter{})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, pipelines, 3)
+	})
+}
+
+func TestStore_ListPipelinesFilters(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t)
+	f.seedRun(t, "CI", "1", 0, 5, "success")
+
+	otherRepo, err := f.runs.CreateRepo(context.Background(), ingestion.NewRepo{ //nolint:gosec // test fixture value, not a real credential
+		Forge:              ingestion.ForgeForgejo,
+		Identifier:         "alrayyes/dotfiles",
+		ForgejoInstanceURL: "https://git.higherlearning.eu",
+		Token:              "forgejo-token-5678",
+	})
+	require.NoError(t, err)
+
+	otherFixture := testFixture{metrics: f.metrics, runs: f.runs, repo: otherRepo}
+	otherFixture.seedRun(t, "Sync", "1", 0, 5, "success")
+
+	t.Run("repoId restricts the list to one tracked repo", func(t *testing.T) {
+		t.Parallel()
+
+		pipelines, hasMore, err := f.metrics.ListPipelines(context.Background(), metrics.PipelineListFilter{RepoID: f.repo.ID})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, pipelines, 1)
+		require.Equal(t, "CI", pipelines[0].Name)
+	})
+
+	t.Run("forge restricts the list via the owning repo", func(t *testing.T) {
+		t.Parallel()
+
+		pipelines, hasMore, err := f.metrics.ListPipelines(context.Background(), metrics.PipelineListFilter{Forge: string(ingestion.ForgeForgejo)})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, pipelines, 1)
+		require.Equal(t, "Sync", pipelines[0].Name)
+	})
 }
 
 func TestStore_PipelineRuns(t *testing.T) {

@@ -47,6 +47,41 @@ func seedRepo(t *testing.T, srv testServer) string {
 
 const seedRunPipelineName = "CI"
 
+// pipelineListResponse mirrors the handler's wrapped GET /api/pipelines
+// response shape, kept loose (map per pipeline) since these tests only
+// assert on a handful of fields.
+type pipelineListResponse struct {
+	Pipelines []map[string]any `json:"pipelines"`
+	HasMore   bool             `json:"hasMore"`
+}
+
+// seedOtherRepo registers a second, Forgejo-hosted repo through the API and
+// returns its id -- for tests exercising the repoId/forge filters.
+func seedOtherRepo(t *testing.T, srv testServer) string {
+	t.Helper()
+
+	body, err := json.Marshal(map[string]string{ //nolint:gosec // test fixture value, not a real credential
+		"forge":              "forgejo",
+		"identifier":         "alrayyes/dotfiles",
+		"forgejoInstanceUrl": "https://git.higherlearning.eu",
+		"token":              "forgejo-token-5678",
+	})
+	require.NoError(t, err)
+
+	req := srv.authenticated(httptest.NewRequest(http.MethodPost, "/api/repos", strings.NewReader(string(body))))
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	var repo map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &repo))
+
+	id, _ := repo["id"].(string)
+	require.NotEmpty(t, id)
+
+	return id
+}
+
 // seedRun inserts a completed, successful run for repoID directly through
 // the test server's underlying RunStore, mirroring how a real webhook
 // delivery or reconciliation poll would populate the same tables.
@@ -85,11 +120,12 @@ func TestPipelinesList(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var pipelines []map[string]any
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
-		require.Len(t, pipelines, 1)
-		require.Equal(t, seedRunPipelineName, pipelines[0]["name"])
-		require.Equal(t, "healthy", pipelines[0]["healthStatus"])
+		var got pipelineListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.False(t, got.HasMore)
+		require.Len(t, got.Pipelines, 1)
+		require.Equal(t, seedRunPipelineName, got.Pipelines[0]["name"])
+		require.Equal(t, "healthy", got.Pipelines[0]["healthStatus"])
 	})
 
 	t.Run("reports the most recent run's start time as lastRunAt", func(t *testing.T) {
@@ -106,10 +142,10 @@ func TestPipelinesList(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var pipelines []map[string]any
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
-		require.Len(t, pipelines, 1)
-		require.Equal(t, at(10).Format(time.RFC3339), pipelines[0]["lastRunAt"])
+		var got pipelineListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Len(t, got.Pipelines, 1)
+		require.Equal(t, at(10).Format(time.RFC3339), got.Pipelines[0]["lastRunAt"])
 	})
 
 	t.Run("requires a session", func(t *testing.T) {
@@ -122,6 +158,83 @@ func TestPipelinesList(t *testing.T) {
 		srv.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("list paginates with limit and offset", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		seedRun(t, srv, repoID, "1", 0, 5)
+
+		otherRepoID := seedOtherRepo(t, srv)
+		seedRun(t, srv, otherRepoID, "2", 10, 5)
+
+		firstPage := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?limit=1&offset=0", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, firstPage)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got pipelineListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.True(t, got.HasMore)
+		require.Len(t, got.Pipelines, 1)
+
+		secondPage := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?limit=1&offset=1", nil))
+		rec = httptest.NewRecorder()
+		srv.ServeHTTP(rec, secondPage)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		got = pipelineListResponse{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.False(t, got.HasMore)
+		require.Len(t, got.Pipelines, 1)
+	})
+
+	t.Run("list filters by the repoId query param", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		seedRun(t, srv, repoID, "1", 0, 5)
+
+		otherRepoID := seedOtherRepo(t, srv)
+		seedRun(t, srv, otherRepoID, "2", 10, 5)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?repoId="+repoID, nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got pipelineListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Len(t, got.Pipelines, 1)
+		require.Equal(t, repoID, got.Pipelines[0]["repoId"])
+	})
+
+	t.Run("list filters by the forge query param", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		seedRun(t, srv, repoID, "1", 0, 5)
+
+		otherRepoID := seedOtherRepo(t, srv)
+		seedRun(t, srv, otherRepoID, "2", 10, 5)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?forge=forgejo", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got pipelineListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Len(t, got.Pipelines, 1)
+		require.Equal(t, otherRepoID, got.Pipelines[0]["repoId"])
 	})
 }
 
@@ -350,9 +463,9 @@ func TestPipelineHealth_SelfHeals(t *testing.T) {
 		rec := httptest.NewRecorder()
 		srv.ServeHTTP(rec, req)
 
-		var pipelines []map[string]any
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
-		require.Equal(t, "unhealthy", pipelines[0]["healthStatus"])
+		var got pipelineListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Equal(t, "unhealthy", got.Pipelines[0]["healthStatus"])
 	})
 
 	t.Run("once the failure ages out of a narrower window, the pipeline reports healthy again", func(t *testing.T) {
@@ -362,9 +475,9 @@ func TestPipelineHealth_SelfHeals(t *testing.T) {
 		rec := httptest.NewRecorder()
 		srv.ServeHTTP(rec, req)
 
-		var pipelines []map[string]any
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
-		require.Equal(t, "healthy", pipelines[0]["healthStatus"])
+		var got pipelineListResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Equal(t, "healthy", got.Pipelines[0]["healthStatus"])
 	})
 }
 
@@ -549,11 +662,11 @@ func pipelineIDFromList(t *testing.T, srv testServer) string {
 	srv.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	var pipelines []map[string]any
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pipelines))
-	require.NotEmpty(t, pipelines)
+	var got pipelineListResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.NotEmpty(t, got.Pipelines)
 
-	id, _ := pipelines[0]["id"].(string)
+	id, _ := got.Pipelines[0]["id"].(string)
 	require.NotEmpty(t, id)
 
 	return id

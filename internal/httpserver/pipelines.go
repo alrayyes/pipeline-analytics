@@ -3,6 +3,7 @@ package httpserver
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
@@ -32,6 +33,11 @@ func toPipelineSummaryDTO(p metrics.Pipeline) pipelineSummaryDTO {
 		TriggeredSignals: signals,
 		LastRunAt:        p.LastRunAt,
 	}
+}
+
+type pipelineListDTO struct {
+	Pipelines []pipelineSummaryDTO `json:"pipelines"`
+	HasMore   bool                 `json:"hasMore"`
 }
 
 type trendDTO struct {
@@ -115,8 +121,15 @@ type pipelinesHandler struct {
 
 func (h *pipelinesHandler) list(w http.ResponseWriter, r *http.Request) {
 	window := metrics.ParseWindow(r.URL.Query().Get("window"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	pipelines, err := h.service.ListPipelines(r.Context(), window)
+	pipelines, hasMore, err := h.service.ListPipelines(r.Context(), window, metrics.PipelineListFilter{
+		RepoID: r.URL.Query().Get("repoId"),
+		Forge:  r.URL.Query().Get("forge"),
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "list pipelines")
 
@@ -128,7 +141,7 @@ func (h *pipelinesHandler) list(w http.ResponseWriter, r *http.Request) {
 		dtos = append(dtos, toPipelineSummaryDTO(p))
 	}
 
-	writeJSON(w, http.StatusOK, dtos)
+	writeJSON(w, http.StatusOK, pipelineListDTO{Pipelines: dtos, HasMore: hasMore})
 }
 
 func (h *pipelinesHandler) get(w http.ResponseWriter, r *http.Request) {

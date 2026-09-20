@@ -222,12 +222,30 @@ type UsageRecord struct {
 	ExecSeconds  float64
 }
 
+// PipelineListFilter narrows ListPipelines to one repo and/or forge, and/or
+// one page, ordered deterministically by (RepoID, Name). The zero value
+// matches every tracked pipeline, unfiltered and unpaginated -- what
+// ListUnhealthySteps needs, since it operates over every pipeline rather
+// than one page a user is looking at. Mirrors ingestion.RepoListFilter.
+type PipelineListFilter struct {
+	// RepoID restricts the list to one tracked repo. Empty matches every repo.
+	RepoID string
+	// Forge restricts the list to one forge, via a join on the owning repo
+	// (a pipeline has no forge column of its own). Empty matches every forge.
+	Forge string
+	// Limit caps how many pipelines are returned. Zero means unlimited.
+	Limit int
+	// Offset skips this many matching pipelines before the page starts.
+	Offset int
+}
+
 // Store is the port metrics computations read run/job/step history
 // through. Every method that returns runs orders them most-recent-first.
 type Store interface {
-	// ListPipelines returns every distinct pipeline with at least one
-	// recorded run.
-	ListPipelines(ctx context.Context) ([]PipelineRef, error)
+	// ListPipelines returns the distinct pipelines matching filter, plus
+	// whether more pipelines beyond this page also match -- always false
+	// when filter.Limit is 0.
+	ListPipelines(ctx context.Context, filter PipelineListFilter) (pipelines []PipelineRef, hasMore bool, err error)
 	// PipelineRuns returns a pipeline's runs, most-recent-first, limited to
 	// window.RunCount.
 	PipelineRuns(ctx context.Context, ref PipelineRef, window Window) ([]RunRecord, error)
@@ -260,11 +278,12 @@ func NewService(store Store) *Service {
 	return &Service{store: store}
 }
 
-// ListPipelines returns every tracked pipeline's summary and health status.
-func (s *Service) ListPipelines(ctx context.Context, window Window) ([]Pipeline, error) {
-	refs, err := s.store.ListPipelines(ctx)
+// ListPipelines returns a page of tracked pipelines' summaries and health
+// status, plus whether more pipelines beyond this page match filter.
+func (s *Service) ListPipelines(ctx context.Context, window Window, filter PipelineListFilter) ([]Pipeline, bool, error) {
+	refs, hasMore, err := s.store.ListPipelines(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("list pipelines: %w", err)
+		return nil, false, fmt.Errorf("list pipelines: %w", err)
 	}
 
 	pipelines := make([]Pipeline, 0, len(refs))
@@ -272,13 +291,13 @@ func (s *Service) ListPipelines(ctx context.Context, window Window) ([]Pipeline,
 	for _, ref := range refs {
 		pipeline, err := s.summarize(ctx, ref, window)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		pipelines = append(pipelines, pipeline)
 	}
 
-	return pipelines, nil
+	return pipelines, hasMore, nil
 }
 
 // GetPipeline returns one pipeline's health, duration trend, and
@@ -421,7 +440,7 @@ type PipelineStepsGroup struct {
 // tracked pipeline, grouped by pipeline. A pipeline with no such step
 // contributes nothing to the result.
 func (s *Service) ListUnhealthySteps(ctx context.Context, window Window) ([]PipelineStepsGroup, error) {
-	refs, err := s.store.ListPipelines(ctx)
+	refs, _, err := s.store.ListPipelines(ctx, PipelineListFilter{})
 	if err != nil {
 		return nil, fmt.Errorf("list pipelines: %w", err)
 	}
