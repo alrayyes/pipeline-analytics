@@ -261,24 +261,17 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.click();
 	await expect(page.getByText('No repositories tracked yet.')).toBeVisible();
 
-	// Token reuse (#72): the token used above is offered again rather than
-	// having to be retyped, browser-local only. Registering for real here
-	// (rather than abandoning the dialog) also puts a repo back so the rest
-	// of this test's nav clicks -- disabled while zero repos are registered
-	// (#71) -- keep working.
+	// Token reuse (#72, #262): the token used above is used again
+	// automatically, browser-local only -- no token field, no click, straight
+	// to the repo picker. Registering for real here (rather than abandoning
+	// the dialog) also puts a repo back so the rest of this test's nav
+	// clicks -- disabled while zero repos are registered (#71) -- keep
+	// working.
 	await page.getByRole('button', { name: 'Register repository' }).click();
-	const useSavedToken = page.getByRole('button', {
-		name: 'Use saved token (****1234)',
-	});
-	await expect(useSavedToken).toBeVisible();
-	// One click, not two (#117): filling the token and finding repositories
-	// used to be two separate actions; using a saved token now goes straight
-	// to the repo picker, replacing the token step's markup (including the
-	// "Access token" field) with the picker's.
-	await useSavedToken.click();
 	await expect(
 		page.getByRole('heading', { name: 'Select repositories to follow' }),
 	).toBeVisible();
+	await expect(page.getByLabel('Access token')).toHaveCount(0);
 
 	// Registering more than one repo in a single batch (#103): one checked
 	// from the discovered list, one added by name -- both land in the same
@@ -296,11 +289,8 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	// Already-tracked repos (#117) don't belong in the picker a second
 	// time -- demo-repo is tracked now, so re-discovering only offers
-	// dotfiles.
+	// dotfiles. Auto-discovery (#262) fires as soon as the dialog opens.
 	await page.getByRole('button', { name: 'Register repository' }).click();
-	await page
-		.getByRole('button', { name: 'Use saved token (****1234)' })
-		.click();
 	await expect(
 		page.getByRole('checkbox', { name: 'alrayyes/dotfiles' }),
 	).toBeVisible();
@@ -313,7 +303,16 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// repo on Forgejo so the table actually has two forges to group, then
 	// exercise the filter, then untrack it again -- the rest of this
 	// journey doesn't expect a Forgejo repo hanging around.
+	//
+	// The dialog restores GitHub (#262, last used above) and immediately
+	// auto-discovers with its remembered token, landing straight on the
+	// picker -- "Back" is what gets to the Forge selector to switch away
+	// from it, same one extra click the escape-hatch scenario above needs.
 	await page.getByRole('button', { name: 'Register repository' }).click();
+	await expect(
+		page.getByRole('heading', { name: 'Select repositories to follow' }),
+	).toBeVisible();
+	await page.getByRole('button', { name: 'Back' }).click();
 	await page.getByLabel('Forge', { exact: true }).click();
 	await page.getByRole('option', { name: 'Forgejo' }).click();
 	await page.getByLabel('Access token').fill('forgejo_faketoken5678');
@@ -348,6 +347,27 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.withTags(a11yTags)
 		.analyze();
 	expect(groupedReposScan.violations).toEqual([]);
+
+	// Restoring the last-used forge (#262): reopening the dialog after the
+	// Forgejo registration above starts on Forgejo, not reset back to
+	// GitHub -- otherwise the just-saved Forgejo token would never even be
+	// looked up under the right key.
+	await page.getByRole('button', { name: 'Register repository' }).click();
+	await expect(
+		page.getByRole('heading', { name: 'Select repositories to follow' }),
+	).toBeVisible();
+	await expect(page.getByText('Forgejo · token ending ****5678')).toBeVisible();
+
+	// The escape hatch (#262): even with a saved token already in use, the
+	// user can still explicitly swap it out -- "Back" alone doesn't
+	// immediately re-discover and bounce straight back to the picker.
+	await page.getByRole('button', { name: 'Back' }).click();
+	await expect(
+		page.getByText('Using your saved Forgejo token (****5678).'),
+	).toBeVisible();
+	await page.getByRole('button', { name: 'Use a different token' }).click();
+	await expect(page.getByLabel('Access token')).toBeVisible();
+	await page.keyboard.press('Escape');
 
 	// The filter narrows the grouped table to one forge, applied server-side
 	// (#140) -- not just hidden client-side.
@@ -1355,9 +1375,6 @@ test('past PAGE_SIZE tracked repos, Discover still excludes every one of them (#
 		}),
 	);
 	await page.getByRole('button', { name: 'Register repository' }).click();
-	await page
-		.getByRole('button', { name: 'Use saved token (****1234)' })
-		.click();
 
 	await expect(
 		page.getByRole('checkbox', { name: 'alrayyes/repo-new' }),
