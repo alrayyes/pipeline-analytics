@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.40.0...v0.41.0) (2026-09-21)
+
+
+### Features
+
+* **dashboard-ui:** skip the token step when one's already known ([#264](https://github.com/alrayyes/pipeline-analytics/issues/264)) ([9a0f278](https://github.com/alrayyes/pipeline-analytics/commit/9a0f2781895e2f7b35528020513860312b6d4df3)), closes [#262](https://github.com/alrayyes/pipeline-analytics/issues/262)
+
 ## [0.40.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.39.0...v0.40.0) (2026-09-21)
 
 
