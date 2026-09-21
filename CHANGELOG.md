@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.38.0...v0.39.0) (2026-09-21)
+
+
+### Features
+
+* **openapi:** document pagination on GET /api/steps/unhealthy ([#259](https://github.com/alrayyes/pipeline-analytics/issues/259)) ([7c0a279](https://github.com/alrayyes/pipeline-analytics/commit/7c0a2794c53d84dc91be88ddbda04f08c11903d7))
+
 ## [0.38.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.37.0...v0.38.0) (2026-09-20)
 
 
