@@ -40,8 +40,10 @@ import {
 } from '$lib/components/ui/table/index.js';
 import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
 import {
+	getRememberedForgeSelection,
 	getRememberedToken,
 	maskToken,
+	rememberForgeSelection,
 	rememberToken,
 } from '$lib/rememberedToken.js';
 
@@ -185,23 +187,78 @@ const manualOnlySelected = $derived(
 );
 
 // A token already used to register a repo on this forge (+ instance, for
-// Forgejo) is offered for reuse rather than requiring it be retyped --
+// Forgejo) is used automatically rather than ever asking for it again --
 // browser-local only (issue #72's design decision), so it doesn't survive a
-// cleared browser or carry across devices. A plain $derived here would only
-// re-read localStorage when `forge`/`forgejoInstanceUrl` themselves change
-// value, which they often don't between one dialog open and the next (the
-// default forge is always 'github') -- keying an $effect on `registerOpen`
-// too forces a fresh read every time the dialog opens, picking up a token
-// a previous registration just remembered.
+// cleared browser or carry across devices. #262 took this from a one-click
+// "Use saved token" affordance to skipping the token step entirely: the
+// token field only ever appears when there's genuinely nothing to reuse.
 let rememberedForCurrentForge = $state<string | null>(null);
 
+// Set once the user explicitly asks for a different token, or a remembered
+// one just failed to authenticate -- either way, the token field needs to
+// come back for this forge/instance rather than silently retrying (or
+// hiding) it. Reset in resetForm() and the moment forge/instance actually
+// change (a different credential context deserves its own fresh check),
+// not merely because this effect re-ran for some other reason.
+let overrideToken = $state(false);
+// Auto-discovery fires once per dialog-open (or forge/instance switch), not
+// on every re-render that lands back on the 'token' step -- without this,
+// clicking "Back" from the repo picker would immediately re-discover and
+// bounce straight back to it, making "Use a different token" unreachable.
+let autoDiscoverAttempted = $state(false);
+let previousForgeInstanceKey: string | undefined;
+
+const usingRememberedToken = $derived(
+	Boolean(rememberedForCurrentForge) && !overrideToken,
+);
+
 $effect(() => {
-	[forge, forgejoInstanceUrl, registerOpen];
+	const key = `${forge}:${forge === 'forgejo' ? forgejoInstanceUrl : ''}`;
+	const contextChanged = key !== previousForgeInstanceKey;
+	previousForgeInstanceKey = key;
+
+	if (contextChanged) {
+		overrideToken = false;
+		autoDiscoverAttempted = false;
+	}
+
 	rememberedForCurrentForge = getRememberedToken(
 		forge,
 		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
 	);
+
+	if (
+		registerOpen &&
+		step === 'token' &&
+		rememberedForCurrentForge &&
+		!overrideToken &&
+		!autoDiscoverAttempted
+	) {
+		autoDiscoverAttempted = true;
+		tryRememberedToken();
+	}
 });
+
+// A remembered token that's stopped authenticating (revoked/rotated on the
+// forge side) shouldn't leave the user stuck looking at an error with no
+// token field to fix it from -- falls back to asking for a new one.
+async function tryRememberedToken(): Promise<void> {
+	if (!rememberedForCurrentForge) return;
+
+	token = rememberedForCurrentForge;
+	await discoverRepos();
+
+	if (discoverError) {
+		overrideToken = true;
+		token = '';
+	}
+}
+
+function useDifferentToken(): void {
+	overrideToken = true;
+	token = '';
+	discoverError = null;
+}
 
 $effect(() => {
 	[forge, forgejoInstanceUrl];
@@ -292,9 +349,17 @@ $effect(() => {
 
 function resetForm(): void {
 	step = 'token';
-	forge = 'github';
-	forgejoInstanceUrl = '';
+	// Restores whichever forge (+ instance URL, for Forgejo) was last used
+	// successfully, rather than always resetting to GitHub -- otherwise a
+	// remembered token for any other forge/instance is never even looked
+	// up under the right key (#262).
+	const remembered = getRememberedForgeSelection();
+	forge = remembered?.forge ?? 'github';
+	forgejoInstanceUrl =
+		(remembered?.forge === 'forgejo' && remembered.instanceUrl) || '';
 	token = '';
+	overrideToken = false;
+	autoDiscoverAttempted = false;
 	discoveredRepos = null;
 	discoverError = null;
 	selected = new Set();
@@ -337,16 +402,6 @@ async function discoverRepos(): Promise<void> {
 
 function handleDiscover(event: SubmitEvent): void {
 	event.preventDefault();
-	discoverRepos();
-}
-
-// One click, not two (previously: fill the token, then separately click
-// "Find repositories") -- the whole point of remembering a token is not
-// having to redo the rest of the ceremony to add one more repo.
-function useSavedTokenAndDiscover(): void {
-	if (!rememberedForCurrentForge) return;
-
-	token = rememberedForCurrentForge;
 	discoverRepos();
 }
 
@@ -441,6 +496,10 @@ async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
 		token,
 	);
+	rememberForgeSelection(
+		forge,
+		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
+	);
 
 	// The layout's own load -- which the nav's hasRepos-gated links and the
 	// Pipelines empty state (#71) both read -- only reruns on navigation by
@@ -531,24 +590,6 @@ async function handleUntrack(): Promise<void> {
 								</Select>
 							</div>
 
-							<div class="grid gap-2">
-								<Label for="token">Access token</Label>
-								<Input id="token" type="password" bind:value={token} required />
-								{#if rememberedForCurrentForge && token !== rememberedForCurrentForge}
-									<button
-										type="button"
-										class="w-fit text-xs text-muted-foreground underline hover:text-foreground"
-										onclick={useSavedTokenAndDiscover}
-										disabled={discoverBusy}
-									>
-										{discoverBusy
-											? 'Finding…'
-											: `Use saved token (${maskToken(rememberedForCurrentForge)})`}
-									</button>
-								{/if}
-								<p class="text-xs text-muted-foreground">{TOKEN_HELP[forge]}</p>
-							</div>
-
 							{#if forge === 'forgejo'}
 								<div class="grid gap-2">
 									<Label for="instance-url">Forgejo instance URL</Label>
@@ -562,15 +603,39 @@ async function handleUntrack(): Promise<void> {
 								</div>
 							{/if}
 
+							{#if usingRememberedToken}
+								<p class="text-sm text-muted-foreground">
+									{discoverBusy
+										? `Finding repositories with your saved ${FORGE_LABELS[forge]} token…`
+										: `Using your saved ${FORGE_LABELS[forge]} token (${maskToken(rememberedForCurrentForge ?? '')}).`}
+								</p>
+								<button
+									type="button"
+									class="w-fit text-xs text-muted-foreground underline hover:text-foreground"
+									onclick={useDifferentToken}
+									disabled={discoverBusy}
+								>
+									Use a different token
+								</button>
+							{:else}
+								<div class="grid gap-2">
+									<Label for="token">Access token</Label>
+									<Input id="token" type="password" bind:value={token} required />
+									<p class="text-xs text-muted-foreground">{TOKEN_HELP[forge]}</p>
+								</div>
+							{/if}
+
 							{#if discoverError}
 								<p role="alert" class="text-sm text-destructive">{discoverError}</p>
 							{/if}
 						</div>
 
 						<DialogFooter>
-							<Button type="submit" disabled={!canDiscover || discoverBusy}>
-								{discoverBusy ? 'Finding…' : 'Find repositories'}
-							</Button>
+							{#if !usingRememberedToken}
+								<Button type="submit" disabled={!canDiscover || discoverBusy}>
+									{discoverBusy ? 'Finding…' : 'Find repositories'}
+								</Button>
+							{/if}
 						</DialogFooter>
 					</form>
 				{:else}
