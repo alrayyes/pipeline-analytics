@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.41.0...v0.41.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **web:** bound root layout's load() fetches so a stalled backend can't hang the page forever ([#268](https://github.com/alrayyes/pipeline-analytics/issues/268)) ([63bf8ad](https://github.com/alrayyes/pipeline-analytics/commit/63bf8ad8c6c3ae51469bb7b252122733a80835d5)), closes [#251](https://github.com/alrayyes/pipeline-analytics/issues/251)
+
 ## [0.41.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.40.0...v0.41.0) (2026-09-21)
 
 
