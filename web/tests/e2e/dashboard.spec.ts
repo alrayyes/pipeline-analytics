@@ -460,12 +460,38 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// slowest transition in the journey: real GET /api/repos?limit=1 and
 	// GET /api/settings round trips, a full client-side hydration (`ssr =
 	// false` -- there's no server-rendered shell to paint from meanwhile),
-	// not just a mocked response. 10s already proved tight under real CI
-	// load, and so did 25s once this file's other specs run alongside it
-	// under CI's own worker parallelism -- confirmed failing here on
-	// unmodified main too, not something this change introduced, same
-	// reasoning as the >20-repo pagination test's own timeout bump (#197),
-	// bumped substantially further here.
+	// not just a mocked response.
+	//
+	// #251 root-caused the intermittent *full hang* (not just slowness) this
+	// timeout used to blindly budget around. Repeated stress runs (many
+	// Playwright workers in parallel, each paying for its own full browser
+	// AND its own dedicated server process -- isolated-server.ts/#168)
+	// reproduced it on demand and captured two concrete mechanisms, neither
+	// of which is a Svelte/SvelteKit hydration bug or the app's service
+	// worker (ruled out directly: disabling SW registration entirely didn't
+	// stop it):
+	//   1. A backend request that this reload's root layout load() depends
+	//      on (`GET /api/repos?limit=1` or `GET /api/settings`) sometimes
+	//      never got a response at all -- confirmed via a captured trace's
+	//      network log showing that request stuck with no completion time
+	//      recorded, for the rest of the run. +layout.ts now bounds both
+	//      calls with AbortSignal.timeout and falls back to a safe default
+	//      on abort (same trade-off fetchSettings already made for any
+	//      other failure), so this specific case can no longer hang the
+	//      whole page -- it degrades instead.
+	//   2. Separately, a captured trace caught the renderer's own
+	//      compositor producing *zero further frames* for the rest of a
+	//      hung run, right after both network calls had already completed
+	//      normally -- the OS never rescheduled that render process again
+	//      for tens of seconds. That's resource starvation under heavy
+	//      parallel worker load, not application logic, and nothing in this
+	//      codebase can fix an unscheduled process. It reproduced at both
+	//      4 and 2 concurrent workers on a loaded host, so capping worker
+	//      count isn't a reliable enough lever to lean on here either.
+	// Mechanism 1 is fixed. Mechanism 2 is exactly the "inherent to
+	// specific timing" case #251's own acceptance criteria anticipated --
+	// this timeout stays generous on purpose, to cover that confirmed,
+	// external residual risk, not because nobody looked.
 	await page
 		.getByRole('link', { name: 'Pipelines' })
 		.click({ timeout: 45_000 });
