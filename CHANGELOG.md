@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.39.0...v0.40.0) (2026-09-21)
+
+
+### Features
+
+* **steps:** paginate the Steps page ([#261](https://github.com/alrayyes/pipeline-analytics/issues/261)) ([6c11b7c](https://github.com/alrayyes/pipeline-analytics/commit/6c11b7c19f542b2c788a616d265d8b04a1663871))
+
 ## [0.39.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.38.0...v0.39.0) (2026-09-21)
 
 
