@@ -512,8 +512,9 @@ func TestService_ListUnhealthySteps(t *testing.T) {
 		}
 
 		service := metrics.NewService(store)
-		groups, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10})
+		groups, hasMore, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10}, 0, 0)
 		require.NoError(t, err)
+		require.False(t, hasMore)
 		require.Len(t, groups, 2)
 
 		byPipeline := map[string]metrics.PipelineStepsGroup{}
@@ -549,9 +550,48 @@ func TestService_ListUnhealthySteps(t *testing.T) {
 		}
 
 		service := metrics.NewService(store)
-		groups, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10})
+		groups, hasMore, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10}, 0, 0)
 		require.NoError(t, err)
+		require.False(t, hasMore)
 		require.Empty(t, groups)
+	})
+
+	t.Run("paginates over pipeline groups with an unhealthy step, not every candidate pipeline", func(t *testing.T) {
+		t.Parallel()
+
+		// Ordered (repo_id, pipeline_name) the way ListPipelines returns them:
+		// repo-1/CI and repo-1/Deploy are unhealthy, repo-1/Lint is healthy and
+		// contributes nothing -- pagination has to skip over it rather than
+		// counting it as a page slot, since it never becomes a group.
+		ciRef := metrics.PipelineRef{RepoID: "repo-1", Name: "CI"}
+		lintRef := metrics.PipelineRef{RepoID: "repo-1", Name: "Lint"}
+		deployRef := metrics.PipelineRef{RepoID: "repo-1", Name: "Deploy"}
+		releaseRef := metrics.PipelineRef{RepoID: "repo-1", Name: "Release"}
+
+		store := &fakeStore{
+			pipelines: []metrics.PipelineRef{ciRef, lintRef, deployRef, releaseRef},
+			steps: map[metrics.PipelineRef][]metrics.StepOccurrence{
+				ciRef:      {{Name: "test", Status: "completed", Conclusion: "failure", StartedAt: t1(0), CompletedAt: t1(1)}},
+				lintRef:    {{Name: "lint", Status: "completed", Conclusion: "success", StartedAt: t1(0), CompletedAt: t1(1)}},
+				deployRef:  {{Name: "push", Status: "completed", Conclusion: "failure", StartedAt: t1(0), CompletedAt: t1(1)}},
+				releaseRef: {{Name: "tag", Status: "completed", Conclusion: "failure", StartedAt: t1(0), CompletedAt: t1(1)}},
+			},
+		}
+
+		service := metrics.NewService(store)
+
+		firstPage, hasMore, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10}, 2, 0)
+		require.NoError(t, err)
+		require.True(t, hasMore)
+		require.Len(t, firstPage, 2)
+		require.Equal(t, "CI", firstPage[0].PipelineName)
+		require.Equal(t, "Deploy", firstPage[1].PipelineName)
+
+		secondPage, hasMore, err := service.ListUnhealthySteps(context.Background(), metrics.Window{RunCount: 10}, 2, 2)
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, secondPage, 1)
+		require.Equal(t, "Release", secondPage[0].PipelineName)
 	})
 }
 
