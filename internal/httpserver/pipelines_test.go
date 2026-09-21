@@ -55,6 +55,13 @@ type pipelineListResponse struct {
 	HasMore   bool             `json:"hasMore"`
 }
 
+// unhealthyStepsResponse mirrors the handler's wrapped
+// GET /api/steps/unhealthy response shape.
+type unhealthyStepsResponse struct {
+	Groups  []map[string]any `json:"groups"`
+	HasMore bool             `json:"hasMore"`
+}
+
 // seedOtherRepo registers a second, Forgejo-hosted repo through the API and
 // returns its id -- for tests exercising the repoId/forge filters.
 func seedOtherRepo(t *testing.T, srv testServer) string {
@@ -542,13 +549,14 @@ func TestUnhealthySteps(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var groups []map[string]any
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &groups))
-		require.Len(t, groups, 1)
-		require.Equal(t, seedRunPipelineName, groups[0]["pipelineName"])
-		require.Equal(t, repoID, groups[0]["repoId"])
+		var got unhealthyStepsResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.False(t, got.HasMore)
+		require.Len(t, got.Groups, 1)
+		require.Equal(t, seedRunPipelineName, got.Groups[0]["pipelineName"])
+		require.Equal(t, repoID, got.Groups[0]["repoId"])
 
-		steps, _ := groups[0]["steps"].([]any)
+		steps, _ := got.Groups[0]["steps"].([]any)
 		require.Len(t, steps, 1) // "checkout" never failed, so it's excluded
 		step, _ := steps[0].(map[string]any)
 		require.Equal(t, "deploy", step["name"])
@@ -585,9 +593,10 @@ func TestUnhealthySteps(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var groups []map[string]any
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &groups))
-		require.Empty(t, groups)
+		var got unhealthyStepsResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.False(t, got.HasMore)
+		require.Empty(t, got.Groups)
 	})
 
 	t.Run("requires a session", func(t *testing.T) {
@@ -600,6 +609,42 @@ func TestUnhealthySteps(t *testing.T) {
 		srv.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("paginates with limit and offset", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		repoID := seedRepo(t, srv)
+		run := seedRun(t, srv, repoID, "1", 0, 5)
+		seedJobStep(t, srv, run.ID, "100", "test", "failure")
+
+		otherRepoID := seedOtherRepo(t, srv)
+		otherRun := seedRun(t, srv, otherRepoID, "2", 10, 5)
+		seedJobStep(t, srv, otherRun.ID, "200", "test", "failure")
+
+		firstPage := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/steps/unhealthy?limit=1&offset=0", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, firstPage)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got unhealthyStepsResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.True(t, got.HasMore)
+		require.Len(t, got.Groups, 1)
+
+		secondPage := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/steps/unhealthy?limit=1&offset=1", nil))
+		rec = httptest.NewRecorder()
+		srv.ServeHTTP(rec, secondPage)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		got = unhealthyStepsResponse{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.False(t, got.HasMore)
+		require.Len(t, got.Groups, 1)
 	})
 }
 

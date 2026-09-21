@@ -253,13 +253,20 @@ type pipelineStepsGroupDTO struct {
 	Steps        []stepDTO `json:"steps"`
 }
 
-// unhealthySteps returns every flaky or failing step across every tracked
-// pipeline, grouped by pipeline -- the cross-pipeline counterpart to steps,
-// which is scoped to one pipeline.
+type pipelineStepsGroupListDTO struct {
+	Groups  []pipelineStepsGroupDTO `json:"groups"`
+	HasMore bool                    `json:"hasMore"`
+}
+
+// unhealthySteps returns a page of pipelines with a flaky or failing step,
+// grouped by pipeline -- the cross-pipeline counterpart to steps, which is
+// scoped to one pipeline.
 func (h *pipelinesHandler) unhealthySteps(w http.ResponseWriter, r *http.Request) {
 	window := metrics.ParseWindow(r.URL.Query().Get("window"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	groups, err := h.service.ListUnhealthySteps(r.Context(), window)
+	groups, hasMore, err := h.service.ListUnhealthySteps(r.Context(), window, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "list unhealthy steps")
 
@@ -282,7 +289,7 @@ func (h *pipelinesHandler) unhealthySteps(w http.ResponseWriter, r *http.Request
 		})
 	}
 
-	writeJSON(w, http.StatusOK, dtos)
+	writeJSON(w, http.StatusOK, pipelineStepsGroupListDTO{Groups: dtos, HasMore: hasMore})
 }
 
 type usageEntryDTO struct {

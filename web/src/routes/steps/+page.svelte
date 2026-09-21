@@ -4,6 +4,7 @@ import HistoryIcon from '@lucide/svelte/icons/history';
 import { onMount } from 'svelte';
 import ForgeFilter from '$lib/components/ForgeFilter.svelte';
 import { Badge } from '$lib/components/ui/badge/index.js';
+import { Button } from '$lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -52,6 +53,14 @@ interface RepoGroup {
 	pipelines: PipelineStepsGroup[];
 }
 
+interface UnhealthyStepsResponse {
+	groups: PipelineStepsGroup[];
+	hasMore: boolean;
+}
+
+// Mirrors the Pipelines page's PAGE_SIZE (#250).
+const PAGE_SIZE = 20;
+
 const FORGE_LABELS: Record<string, string> = {
 	github: 'GitHub',
 	forgejo: 'Forgejo',
@@ -60,12 +69,18 @@ const FORGE_LABELS: Record<string, string> = {
 let groups = $state<PipelineStepsGroup[] | null>(null);
 let repos = $state<Repo[] | null>(null);
 let error = $state<string | null>(null);
+let offset = $state(0);
+let hasMore = $state(false);
 
 const repoById = $derived(new Map((repos ?? []).map((r) => [r.id, r])));
 
-// Same client-side forge filter as the Pipelines list (#140), shared across
-// both pages -- this page's fetch is unpaginated too, so there's no server
-// round trip to save by pushing it down.
+// The forge filter stays client-side, unlike the Pipelines page's own
+// (#250) -- there's no repos.forge join to push it into here, since
+// pagination happens after per-pipeline step aggregation in Go, not in
+// SQL (design.md's "Paginate the computed result, not the candidate
+// fetch"). Applied to the current page's groups only, so a filter change
+// can show fewer results than a full page, or none, even when a matching
+// pipeline exists on another page.
 const forgeFilteredGroups = $derived.by(() => {
 	const filter = getForgeFilter();
 	if (filter === 'all' || !groups) return groups;
@@ -100,14 +115,21 @@ const groupedByRepo = $derived.by(() => {
 
 async function loadUnhealthySteps(): Promise<void> {
 	try {
-		const res = await fetch('/api/steps/unhealthy');
+		const params = new URLSearchParams({
+			limit: String(PAGE_SIZE),
+			offset: String(offset),
+		});
+
+		const res = await fetch(`/api/steps/unhealthy?${params}`);
 		if (!res.ok) {
 			error = 'Could not load unhealthy steps.';
 
 			return;
 		}
 
-		groups = await res.json();
+		const body: UnhealthyStepsResponse = await res.json();
+		groups = body.groups;
+		hasMore = body.hasMore;
 	} catch {
 		error = 'Could not reach the server.';
 	}
@@ -125,8 +147,38 @@ async function loadRepos(): Promise<void> {
 	}
 }
 
-onMount(() => {
+function goToPreviousPage(): void {
+	offset = Math.max(0, offset - PAGE_SIZE);
+}
+
+function goToNextPage(): void {
+	if (!hasMore) return;
+
+	offset += PAGE_SIZE;
+}
+
+// A real change to the forge filter (not just re-running for some other
+// reason) resets the page -- changing it with the reader on page 2+
+// shouldn't leave them on an offset the newly-filtered result set might
+// not even reach. Same reasoning as the Pipelines page's identically
+// shaped effect.
+let previousForgeFilter: ReturnType<typeof getForgeFilter> | undefined;
+
+$effect(() => {
+	const filter = getForgeFilter();
+
+	if (filter !== previousForgeFilter) {
+		previousForgeFilter = filter;
+		offset = 0;
+	}
+});
+
+$effect(() => {
+	offset;
 	loadUnhealthySteps();
+});
+
+onMount(() => {
 	loadRepos();
 });
 </script>
@@ -147,8 +199,10 @@ onMount(() => {
 		<p class="mt-6 text-muted-foreground">Loading…</p>
 	{:else if forgeFilteredGroups?.length === 0}
 		<p class="mt-6 text-muted-foreground">
-			{#if groups.length === 0}
+			{#if groups.length === 0 && offset === 0}
 				No flaky or failing steps right now.
+			{:else if groups.length === 0}
+				No flaky or failing steps on this page.
 			{:else}
 				No unhealthy steps match the selected forge filter.
 			{/if}
@@ -243,6 +297,15 @@ onMount(() => {
 					</div>
 				</section>
 			{/each}
+		</div>
+
+		<div class="mt-6 flex items-center justify-between gap-4">
+			<Button variant="outline" size="sm" disabled={offset === 0} onclick={goToPreviousPage}>
+				Previous
+			</Button>
+			<Button variant="outline" size="sm" disabled={!hasMore} onclick={goToNextPage}>
+				Next
+			</Button>
 		</div>
 	{/if}
 </main>
