@@ -1,5 +1,12 @@
 node_modules/
 web/node_modules/
+web/.svelte-kit/
+web/build/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/coverage/
+web/reports/
 CHANGELOG.md
 openspec/changes/
 openspec/specs/
