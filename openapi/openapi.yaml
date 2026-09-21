@@ -344,21 +344,22 @@ paths:
   /api/steps/unhealthy:
     get:
       operationId: listUnhealthySteps
-      summary: Every flaky or failing step across every tracked pipeline, grouped by pipeline
+      summary: A page of pipelines with a flaky or failing step, grouped by pipeline
       tags: [pipelines]
       parameters:
         - $ref: "#/components/parameters/Window"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
         "200":
           description: >
-            One entry per pipeline with at least one flaky or failing step; a
+            A page of pipeline groups, ordered by (repoId, pipelineName), one
+            entry per pipeline with at least one flaky or failing step; a
             fully healthy pipeline contributes nothing.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PipelineStepsGroup"
+                $ref: "#/components/schemas/UnhealthyStepsList"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -1183,6 +1184,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Step"
+
+    UnhealthyStepsList:
+      type: object
+      required: [groups, hasMore]
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStepsGroup"
+        hasMore:
+          type: boolean
+          description: True when pipeline groups beyond this page have an unhealthy step. Always false when limit was omitted.
 
     FlakyRun:
       type: object
