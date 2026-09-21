@@ -14,12 +14,15 @@ export interface ServerSettings {
 // Used by +layout.ts's load(), which supplies SvelteKit's own fetch (so
 // this participates in the same request dedup/credentials handling as the
 // rest of that load call) -- defaults to the global fetch for every other
-// caller (a user-triggered patch, not a load).
+// caller (a user-triggered patch, not a load). `signal` lets a caller bound
+// how long it's willing to wait (#251) -- an aborted request rejects, which
+// the catch below already treats the same as any other failed fetch.
 export async function fetchSettings(
 	fetchFn: typeof fetch = fetch,
+	signal?: AbortSignal,
 ): Promise<ServerSettings | null> {
 	try {
-		const res = await fetchFn('/api/settings');
+		const res = await fetchFn('/api/settings', { signal });
 		if (!res.ok) return null;
 
 		return (await res.json()) as ServerSettings;

@@ -10,6 +10,19 @@ import type { LayoutLoad } from './$types';
 // build time.
 export const ssr = false;
 
+// #251: this load() gates the ENTIRE client-side render -- ssr is off, so
+// nothing (not even the nav) mounts until it resolves. A `fetch()` with no
+// timeout is an unbounded wait on the caller's side of that gate: under
+// heavy concurrent load (confirmed via a captured trace: repeated parallel
+// e2e workers, each running its own full server, occasionally left a
+// single GET taking far longer than normal, with no server error and no
+// dropped connection -- just no response for tens of seconds) the whole
+// page stayed blank forever, because there was nothing to time out on.
+// Bounding both calls and falling back to a safe default on abort -- same
+// as fetchSettings already does for any other failure -- means a stalled
+// backend degrades this navigation instead of freezing it.
+const REQUEST_TIMEOUT_MS = 8_000;
+
 // The server gates every route except login/registration with a session
 // check that returns a JSON 401, not a server-side redirect (design.md's
 // SPA-fallback decision) -- this load function is the client-side redirect
@@ -33,18 +46,24 @@ export const load: LayoutLoad = async ({ url, fetch }) => {
 		return { hasRepos: false, settings: null };
 	}
 
+	const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
 	// limit=1: this call only needs to know whether any repo exists at all,
-	// not fetch the page a user is looking at.
+	// not fetch the page a user is looking at. A timed-out/aborted repos
+	// check can't tell a real 401 from a stalled backend, so it falls back
+	// to `hasRepos: false` rather than guessing -- the same trade-off
+	// fetchSettings already makes for its own failures, and the next real
+	// navigation re-checks properly either way.
 	const [reposRes, settings] = await Promise.all([
-		fetch('/api/repos?limit=1'),
-		fetchSettings(fetch),
+		fetch('/api/repos?limit=1', { signal }).catch(() => null),
+		fetchSettings(fetch, signal),
 	]);
 
-	if (reposRes.status === 401) {
+	if (reposRes?.status === 401) {
 		redirect(302, '/login');
 	}
 
-	if (!reposRes.ok) {
+	if (!reposRes?.ok) {
 		return { hasRepos: false, settings };
 	}
 
