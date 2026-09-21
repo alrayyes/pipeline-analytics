@@ -1038,26 +1038,30 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// Cross-pipeline unhealthy-steps overview (#150) -- the same per-step
 	// health the pipeline detail page's own Steps table shows, aggregated
 	// across every tracked pipeline instead of scoped to one.
-	await page.route('**/api/steps/unhealthy', (route) =>
+	await page.route('**/api/steps/unhealthy*', (route) =>
 		route.fulfill({
-			json: [
-				{
-					pipelineId: 'unhealthy-1',
-					pipelineName: 'Deploy',
-					repoId: 'repo-1',
-					steps: [
-						{
-							id: 'step-2',
-							name: 'flaky integration test',
-							durationContributionSeconds: 120,
-							failureRate: 0.3,
-							failureCount: 3,
-							flaky: true,
-							forgeUrl: 'https://forge.example/owner/repo/actions/runs/1/job/2',
-						},
-					],
-				},
-			],
+			json: {
+				groups: [
+					{
+						pipelineId: 'unhealthy-1',
+						pipelineName: 'Deploy',
+						repoId: 'repo-1',
+						steps: [
+							{
+								id: 'step-2',
+								name: 'flaky integration test',
+								durationContributionSeconds: 120,
+								failureRate: 0.3,
+								failureCount: 3,
+								flaky: true,
+								forgeUrl:
+									'https://forge.example/owner/repo/actions/runs/1/job/2',
+							},
+						],
+					},
+				],
+				hasMore: false,
+			},
 		}),
 	);
 	await page.getByRole('link', { name: 'Steps' }).click();
@@ -1072,6 +1076,119 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.withTags(a11yTags)
 		.analyze();
 	expect(stepsOverviewScan.violations).toEqual([]);
+
+	// Pagination (#244): a mocked page-and-a-bit of unhealthy pipeline
+	// groups so Previous/Next have two real pages to move between, without
+	// ingesting 21 pipelines' worth of real failing runs to get there for
+	// real. All on repo-1, same as the Pipelines page's own pagination
+	// fixture -- this only exercises Previous/Next and the forge-filter
+	// reset, not filtered output.
+	//
+	// The Steps page's forge filter is client-side (design.md's scoping
+	// decision), so it needs real repos data to resolve repo-1's forge --
+	// unlike the mocks elsewhere in this journey that lean on repo-1 still
+	// meaning something to the real backend, this needs its own **/api/repos*
+	// mock since that route was unrouted back at the grouping section above.
+	await page.route('**/api/repos*', (route) =>
+		route.fulfill({
+			json: {
+				repos: [
+					{ id: 'repo-1', forge: 'github', identifier: 'alrayyes/demo-repo' },
+				],
+				hasMore: false,
+			},
+		}),
+	);
+	const paginatedGroups = Array.from({ length: 21 }, (_, i) => ({
+		pipelineId: `page-pipeline-${i}`,
+		pipelineName: `pipeline-${i}`,
+		repoId: 'repo-1',
+		steps: [
+			{
+				id: `step-${i}`,
+				name: 'flaky integration test',
+				durationContributionSeconds: 120,
+				failureRate: 0.3,
+				failureCount: 3,
+				flaky: true,
+			},
+		],
+	}));
+	await page.route('**/api/steps/unhealthy*', (route) => {
+		const url = new URL(route.request().url());
+		const limit = Number(url.searchParams.get('limit') ?? '20');
+		const offset = Number(url.searchParams.get('offset') ?? '0');
+		const pageGroups = paginatedGroups.slice(offset, offset + limit);
+
+		return route.fulfill({
+			json: {
+				groups: pageGroups,
+				hasMore: offset + limit < paginatedGroups.length,
+			},
+		});
+	});
+	await page.reload();
+
+	await expect(page.getByRole('heading', { name: 'pipeline-0' })).toBeVisible();
+	await expect(previousPageButton).toBeDisabled();
+	await expect(nextPageButton).toBeEnabled();
+
+	await nextPageButton.click();
+	await expect(
+		page.getByRole('heading', { name: 'pipeline-20' }),
+	).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'pipeline-0' }),
+	).not.toBeVisible();
+	await expect(previousPageButton).toBeEnabled();
+	await expect(nextPageButton).toBeDisabled();
+
+	// Changing the forge filter resets the page back to 1, rather than
+	// re-requesting page 2 of a now-different filtered result set. The
+	// filter itself stays client-side here (design.md's scoping decision),
+	// so the reset is what this actually proves, not a re-filtered fetch.
+	const stepsForgeFilter = page.getByRole('radiogroup', {
+		name: 'Filter by forge',
+	});
+	await stepsForgeFilter.getByRole('radio', { name: 'GitHub' }).click();
+	await expect(page.getByRole('heading', { name: 'pipeline-0' })).toBeVisible();
+	await expect(previousPageButton).toBeDisabled();
+	await stepsForgeFilter.getByRole('radio', { name: 'All' }).click();
+
+	// Restore the single-group fixture the flaky-runs drill-down below
+	// expects, and drop the repos mock this section added so the rest of
+	// the journey stays on the real, unmocked backend data the grouping
+	// section above switched to.
+	await page.unroute('**/api/repos*');
+	await page.unroute('**/api/steps/unhealthy*');
+	await page.route('**/api/steps/unhealthy*', (route) =>
+		route.fulfill({
+			json: {
+				groups: [
+					{
+						pipelineId: 'unhealthy-1',
+						pipelineName: 'Deploy',
+						repoId: 'repo-1',
+						steps: [
+							{
+								id: 'step-2',
+								name: 'flaky integration test',
+								durationContributionSeconds: 120,
+								failureRate: 0.3,
+								failureCount: 3,
+								flaky: true,
+								forgeUrl:
+									'https://forge.example/owner/repo/actions/runs/1/job/2',
+							},
+						],
+					},
+				],
+				hasMore: false,
+			},
+		}),
+	);
+	await page.reload();
+	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
 
 	// Same fix as the pipeline detail page's own Steps table (#216): a
 	// flaky step here drills into its failed runs too, not a raw forge link.
@@ -1089,7 +1206,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1$/);
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
 	await expect(page).toHaveURL('/');
-	await page.unroute('**/api/steps/unhealthy');
+	await page.unroute('**/api/steps/unhealthy*');
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
 	await expect(page).toHaveURL('/');
 

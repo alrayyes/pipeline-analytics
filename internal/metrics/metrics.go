@@ -436,13 +436,18 @@ type PipelineStepsGroup struct {
 	Steps        []Step
 }
 
-// ListUnhealthySteps returns every flaky or failing step across every
-// tracked pipeline, grouped by pipeline. A pipeline with no such step
-// contributes nothing to the result.
-func (s *Service) ListUnhealthySteps(ctx context.Context, window Window) ([]PipelineStepsGroup, error) {
+// ListUnhealthySteps returns a page of pipeline groups with at least one
+// flaky or failing step, ordered by (RepoID, PipelineName). A pipeline
+// with no such step contributes nothing to the result, so pagination
+// applies to the groups this produces, not to the candidate pipeline set
+// it computes them from -- "has an unhealthy step" only exists once every
+// candidate's steps are aggregated, unlike ListPipelines' own filters,
+// which are plain column matches pushed into SQL. limit <= 0 returns
+// every group, unpaginated, and hasMore is always false in that case.
+func (s *Service) ListUnhealthySteps(ctx context.Context, window Window, limit, offset int) ([]PipelineStepsGroup, bool, error) {
 	refs, _, err := s.store.ListPipelines(ctx, PipelineListFilter{})
 	if err != nil {
-		return nil, fmt.Errorf("list pipelines: %w", err)
+		return nil, false, fmt.Errorf("list pipelines: %w", err)
 	}
 
 	var groups []PipelineStepsGroup
@@ -450,7 +455,7 @@ func (s *Service) ListUnhealthySteps(ctx context.Context, window Window) ([]Pipe
 	for _, ref := range refs {
 		occurrences, err := s.store.PipelineSteps(ctx, ref, window)
 		if err != nil {
-			return nil, fmt.Errorf("load steps for %s: %w", ref.Name, err)
+			return nil, false, fmt.Errorf("load steps for %s: %w", ref.Name, err)
 		}
 
 		var unhealthy []Step
@@ -472,7 +477,15 @@ func (s *Service) ListUnhealthySteps(ctx context.Context, window Window) ([]Pipe
 		})
 	}
 
-	return groups, nil
+	if limit <= 0 {
+		return groups, false, nil
+	}
+
+	start := min(offset, len(groups))
+	end := min(start+limit, len(groups))
+	hasMore := len(groups) > start+limit
+
+	return groups[start:end], hasMore, nil
 }
 
 // GetRepoUsage returns a repo's runner-minutes usage, broken down by
