@@ -119,6 +119,10 @@ pre-push:
       root: "web/"
       glob: "web/**/*"
       run: bun run lint
+    frontend-lint-tailwind:
+      root: "web/"
+      glob: "web/**/*"
+      run: bun run lint:tailwind
     frontend-test:
       root: "web/"
       glob: "web/**/*"
