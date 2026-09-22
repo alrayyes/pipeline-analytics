@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.41.1...v0.41.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **docs:** serve the spec alongside the Stoplight Elements page ([#281](https://github.com/alrayyes/pipeline-analytics/issues/281)) ([af3e5b5](https://github.com/alrayyes/pipeline-analytics/commit/af3e5b52813c6588d9b7204906ecec806f51b6bd))
+
 ## [0.41.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.41.0...v0.41.1) (2026-09-21)
 
 
