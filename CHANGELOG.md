@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.42.1...v0.42.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **hooks:** gate vale in pre-push, matching CI's style job ([#291](https://github.com/alrayyes/pipeline-analytics/issues/291)) ([96b176e](https://github.com/alrayyes/pipeline-analytics/commit/96b176e084f47c6dede8867f4b1ac18e48f60aeb))
+
 ## [0.42.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.42.0...v0.42.1) (2026-09-22)
 
 
