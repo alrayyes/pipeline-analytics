@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.42.0...v0.42.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **scripts:** match query strings and the real envelope in the pipelines mock ([#289](https://github.com/alrayyes/pipeline-analytics/issues/289)) ([76f3c57](https://github.com/alrayyes/pipeline-analytics/commit/76f3c570bcc1159c3ae1bd5279fcca58b835bfc1))
+
 ## [0.42.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.41.3...v0.42.0) (2026-09-22)
 
 
