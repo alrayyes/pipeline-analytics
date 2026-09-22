@@ -253,3 +253,35 @@ jobs:
           go-version-file: go.mod
       - run: go build -o pipeline-analytics ./cmd/pipeline-analytics
       - run: docker build -t pipeline-analytics:ci .
+
+  # Publishes docs/api/index.html (Stoplight Elements, rendering the same
+  # spec api-spec just linted) to GitHub Pages. `needs: api-spec` only
+  # works because both jobs live in this one workflow -- Actions has no
+  # cross-workflow `needs`, so a separate workflow file here could only
+  # fake the dependency with workflow_run, which doesn't block a bad spec
+  # the way a real needs: does. web/ deploys nowhere (this binary
+  # go:embeds it and serves it itself, ARCHITECTURE.md), so there's
+  # nothing else on Pages to collide with.
+  pages-deploy:
+    name: deploy API docs
+    needs: api-spec
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/api/
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
