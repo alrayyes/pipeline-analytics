@@ -40,3 +40,4 @@ dashboard-ui
 forge-ingestion
 pipeline-metrics
 dashboard-auth
+browsable
