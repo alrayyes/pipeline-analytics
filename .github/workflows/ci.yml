@@ -280,6 +280,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # docs/api/ is the whole Pages artifact root, so the spec has to be
+      # staged inside it -- apiDescriptionUrl is resolved against the
+      # deployed URL, not the repo's on-disk layout, and openapi/openapi.yaml
+      # lives outside docs/api/ on disk.
+      - run: cp openapi/openapi.yaml docs/api/openapi.yaml
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/api/

@@ -5,3 +5,6 @@ coverage.out
 # Vale's synced style packages -- fetched by `vale sync`, not committed.
 styles/Google/
 styles/proselint/
+
+# Staged into the Pages artifact by ci.yml's pages-deploy job, not committed.
+docs/api/openapi.yaml

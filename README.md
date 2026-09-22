@@ -140,6 +140,11 @@ interactive CLI a human persists a preference for:
   and each repo discovery request — useful when a repo's stuck at
   "degraded" and the reason isn't obvious from the dashboard alone.
 
+## API
+
+Browsable docs generated from [`openapi/openapi.yaml`](openapi/openapi.yaml):
+<https://alrayyes.github.io/pipeline-analytics/>.
+
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it's put together and the
