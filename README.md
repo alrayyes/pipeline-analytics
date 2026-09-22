@@ -142,8 +142,8 @@ interactive CLI a human persists a preference for:
 
 ## API
 
-Browsable docs generated from [`openapi/openapi.yaml`](openapi/openapi.yaml):
-<https://alrayyes.github.io/pipeline-analytics/>.
+Docs generated from [`openapi/openapi.yaml`](openapi/openapi.yaml), browsable
+at <https://alrayyes.github.io/pipeline-analytics/>.
 
 ## Architecture
 
