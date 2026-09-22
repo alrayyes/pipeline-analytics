@@ -158,3 +158,9 @@ pre-push:
         ghcr.io/alrayyes/ltex-cli-plus@sha256:00c30809802234d6c43b0ce0b295075bd0aff9c576aaba57433bc8baf314398c
         --client-configuration=/data/.ltex.json
         README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md openspec/specs
+    # Blocks here, unlike pre-commit's advisory `|| true` copy above --
+    # matches CI's own style job (linting.md: hook and CI run the same
+    # commands so they can't drift), same file list and all.
+    prose-style:
+      glob: "*.md"
+      run: vale sync && vale README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md
