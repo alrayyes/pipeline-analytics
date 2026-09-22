@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.41.3...v0.42.0) (2026-09-22)
+
+
+### Features
+
+* **web:** lint Tailwind class usage with @shadcn/lint via Oxlint ([#287](https://github.com/alrayyes/pipeline-analytics/issues/287)) ([234ddfe](https://github.com/alrayyes/pipeline-analytics/commit/234ddfe06ecad9ba47d26deeb974ed77fa01d4ea))
+
 ## [0.41.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.41.2...v0.41.3) (2026-09-22)
 
 
