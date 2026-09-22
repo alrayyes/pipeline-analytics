@@ -34,24 +34,39 @@ await page.getByRole('button', { name: 'Register your passkey' }).click();
 await page.waitForURL(BASE_URL + '/');
 
 // -- Overview --
-await page.route('**/api/pipelines', (route) =>
+// The trailing `*` matters: the real fetch is `/api/pipelines?${params}`
+// (see +page.svelte), and a glob with no wildcard after the literal path
+// only matches a URL that ends exactly there -- a query string means it
+// never matches, the mock never intercepts, and the real (empty) backend
+// answers instead. Confirmed live: the Go server's own access log showed
+// a real /api/pipelines request reaching it after this route was
+// registered, meaning nothing was mocking it at all.
+// Envelope shape, not a bare array -- the frontend reads `body.pipelines`
+// and `body.hasMore` (PipelineListResponse). A bare array left
+// `body.pipelines` undefined and crashed downstream with "Cannot read
+// properties of undefined (reading 'length')", confirmed live via a
+// pageerror listener once the glob fix above stopped masking it.
+await page.route('**/api/pipelines*', (route) =>
 	route.fulfill({
-		json: [
-			{ id: 'ci', repoId: 'repo-1', name: 'CI', healthStatus: 'healthy' },
-			{
-				id: 'deploy',
-				repoId: 'repo-1',
-				name: 'Deploy',
-				healthStatus: 'unhealthy',
-				triggeredSignals: ['duration_regression', 'flaky_step'],
-			},
-			{
-				id: 'nightly',
-				repoId: 'repo-1',
-				name: 'Nightly',
-				healthStatus: 'healthy',
-			},
-		],
+		json: {
+			pipelines: [
+				{ id: 'ci', repoId: 'repo-1', name: 'CI', healthStatus: 'healthy' },
+				{
+					id: 'deploy',
+					repoId: 'repo-1',
+					name: 'Deploy',
+					healthStatus: 'unhealthy',
+					triggeredSignals: ['duration_regression', 'flaky_step'],
+				},
+				{
+					id: 'nightly',
+					repoId: 'repo-1',
+					name: 'Nightly',
+					healthStatus: 'healthy',
+				},
+			],
+			hasMore: false,
+		},
 	}),
 );
 await page.reload();
