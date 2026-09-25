@@ -33,6 +33,13 @@ var ErrUnexpectedStatus = errors.New("unexpected status")
 type Client struct {
 	baseURL *url.URL
 
+	// httpClient is conditionalGet's transport, owned by this Client
+	// rather than http.DefaultClient -- see #305: sharing the global
+	// default client meant an unrelated parallel test's httptest.Server
+	// closing could break an in-flight request through this Client, since
+	// Server.Close calls http.DefaultTransport.CloseIdleConnections.
+	httpClient *http.Client
+
 	// rateLimitsMu guards rateLimits, keyed by token -- reconciliation
 	// polling and the registration UI's discover/webhook calls can run
 	// concurrently against the same shared Client.
@@ -44,7 +51,7 @@ type Client struct {
 // (for tests against a fake server); pass "" to use the real GitHub API.
 func NewClient(baseURL string) (*Client, error) {
 	if baseURL == "" {
-		return &Client{}, nil
+		return &Client{httpClient: &http.Client{}}, nil
 	}
 
 	u, err := url.Parse(baseURL)
@@ -52,7 +59,7 @@ func NewClient(baseURL string) (*Client, error) {
 		return nil, fmt.Errorf("parse base url: %w", err)
 	}
 
-	return &Client{baseURL: u}, nil
+	return &Client{baseURL: u, httpClient: &http.Client{}}, nil
 }
 
 // CreateWebhook implements ingestion.ForgeClient.
@@ -324,7 +331,7 @@ func (c *Client) conditionalGet(ctx context.Context, url, token, ifNoneMatch str
 		httpReq.Header.Set("If-None-Match", ifNoneMatch)
 	}
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return "", false, fmt.Errorf("request %s: %w", url, err)
 	}

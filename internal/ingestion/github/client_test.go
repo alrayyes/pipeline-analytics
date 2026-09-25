@@ -2,6 +2,7 @@ package github_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// errDefaultClientUsed is returned by a roundTripFunc standing in for
+// http.DefaultClient's transport, so a test can prove a Client never
+// reaches it.
+var errDefaultClientUsed = errors.New("http.DefaultClient must not be used")
+
+// roundTripFunc adapts a plain function to http.RoundTripper, so a test
+// can stand in for the transport without a fake server.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
 
 func TestClient_CreateWebhook(t *testing.T) {
 	t.Parallel()
@@ -225,6 +239,51 @@ func TestClient_ListRecentRuns(t *testing.T) {
 		_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{Identifier: "alrayyes/pipeline-analytics", Token: "ghp_test"})
 		require.Error(t, err)
 	})
+}
+
+// TestClient_ConditionalGetDoesNotUseGlobalDefaultHTTPClient guards
+// against the bug in #305: conditionalGet (ListRecentRuns' transport) used
+// to call http.DefaultClient.Do directly, sharing one connection pool
+// with every other package's tests. httptest.Server.Close calls
+// http.DefaultTransport.CloseIdleConnections as a courtesy to callers of
+// the default client, so a parallel test's server shutting down could
+// break an unrelated in-flight request through the *same* global
+// transport -- intermittently, since it depends on timing.
+//
+// Not run with t.Parallel(): it swaps the package-level http.DefaultClient
+// for the duration of the test, which would race any test sharing it. Go
+// runs every non-parallel top-level test to completion, restoring
+// DefaultClient included, before any t.Parallel() test in this binary
+// starts, so this is safe alongside the parallel tests above.
+func TestClient_ConditionalGetDoesNotUseGlobalDefaultHTTPClient(t *testing.T) {
+	originalDefaultClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, errDefaultClientUsed
+		}),
+	}
+	t.Cleanup(func() { http.DefaultClient = originalDefaultClient })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/alrayyes/pipeline-analytics/actions/runs":
+			w.Header().Set("ETag", `"v1"`)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"workflow_runs": []}`))
+		default:
+			t.Errorf("unexpected request path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client, err := ghclient.NewClient(server.URL + "/")
+	require.NoError(t, err)
+
+	_, err = client.ListRecentRuns(context.Background(), ingestion.ListRunsRequest{
+		Identifier: "alrayyes/pipeline-analytics",
+		Token:      "ghp_test",
+	})
+	require.NoError(t, err)
 }
 
 // TestClient_ListRecentRuns_KnownRuns covers the per-run skip-refetch
