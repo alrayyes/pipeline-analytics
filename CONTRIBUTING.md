@@ -28,6 +28,14 @@ The frontend has to build first — `web/vite.config.ts`'s adapter writes
 straight into `internal/webassets/dist`, which the Go binary embeds via
 `go:embed`.
 
+The dashboard also registers three read-only
+[WebMCP](https://github.com/webmachinelearning/webmcp) tools
+(`list_pipelines`, `get_pipeline`, `get_repo_usage`) on mount, so an
+in-browser agent sharing the page can read the same data it renders. This
+is feature-detected (`web/src/lib/webmcpTools.ts`) and safe to ignore —
+WebMCP is a pre-stable draft with no browser shipping it stably yet, and
+registration is a no-op everywhere else.
+
 ## Testing and linting
 
 Go:

@@ -34,7 +34,8 @@
 			"pipeline-metrics",
 			"dashboard-auth",
 			"ETag",
-			"radiogroup"
+			"radiogroup",
+			"WebMCP"
 		]
 	},
 	"ltex.disabledRules": {

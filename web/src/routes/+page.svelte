@@ -21,6 +21,14 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from '$lib/components/ui/toggle-group/index.js';
+import {
+	ApiError,
+	fetchPipelines,
+	fetchRepos,
+	type PipelineGroup,
+	type PipelineSummary,
+	type Repo,
+} from '$lib/dashboardApi.js';
 import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
 import {
 	getHealthFilter,
@@ -35,33 +43,6 @@ import {
 	setSortBy,
 } from '$lib/pipelinesFilters.svelte.js';
 import { formatRelativeTime } from '$lib/relativeTime.js';
-
-interface PipelineSummary {
-	id: string;
-	repoId: string;
-	name: string;
-	healthStatus: 'healthy' | 'unhealthy';
-	triggeredSignals?: string[];
-	lastRunAt?: string;
-}
-
-interface Repo {
-	id: string;
-	forge: 'github' | 'forgejo';
-	identifier: string;
-}
-
-interface PipelineGroup {
-	repoId: string;
-	label: string;
-	forge?: 'github' | 'forgejo';
-	pipelines: PipelineSummary[];
-}
-
-interface PipelineListResponse {
-	pipelines: PipelineSummary[];
-	hasMore: boolean;
-}
 
 // Mirrors the Repos page's PAGE_SIZE (#165/#166).
 const PAGE_SIZE = 20;
@@ -159,41 +140,35 @@ const groupedPipelines = $derived.by(() => {
 
 async function loadPipelines(): Promise<void> {
 	try {
-		const params = new URLSearchParams({
-			limit: String(PAGE_SIZE),
-			offset: String(offset),
-		});
+		const params: {
+			limit: number;
+			offset: number;
+			forge?: 'github' | 'forgejo';
+			repoId?: string;
+		} = {
+			limit: PAGE_SIZE,
+			offset,
+		};
 
 		const filter = getForgeFilter();
-		if (filter !== 'all') params.set('forge', filter);
+		if (filter !== 'all') params.forge = filter;
 
 		const selectedRepoId = getRepoSelector();
-		if (selectedRepoId !== 'all') params.set('repoId', selectedRepoId);
+		if (selectedRepoId !== 'all') params.repoId = selectedRepoId;
 
-		const res = await fetch(`/api/pipelines?${params}`);
-		if (!res.ok) {
-			error = 'Could not load pipelines.';
-			return;
-		}
-
-		const body: PipelineListResponse = await res.json();
+		const body = await fetchPipelines(params);
 		pipelines = body.pipelines;
 		hasMore = body.hasMore;
-	} catch {
-		error = 'Could not reach the server.';
+	} catch (e) {
+		error =
+			e instanceof ApiError
+				? 'Could not load pipelines.'
+				: 'Could not reach the server.';
 	}
 }
 
 async function loadRepos(): Promise<void> {
-	try {
-		const res = await fetch('/api/repos');
-		if (!res.ok) return;
-
-		const body: { repos: Repo[] } = await res.json();
-		repos = body.repos;
-	} catch {
-		// Best effort -- grouping still works, just with repoId as the label.
-	}
+	repos = await fetchRepos();
 }
 
 function goToPreviousPage(): void {
