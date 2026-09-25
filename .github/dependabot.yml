@@ -4,14 +4,26 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      # Ships in the binary - a bump here is a change to what ships whether
+      # or not it's security-relevant, so fix: cuts a patch the same way
+      # any other fix does (rules/releases.md). github-actions below stays
+      # ci: - it changes the pipeline, not the artifact.
+      prefix: fix
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: ci
   - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      # The redocly-only root package.json - spec-linting tooling, nothing
+      # shipped.
+      prefix: chore
   # The redocly-only root package.json has its own entry above; the real
   # frontend (SvelteKit, shadcn-svelte, LayerChart, Playwright, ...) lives
   # in web/ and was otherwise invisible to Dependabot.
@@ -19,9 +31,19 @@ updates:
     directory: /web
     schedule:
       interval: weekly
+    commit-message:
+      # This directory's package.json mixes real runtime UI dependencies
+      # that ship in the embedded frontend (SvelteKit, shadcn-svelte,
+      # LayerChart) with dev-only tooling (Playwright) that doesn't -
+      # prefix-development splits them the same way washy-washy-cli/web do.
+      prefix: fix
+      prefix-development: chore
   # The Dockerfile's pinned alpine base image otherwise has no bot watching
   # it -- dependencies.md.
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      # Ships in the published container.
+      prefix: fix
