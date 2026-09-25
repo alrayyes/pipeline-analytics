@@ -66,7 +66,27 @@ func New(deps Deps) http.Handler {
 	insights := &insightsHandler{repos: deps.IngestionStore, rateLimits: deps.GitHubRateLimits}
 	mux.HandleFunc("GET /api/insights/github-rate-limit", insights.githubRateLimit)
 
-	authH := &authHandler{service: deps.Auth}
+	registerAuthRoutes(mux, &authHandler{service: deps.Auth})
+
+	settingsH := &settingsHandler{service: deps.Settings}
+	mux.HandleFunc("GET /api/settings", settingsH.get)
+	mux.HandleFunc("PATCH /api/settings", settingsH.patch)
+
+	mux.Handle("/api/mcp", newMCPHandler(deps))
+
+	webhooks := &webhooksHandler{store: deps.RunStore, reconciler: deps.Reconciler}
+	mux.HandleFunc("POST /webhooks/github", webhooks.github)
+	mux.HandleFunc("POST /webhooks/forgejo", webhooks.forgejo)
+
+	mux.Handle("/", staticHandler(deps.Assets))
+
+	return requestLogger(requireSession(deps.AuthStore, mux))
+}
+
+// registerAuthRoutes wires every WebAuthn, token, and credential route --
+// split out of New so that function's own route wiring stays under
+// funlen's statement limit as the route list grows.
+func registerAuthRoutes(mux *http.ServeMux, authH *authHandler) {
 	mux.HandleFunc("POST /api/auth/register/options", authH.registerOptions)
 	mux.HandleFunc("POST /api/auth/register", authH.register)
 	mux.HandleFunc("POST /api/auth/login/options", authH.loginOptions)
@@ -78,16 +98,4 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("POST /api/auth/credentials", authH.addCredential)
 	mux.HandleFunc("GET /api/auth/credentials", authH.listCredentials)
 	mux.HandleFunc("DELETE /api/auth/credentials/{credentialId}", authH.revokeCredential)
-
-	settingsH := &settingsHandler{service: deps.Settings}
-	mux.HandleFunc("GET /api/settings", settingsH.get)
-	mux.HandleFunc("PATCH /api/settings", settingsH.patch)
-
-	webhooks := &webhooksHandler{store: deps.RunStore, reconciler: deps.Reconciler}
-	mux.HandleFunc("POST /webhooks/github", webhooks.github)
-	mux.HandleFunc("POST /webhooks/forgejo", webhooks.forgejo)
-
-	mux.Handle("/", staticHandler(deps.Assets))
-
-	return requestLogger(requireSession(deps.AuthStore, mux))
 }
