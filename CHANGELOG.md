@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.43.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.42.2...v0.43.0) (2026-09-25)
+
+
+### Features
+
+* **mcp:** serve pipeline metrics as MCP tools over /api/mcp ([#304](https://github.com/alrayyes/pipeline-analytics/issues/304)) ([b5611b6](https://github.com/alrayyes/pipeline-analytics/commit/b5611b6f7dfcd1e8b911a32572336084a62eec84))
+
+
+### Bug Fixes
+
+* bump github.com/go-webauthn/webauthn from 0.18.1 to 0.18.2 ([#302](https://github.com/alrayyes/pipeline-analytics/issues/302)) ([bd96274](https://github.com/alrayyes/pipeline-analytics/commit/bd9627475f232a31977a727fba73ba70d0ff5fe8))
+* bump marked from 18.0.13 to 18.0.14 in /web ([#303](https://github.com/alrayyes/pipeline-analytics/issues/303)) ([1763b5d](https://github.com/alrayyes/pipeline-analytics/commit/1763b5d636b058281afcfc756dead44bf6f110ea))
+* **ingestion:** give github/forgejo clients their own http.Client ([#306](https://github.com/alrayyes/pipeline-analytics/issues/306)) ([97a31b4](https://github.com/alrayyes/pipeline-analytics/commit/97a31b4dd21433b34e5220b7cf370152f289a43b)), closes [#305](https://github.com/alrayyes/pipeline-analytics/issues/305)
+
 ## [0.42.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.42.1...v0.42.2) (2026-09-22)
 
 
