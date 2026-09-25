@@ -27,11 +27,18 @@ var ErrUnexpectedStatus = errors.New("unexpected status")
 
 // Client is the Forgejo-backed ingestion.ForgeClient. A single Client
 // serves any Forgejo instance URL, since each request carries its own.
-type Client struct{}
+type Client struct {
+	// httpClient is fetchWorkflowJobs' transport, owned by this Client
+	// rather than http.DefaultClient -- see #305: sharing the global
+	// default client meant an unrelated parallel test's httptest.Server
+	// closing could break an in-flight request through this Client, since
+	// Server.Close calls http.DefaultTransport.CloseIdleConnections.
+	httpClient *http.Client
+}
 
 // NewClient returns a Client.
 func NewClient() (*Client, error) {
-	return &Client{}, nil
+	return &Client{httpClient: &http.Client{}}, nil
 }
 
 // CreateWebhook implements ingestion.ForgeClient.
@@ -226,7 +233,7 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 // than failing the whole run, same spirit as the runs-endpoint 404 handling
 // above (#121).
 func (c *Client) listWorkflowJobs(ctx context.Context, instanceURL, token, owner, name string, runID int64) ([]ingestion.JobSnapshot, error) {
-	jobsResp, err := fetchWorkflowJobs(ctx, instanceURL, token, owner, name, runID)
+	jobsResp, err := fetchWorkflowJobs(ctx, c.httpClient, instanceURL, token, owner, name, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +246,7 @@ func (c *Client) listWorkflowJobs(ctx context.Context, instanceURL, token, owner
 	return jobs, nil
 }
 
-func fetchWorkflowJobs(ctx context.Context, instanceURL, token, owner, name string, runID int64) ([]*gitea.ActionWorkflowJob, error) {
+func fetchWorkflowJobs(ctx context.Context, httpClient *http.Client, instanceURL, token, owner, name string, runID int64) ([]*gitea.ActionWorkflowJob, error) {
 	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/actions/runs/%d/jobs", strings.TrimRight(instanceURL, "/"), owner, name, runID)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -249,7 +256,7 @@ func fetchWorkflowJobs(ctx context.Context, instanceURL, token, owner, name stri
 
 	httpReq.Header.Set("Authorization", "token "+token)
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("list forgejo workflow jobs for run %d: %w", runID, err)
 	}
