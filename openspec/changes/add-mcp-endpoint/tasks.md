@@ -97,7 +97,7 @@
 
 ## 8. Verify and ship
 
-- [ ] 8.1 Run `go build ./...`, `go vet ./...`, `go test -race -cover
+- [x] 8.1 Run `go build ./...`, `go vet ./...`, `go test -race -cover
       ./...`, `go mod tidy -diff`, and `golangci-lint run ./...`;
       verify all clean
 - [ ] 8.2 Open a pull request with `Closes #295` and verify CI passes
