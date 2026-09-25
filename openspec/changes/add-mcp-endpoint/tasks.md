@@ -88,11 +88,11 @@
 
 ## 7. Documentation
 
-- [ ] 7.1 Add an "MCP" section to `README.md` next to the existing
+- [x] 7.1 Add an "MCP" section to `README.md` next to the existing
       API/installation docs: the `/api/mcp` URL, that it needs the same
       bearer token as the REST API, and how to point an MCP-capable
       client at it
-- [ ] 7.2 Run this account's README-verification pass (or manually
+- [x] 7.2 Run this account's README-verification pass (or manually
       confirm) that any command shown actually runs as written
 
 ## 8. Verify and ship
