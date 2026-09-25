@@ -25,6 +25,14 @@ import {
 	TableHeader,
 	TableRow,
 } from '$lib/components/ui/table/index.js';
+import {
+	ApiError,
+	fetchPipeline,
+	fetchPipelineSteps,
+	type PipelineDetail,
+	type Step,
+	type Trend,
+} from '$lib/dashboardApi.js';
 import { flakyRunsHref } from '$lib/flakyRuns.js';
 import { formatRate, formatSeconds } from '$lib/format.js';
 
@@ -40,35 +48,6 @@ const DURATION_CHART_CONFIG: ChartConfig = {
 const FAILURE_RATE_CHART_CONFIG: ChartConfig = {
 	rate: { label: 'Failure rate', theme: { light: '#e34948', dark: '#e66767' } },
 };
-
-interface Trend {
-	timestamps: string[];
-	p50?: number[];
-	p90?: number[];
-	rate?: number[];
-}
-
-interface PipelineDetail {
-	id: string;
-	repoId: string;
-	name: string;
-	healthStatus: 'healthy' | 'unhealthy';
-	triggeredSignals?: string[];
-	durationTrend: Trend;
-	failureRateTrend: Trend;
-}
-
-interface Step {
-	id: string;
-	name: string;
-	durationContributionSeconds: number;
-	queueSeconds: number;
-	execSeconds: number;
-	failureRate: number;
-	failureCount: number;
-	flaky: boolean;
-	forgeUrl?: string;
-}
 
 const SIGNAL_LABELS: Record<string, string> = {
 	failure_rate: 'elevated failure rate',
@@ -86,37 +65,26 @@ const pipelineId = $derived(page.params.id ?? '');
 
 async function load(): Promise<void> {
 	try {
-		const res = await fetch(`/api/pipelines/${page.params.id}`);
-		if (res.status === 404) {
+		detail = await fetchPipeline(pipelineId);
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) {
 			notFound = true;
-
-			return;
-		}
-
-		if (!res.ok) {
+		} else if (e instanceof ApiError) {
 			error = 'Could not load pipeline.';
-
-			return;
+		} else {
+			error = 'Could not reach the server.';
 		}
-
-		detail = await res.json();
-	} catch {
-		error = 'Could not reach the server.';
 	}
 }
 
 async function loadSteps(): Promise<void> {
 	try {
-		const res = await fetch(`/api/pipelines/${page.params.id}/steps`);
-		if (!res.ok) {
-			stepsError = 'Could not load step breakdown.';
-
-			return;
-		}
-
-		steps = await res.json();
-	} catch {
-		stepsError = 'Could not reach the server.';
+		steps = await fetchPipelineSteps(pipelineId);
+	} catch (e) {
+		stepsError =
+			e instanceof ApiError
+				? 'Could not load step breakdown.'
+				: 'Could not reach the server.';
 	}
 }
 

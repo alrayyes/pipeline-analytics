@@ -15,11 +15,11 @@ import {
 	TableHeader,
 	TableRow,
 } from '$lib/components/ui/table/index.js';
-
-interface UsageEntry {
-	workflow: string;
-	runnerMinutes: number;
-}
+import {
+	ApiError,
+	fetchRepoUsage,
+	type UsageEntry,
+} from '$lib/dashboardApi.js';
 
 let usage = $state<UsageEntry[] | null>(null);
 let notFound = $state(false);
@@ -27,22 +27,15 @@ let error = $state<string | null>(null);
 
 async function load(): Promise<void> {
 	try {
-		const res = await fetch(`/api/repos/${page.params.id}/usage`);
-		if (res.status === 404) {
+		usage = await fetchRepoUsage(page.params.id ?? '');
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) {
 			notFound = true;
-
-			return;
-		}
-
-		if (!res.ok) {
+		} else if (e instanceof ApiError) {
 			error = 'Could not load usage.';
-
-			return;
+		} else {
+			error = 'Could not reach the server.';
 		}
-
-		usage = await res.json();
-	} catch {
-		error = 'Could not reach the server.';
 	}
 }
 
