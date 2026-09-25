@@ -127,12 +127,50 @@ jobs:
         with:
           subject-checksums: dist/digests.txt
 
-  screenshots:
-    name: refresh README screenshots
+  # Cheap enough (checkout + one git diff, no build/browser/server) to run
+  # ahead of the real capture job and skip it outright when nothing under
+  # web/ moved -- a release cut purely from a backend fix or a dependency
+  # bump was still paying for a full build+browser+capture cycle every
+  # time to produce byte-identical images the capture job's own diff step
+  # would just throw away anyway. Only runs at all when the capture job
+  # would otherwise fire on a real release -- a workflow_dispatch bypasses
+  # both this job and its check, same as it already bypassed the release
+  # gate below.
+  check-ui-changed:
     needs: release-please
     if: |
+      github.event_name != 'workflow_dispatch' &&
+      needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prev_tag=$(gh release list --limit 2 --json tagName -q '.[1].tagName // empty')
+          if [ -z "$prev_tag" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT" # no prior release to diff against
+          elif git diff --quiet "$prev_tag"..HEAD -- web/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  screenshots:
+    name: refresh README screenshots
+    needs: [release-please, check-ui-changed]
+    if: |
       always() &&
-      (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (needs.release-please.outputs.release_created == 'true' && needs.check-ui-changed.outputs.changed == 'true')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
