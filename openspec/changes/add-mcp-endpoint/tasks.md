@@ -76,12 +76,12 @@
 
 ## 6. Spec parity
 
-- [ ] 6.1 Write `internal/httpserver/mcp_spec_parity_test.go`: parse
+- [x] 6.1 Write `internal/httpserver/mcp_spec_parity_test.go`: parse
       `openapi/openapi.yaml` with `kin-openapi`, and for each of the
       six tools assert its input schema's parameter names and
       required/optional status match the corresponding path's declared
       parameters; verify it passes against the current implementation
-- [ ] 6.2 Confirm the test fails on a deliberate mismatch (temporarily
+- [x] 6.2 Confirm the test fails on a deliberate mismatch (temporarily
       rename a tool's input field or flip a `required` flag, observe
       the test fail, then revert) — proves it actually catches drift
       before relying on it

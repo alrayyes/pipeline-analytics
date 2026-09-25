@@ -240,6 +240,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/PipelineRepoIdFilter"
         - $ref: "#/components/parameters/RepoForgeFilter"
+        - $ref: "#/components/parameters/Window"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
       responses:
