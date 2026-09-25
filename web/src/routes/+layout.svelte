@@ -9,6 +9,7 @@ import { initForgeFilter } from '$lib/forgeFilter.svelte.js';
 import { initPipelinesFilters } from '$lib/pipelinesFilters.svelte.js';
 import { registerServiceWorker } from '$lib/serviceWorker.js';
 import { initTheme } from '$lib/theme.svelte.js';
+import { registerWebMCPTools } from '$lib/webmcpTools.js';
 
 let { data, children } = $props();
 
@@ -41,6 +42,7 @@ $effect(() => {
 });
 
 onMount(registerServiceWorker);
+onMount(registerWebMCPTools);
 </script>
 
 <svelte:head>
