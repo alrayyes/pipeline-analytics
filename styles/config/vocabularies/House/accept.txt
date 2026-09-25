@@ -41,3 +41,5 @@ forge-ingestion
 pipeline-metrics
 dashboard-auth
 browsable
+Streamable
+mcp-remote

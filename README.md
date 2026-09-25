@@ -145,6 +145,35 @@ interactive CLI a human persists a preference for:
 Docs generated from [`openapi/openapi.yaml`](openapi/openapi.yaml), browsable
 at <https://alrayyes.github.io/pipeline-analytics/>.
 
+## MCP
+
+`POST /api/mcp` serves an [MCP](https://modelcontextprotocol.io) server over
+the Streamable HTTP transport, exposing the same pipeline health, trend,
+flaky-step, and usage data the dashboard and REST API do, as six read-only
+tools. It needs the same bearer API token as the REST API — issue one with
+a logged-in session: `curl -X POST https://<your-server>/api/auth/tokens
+--cookie "session=<your-session-cookie>"`.
+
+Point an MCP-capable client at `https://<your-server>/api/mcp` with that
+token as a bearer `Authorization` header. For example, with `mcp-remote`
+in a client's MCP config:
+
+```json
+{
+  "mcpServers": {
+    "pipeline-analytics": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://<your-server>/api/mcp",
+        "--header",
+        "Authorization: Bearer <your-token>"
+      ]
+    }
+  }
+}
+```
+
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how it's put together and the
