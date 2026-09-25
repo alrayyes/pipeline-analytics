@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.43.0...v0.44.0) (2026-09-25)
+
+
+### Features
+
+* **mcp:** add WebMCP support to the dashboard ([#310](https://github.com/alrayyes/pipeline-analytics/issues/310)) ([f55c96d](https://github.com/alrayyes/pipeline-analytics/commit/f55c96d5d2d3858b1c916c5f70e1841638ef9515))
+
 ## [0.43.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.42.2...v0.43.0) (2026-09-25)
 
 
