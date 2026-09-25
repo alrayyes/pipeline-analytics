@@ -12,7 +12,7 @@ the dashboard and relay the numbers by hand. Tracked as
 
 ## What Changes
 
-- New `POST /mcp` endpoint (bearer-token-gated, same as every other data
+- New `POST /api/mcp` endpoint (bearer-token-gated, same as every other data
   API) serving an MCP server over the Streamable HTTP transport, built on
   the official `github.com/modelcontextprotocol/go-sdk` — no hand-rolled
   JSON-RPC framing.
@@ -27,7 +27,7 @@ the dashboard and relay the numbers by hand. Tracked as
   `openapi/openapi.yaml`'s existing path/parameter definitions for the
   equivalent REST endpoint, so the tool list can't drift from the spec it
   mirrors — not a second, hand-maintained list.
-- `openapi/openapi.yaml` gains the `/mcp` path itself (method, security
+- `openapi/openapi.yaml` gains the `/api/mcp` path itself (method, security
   requirement, request/response envelope), documented like every other
   endpoint, even though its body is MCP's own JSON-RPC framing rather
   than a REST payload — consistent with "every HTTP endpoint is in the
@@ -41,13 +41,13 @@ the dashboard and relay the numbers by hand. Tracked as
 ### New Capabilities
 
 - `mcp-endpoint`: an MCP server, reachable over Streamable HTTP at
-  `/mcp`, exposing the system's existing pipeline-health/metrics data as
+  `/api/mcp`, exposing the system's existing pipeline-health/metrics data as
   read-only MCP tools kept in lockstep with `openapi/openapi.yaml`.
 
 ### Modified Capabilities
 
 (none — `dashboard-auth`'s existing requirement that every API endpoint
-accept a valid session or API token already covers `/mcp` without a
+accept a valid session or API token already covers `/api/mcp` without a
 wording change, and `http-observability`'s per-request logging
 requirement already covers it the same way every other endpoint is
 covered.)
@@ -63,7 +63,7 @@ covered.)
   already call — no new domain logic, no new port.
 - `go.mod` / `go.sum` (new pinned dependency on
   `github.com/modelcontextprotocol/go-sdk`).
-- `openapi/openapi.yaml` (new `/mcp` path).
+- `openapi/openapi.yaml` (new `/api/mcp` path).
 - `README.md` (new MCP section).
 - No SDK repo changes — the generated `pipeline-analytics-sdk-*` clients
   are REST clients; an MCP client is a different kind of consumer

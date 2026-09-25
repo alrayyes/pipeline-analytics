@@ -12,31 +12,31 @@ list.
 
 ### Requirement: MCP server reachable over Streamable HTTP
 
-The system SHALL serve an MCP server at `POST /mcp` using the MCP
+The system SHALL serve an MCP server at `POST /api/mcp` using the MCP
 Streamable HTTP transport.
 
 #### Scenario: A client connects to the MCP endpoint
 
 - **WHEN** an MCP-capable client sends a Streamable HTTP request to
-  `/mcp`
+  `/api/mcp`
 - **THEN** the system responds per the MCP Streamable HTTP transport
   and the client can list and call the tools this capability defines
 
 ### Requirement: MCP endpoint requires the same authentication as the REST API
 
 The system SHALL require a valid session or a valid API token for every
-`/mcp` request, identically to every other data endpoint.
+`/api/mcp` request, identically to every other data endpoint.
 
 #### Scenario: Unauthenticated MCP request is rejected
 
-- **WHEN** a request to `/mcp` carries no valid session cookie and no
+- **WHEN** a request to `/api/mcp` carries no valid session cookie and no
   valid bearer token
 - **THEN** the system rejects it the same way it rejects an
   unauthenticated request to any other data endpoint
 
 #### Scenario: Request bearing a valid API token succeeds
 
-- **WHEN** a request to `/mcp` carries a valid, unrevoked API token as
+- **WHEN** a request to `/api/mcp` carries a valid, unrevoked API token as
   a bearer token
 - **THEN** the system serves the request
 

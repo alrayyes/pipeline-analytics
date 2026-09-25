@@ -13,7 +13,7 @@
 
 ## 2. OpenAPI spec
 
-- [ ] 2.1 Add the `/mcp` `POST` path to `openapi/openapi.yaml`: bearer
+- [ ] 2.1 Add the `/api/mcp` `POST` path to `openapi/openapi.yaml`: bearer
       + session security (matching every other data endpoint),
       request/response bodies typed loosely as MCP's JSON-RPC envelope,
       `401` `Error` response matching the existing pattern
@@ -23,14 +23,14 @@
 ## 3. MCP server scaffolding
 
 - [ ] 3.1 Write a failing `internal/httpserver/mcp_test.go` case:
-      `POST /mcp` with no session and no bearer token returns `401`,
+      `POST /api/mcp` with no session and no bearer token returns `401`,
       matching any other data endpoint
-- [ ] 3.2 Write a failing case: `POST /mcp` with a valid session (or a
+- [ ] 3.2 Write a failing case: `POST /api/mcp` with a valid session (or a
       valid API token) reaches the MCP layer and an MCP
       `tools/list` request over it returns a non-empty tool list
 - [ ] 3.3 Add `internal/httpserver/mcp.go`: build an
       `mcp.NewStreamableHTTPHandler` from `go-sdk`'s `mcp` package with
-      no tools registered yet, mount it at `POST /mcp` in
+      no tools registered yet, mount it at `POST /api/mcp` in
       `server.go` inside the existing `requireSession`-wrapped mux;
       verify 3.1 and 3.2 pass (3.2 passes with an empty tool list at
       this point)
@@ -89,7 +89,7 @@
 ## 7. Documentation
 
 - [ ] 7.1 Add an "MCP" section to `README.md` next to the existing
-      API/installation docs: the `/mcp` URL, that it needs the same
+      API/installation docs: the `/api/mcp` URL, that it needs the same
       bearer token as the REST API, and how to point an MCP-capable
       client at it
 - [ ] 7.2 Run this account's README-verification pass (or manually

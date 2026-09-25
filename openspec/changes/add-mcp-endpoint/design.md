@@ -26,7 +26,7 @@ See proposal.md for motivation. Relevant current state:
 **Goals:**
 
 - Serve the six read-only tools listed in `specs/mcp-endpoint/spec.md`
-  over MCP Streamable HTTP at `/mcp`, behind the same auth as the REST
+  over MCP Streamable HTTP at `/api/mcp`, behind the same auth as the REST
   API.
 - Keep each tool's input schema demonstrably in sync with
   `openapi/openapi.yaml`'s definition of the endpoint it mirrors.
@@ -92,9 +92,9 @@ changed without the matching MCP tool schema being updated in the same
 commit — the proposal's "generated from (or kept in lockstep with)"
 satisfied by a failing test rather than by construction.
 
-### Where the `/mcp` path lives in the spec
+### Where the `/api/mcp` path lives in the spec
 
-`openapi/openapi.yaml` gains a `/mcp` path entry whose request/response
+`openapi/openapi.yaml` gains a `/api/mcp` path entry whose request/response
 bodies are typed loosely (MCP's JSON-RPC envelope, not a REST payload)
 — documented for discoverability and consistency with "every endpoint
 is in the spec" (`CONTRIBUTING.md`), not because Redocly-driven client
@@ -105,7 +105,7 @@ aren't touched by this change regardless (proposal's Impact section).
 
 ### Auth: reuse `requireSession` as-is
 
-`/mcp` is mounted on the same mux, inside the same `requireSession`
+`/api/mcp` is mounted on the same mux, inside the same `requireSession`
 wrapper, as every other data endpoint — no new code in
 `session.go`/`auth.go`. `dashboard-auth`'s existing requirement already
 covers it; see proposal's "Modified Capabilities: (none)".
