@@ -1,0 +1,36 @@
+# Fires a repository_dispatch to every SDK generated from this repo's
+# OpenAPI spec, so each one regenerates on the actual spec change instead
+# of polling on a schedule. See alrayyes/pipeline-analytics#293 and the
+# matching issue on each SDK repo.
+#
+# RELEASE_TOKEN, not GITHUB_TOKEN: a repository_dispatch call needs write
+# access on the *target* repo, which a same-repo GITHUB_TOKEN never has.
+name: notify-sdks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "openapi/openapi.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        repo:
+          - pipeline-analytics-sdk-python
+          - pipeline-analytics-sdk-go
+          - pipeline-analytics-sdk-php
+          - pipeline-analytics-sdk-node
+    steps:
+      - name: Dispatch spec-updated event
+        run: |
+          gh api "repos/alrayyes/${{ matrix.repo }}/dispatches" \
+            -f event_type=pipeline-analytics-spec-updated
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
