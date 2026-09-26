@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.44.0...v0.45.0) (2026-09-26)
+
+
+### Features
+
+* **cmd:** add a healthcheck subcommand for the container's own HEALTHCHECK ([#317](https://github.com/alrayyes/pipeline-analytics/issues/317)) ([7cfc049](https://github.com/alrayyes/pipeline-analytics/commit/7cfc0497c7eb09bfe9b5dcff62f192a4eb3e906b)), closes [#316](https://github.com/alrayyes/pipeline-analytics/issues/316)
+
 ## [0.44.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.43.0...v0.44.0) (2026-09-25)
 
 
