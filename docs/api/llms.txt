@@ -1,0 +1,23 @@
+# pipeline-analytics API
+
+> REST API for pipeline-analytics, a self-hosted CI pipeline analytics
+> server for GitHub Actions and Forgejo Actions. Endpoints cover tracked
+> repos, pipelines and their step/flaky-run breakdowns, usage, WebAuthn
+> auth and API tokens, and server metadata; every endpoint except the
+> WebAuthn ceremony and the forge webhook receivers requires an
+> authenticated session or a bearer API token.
+
+This page (Stoplight Elements) renders the OpenAPI 3.1 description below.
+There's also a read-only MCP server at `POST /api/mcp` exposing the same
+pipeline health, trend, flaky-step and usage data as six tools over the
+Streamable HTTP transport, using the same bearer token as the REST API.
+
+## Docs
+
+- [API reference](https://alrayyes.github.io/pipeline-analytics/): rendered, browsable docs for every endpoint
+- [OpenAPI spec](https://alrayyes.github.io/pipeline-analytics/openapi.yaml): the raw OpenAPI 3.1 YAML this page renders
+
+## Source
+
+- [pipeline-analytics on GitHub](https://github.com/alrayyes/pipeline-analytics): source, README (install/config/MCP setup) and issue tracker
+- [ARCHITECTURE.md](https://github.com/alrayyes/pipeline-analytics/blob/main/ARCHITECTURE.md): how the server is put together, and the ADRs behind why
