@@ -13,5 +13,10 @@ COPY pipeline-analytics /usr/local/bin/pipeline-analytics
 USER 10001:10001
 EXPOSE 8080
 
+# Exec form, not shell form - this image has no curl or wget, only busybox's
+# own sh. The binary's own `healthcheck` subcommand exists for exactly this.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/usr/local/bin/pipeline-analytics", "healthcheck"]
+
 ENTRYPOINT ["/usr/local/bin/pipeline-analytics"]
 CMD ["serve"]

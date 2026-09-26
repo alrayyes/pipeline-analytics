@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -42,6 +43,11 @@ import (
 // leaves it at "dev".
 var version = "dev"
 
+// errHealthzStatus is newHealthcheckCmd's own sentinel - err113 wants a
+// wrapped static error rather than a bare fmt.Errorf built from the status
+// code alone.
+var errHealthzStatus = errors.New("healthz check failed")
+
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
 		os.Exit(1)
@@ -54,8 +60,56 @@ func newRootCmd() *cobra.Command {
 		Short: "Self-hosted pipeline analytics for GitHub Actions and Forgejo Actions",
 	}
 	root.AddCommand(newServeCmd())
+	root.AddCommand(newHealthcheckCmd())
 
 	return root
+}
+
+// newHealthcheckCmd exists for the container's own HEALTHCHECK: the image is
+// distroless (no shell, no curl, no wget), so there's nothing else inside it
+// that could exec a probe. Deliberately does not go through loadConfig -
+// that requires CallbackURL and a valid EncryptionKey, neither of which a
+// liveness probe needs, so it reads PIPELINE_ANALYTICS_ADDR directly instead,
+// falling back to serve's own default. A HEALTHCHECK exec inherits the same
+// environment the server itself was started with, so it sees the real value
+// if one was set.
+func newHealthcheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "healthcheck",
+		Short:  "Check that this server answers its own /healthz",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			addr := os.Getenv("PIPELINE_ANALYTICS_ADDR")
+			if addr == "" {
+				addr = ":8080"
+			}
+
+			_, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return fmt.Errorf("parse addr %q: %w", addr, err)
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Second)
+			defer cancel()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:"+port+"/healthz", nil) //nolint:gosec // G704: loopback-only, port is our own config, not attacker input
+			if err != nil {
+				return fmt.Errorf("build request: %w", err)
+			}
+
+			resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: same request built above, loopback-only
+			if err != nil {
+				return fmt.Errorf("request /healthz: %w", err)
+			}
+			defer func() { _ = resp.Body.Close() }()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("%w: /healthz returned %d", errHealthzStatus, resp.StatusCode)
+			}
+
+			return nil
+		},
+	}
 }
 
 func newServeCmd() *cobra.Command {
