@@ -255,7 +255,7 @@ jobs:
       - run: go build -o pipeline-analytics ./cmd/pipeline-analytics
       - run: docker build -t pipeline-analytics:ci .
 
-  # Publishes docs/api/index.html (Stoplight Elements, rendering the same
+  # Publishes docs/api/index.html (Scalar, rendering the same
   # spec api-spec just linted) to GitHub Pages. `needs: api-spec` only
   # works because both jobs live in this one workflow -- Actions has no
   # cross-workflow `needs`, so a separate workflow file here could only
