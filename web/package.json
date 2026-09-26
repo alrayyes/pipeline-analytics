@@ -27,9 +27,12 @@
 		"last 2 iOS versions"
 	],
 	"overrides": {
+		"@puppeteer/browsers": "3.2.3",
 		"cookie": "0.7.2",
 		"qs": "6.16.0",
-		"smol-toml": "1.7.1"
+		"smol-toml": "1.7.1",
+		"tmp": "0.2.7",
+		"uuid": "11.1.1"
 	},
 	"dependencies": {
 		"dompurify": "3.4.15",
@@ -42,6 +45,7 @@
 		"@fontsource-variable/inter": "5.3.0",
 		"@hughescr/stryker-bun-runner": "1.4.0",
 		"@internationalized/date": "3.12.4",
+		"@lhci/cli": "0.15.1",
 		"@lucide/svelte": "1.47.0",
 		"@playwright/test": "1.63.0",
 		"@shadcn/lint": "0.1.5",

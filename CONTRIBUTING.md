@@ -58,7 +58,8 @@ bun run test:coverage  # same, plus a coverage report
 bun run test:mutation  # mutation testing (Stryker), reports a score, doesn't gate on one
 bun run build
 bun audit
-bun run test:e2e       # Playwright, builds the real binary and runs against it
+bun run test:e2e        # Playwright, builds the real binary and runs against it
+./scripts/lighthouse.sh # Lighthouse CI against /login, builds the real binary too
 ```
 
 `test:mutation` runs against
