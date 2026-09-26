@@ -29,3 +29,6 @@ vite.config.ts.timestamp-*
 # Stryker
 /.stryker-tmp
 /reports
+
+# Lighthouse CI
+/.lighthouseci

@@ -12,6 +12,9 @@
 			"nursery": {
 				"useBaseline": "warn"
 			}
+		},
+		"domains": {
+			"playwright": "recommended"
 		}
 	},
 	"javascript": {
