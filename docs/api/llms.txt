@@ -7,7 +7,7 @@
 > WebAuthn ceremony and the forge webhook receivers requires an
 > authenticated session or a bearer API token.
 
-This page (Stoplight Elements) renders the OpenAPI 3.1 description below.
+This page (Scalar) renders the OpenAPI 3.1 description below.
 There's also a read-only MCP server at `POST /api/mcp` exposing the same
 pipeline health, trend, flaky-step and usage data as six tools over the
 Streamable HTTP transport, using the same bearer token as the REST API.
