@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.46.0...v0.46.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **ci:** deploy the API docs page under /docs/api/, not the Pages site root ([#323](https://github.com/alrayyes/pipeline-analytics/issues/323)) ([03edca0](https://github.com/alrayyes/pipeline-analytics/commit/03edca065c1b532390b8860963a02d29de487c32)), closes [#322](https://github.com/alrayyes/pipeline-analytics/issues/322)
+
 ## [0.46.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.45.0...v0.46.0) (2026-09-26)
 
 
