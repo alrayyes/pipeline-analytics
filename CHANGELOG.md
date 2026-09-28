@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.45.0...v0.46.0) (2026-09-26)
+
+
+### Features
+
+* **web:** audit /login with Lighthouse CI, fix what it finds ([#320](https://github.com/alrayyes/pipeline-analytics/issues/320)) ([afaecc2](https://github.com/alrayyes/pipeline-analytics/commit/afaecc2704f6273d8f5ed42f49cb542963c99f8d)), closes [#319](https://github.com/alrayyes/pipeline-analytics/issues/319)
+
 ## [0.45.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.44.0...v0.45.0) (2026-09-26)
 
 
