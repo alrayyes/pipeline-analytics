@@ -14,8 +14,8 @@ Streamable HTTP transport, using the same bearer token as the REST API.
 
 ## Docs
 
-- [API reference](https://alrayyes.github.io/pipeline-analytics/): rendered, browsable docs for every endpoint
-- [OpenAPI spec](https://alrayyes.github.io/pipeline-analytics/openapi.yaml): the raw OpenAPI 3.1 YAML this page renders
+- [API reference](https://alrayyes.github.io/pipeline-analytics/docs/api/): rendered, browsable docs for every endpoint
+- [OpenAPI spec](https://alrayyes.github.io/pipeline-analytics/docs/api/openapi.yaml): the raw OpenAPI 3.1 YAML this page renders
 
 ## Source
 

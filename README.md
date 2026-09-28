@@ -143,7 +143,7 @@ interactive CLI a human persists a preference for:
 ## API
 
 Docs generated from [`openapi/openapi.yaml`](openapi/openapi.yaml), browsable
-at <https://alrayyes.github.io/pipeline-analytics/>.
+at <https://alrayyes.github.io/pipeline-analytics/docs/api/>.
 
 ## MCP
 
