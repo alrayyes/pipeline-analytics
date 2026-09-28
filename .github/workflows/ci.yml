@@ -289,6 +289,15 @@ jobs:
   # the way a real needs: does. web/ deploys nowhere (this binary
   # go:embeds it and serves it itself, ARCHITECTURE.md), so there's
   # nothing else on Pages to collide with.
+  #
+  # The uploaded artifact mirrors docs/api/ at its real repo path rather
+  # than flattening it to the site root, matching Hush-Hush and
+  # forge-dashboard: apis.ryankes.eu is a GitHub Pages user-site custom
+  # domain, and every project site under it is served as a subpath of it,
+  # so this has to land at apis.ryankes.eu/pipeline-analytics/docs/api/,
+  # not at the site root. Uploading `docs/api/` directly (as before) put
+  # index.html at the root instead -- confirmed live, alrayyes/alrayyes.
+  # github.io#26.
   pages-deploy:
     name: deploy API docs
     needs: api-spec
@@ -307,13 +316,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # docs/api/ is the whole Pages artifact root, so the spec has to be
-      # staged inside it -- apiDescriptionUrl is resolved against the
-      # deployed URL, not the repo's on-disk layout, and openapi/openapi.yaml
-      # lives outside docs/api/ on disk.
-      - run: cp openapi/openapi.yaml docs/api/openapi.yaml
+      # Staged under _site/docs/api/ so the deployed URL keeps the
+      # docs/api/ prefix -- index.html's apiDescriptionUrl is the relative
+      # './openapi.yaml', so the copy has to land right beside it, same as
+      # it did when both were flattened to the site root.
+      - run: |
+          mkdir -p _site/docs/api
+          cp docs/api/index.html _site/docs/api/index.html
+          cp docs/api/llms.txt _site/docs/api/llms.txt
+          cp openapi/openapi.yaml _site/docs/api/openapi.yaml
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs/api/
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
