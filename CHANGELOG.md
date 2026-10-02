@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.57.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.56.0...v0.57.0) (2026-10-02)
+
+
+### Features
+
+* **web:** add the runs view with stage progression ([#378](https://github.com/alrayyes/pipeline-analytics/issues/378)) ([bc3004a](https://github.com/alrayyes/pipeline-analytics/commit/bc3004a1a32d1aa3fa2b9108d63df840dba3fbf3))
+
+
+### Bug Fixes
+
+* **docker:** create /data owned by the container user ([#377](https://github.com/alrayyes/pipeline-analytics/issues/377)) ([5f4fb90](https://github.com/alrayyes/pipeline-analytics/commit/5f4fb908b760df85c32867b44e1c5658ffd8f835)), closes [#363](https://github.com/alrayyes/pipeline-analytics/issues/363)
+
 ## [0.56.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.55.0...v0.56.0) (2026-10-02)
 
 
