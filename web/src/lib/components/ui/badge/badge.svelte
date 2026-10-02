@@ -16,6 +16,10 @@ export const badgeVariants = tv({
 			// Darkened to green-800, which clears it with room to spare.
 			success:
 				'bg-green-600/10 text-green-800 [a]:hover:bg-green-600/20 dark:bg-green-500/20 dark:text-green-400',
+			running:
+				'bg-sky-600/10 text-sky-800 [a]:hover:bg-sky-600/20 dark:bg-sky-500/20 dark:text-sky-300',
+			flaky:
+				'bg-amber-600/10 text-amber-900 [a]:hover:bg-amber-600/20 dark:bg-amber-500/20 dark:text-amber-300',
 			outline:
 				'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
 			ghost:

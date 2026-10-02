@@ -28,6 +28,7 @@ $effect(() => {
 
 const links = [
 	{ href: '/', label: 'Pipelines' },
+	{ href: '/runs', label: 'Runs' },
 	{ href: '/steps', label: 'Steps' },
 	{ href: '/repos', label: 'Repositories' },
 	{ href: '/insights', label: 'Insights' },
