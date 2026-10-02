@@ -2,7 +2,7 @@
 
 ## 1. API contract (spec first)
 
-- [ ] 1.1 Add `GET /api/insights/failures` and `GET /api/runs` to
+- [x] 1.1 Add `GET /api/insights/failures` and `GET /api/runs` to
       `openapi/openapi.yaml`; lint with Redocly
 - [ ] 1.2 Review the contract before any handler is written
 
