@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.50.0...v0.51.0) (2026-10-02)
+
+
+### Features
+
+* **ingestion:** record run commit metadata during reconciliation ([#341](https://github.com/alrayyes/pipeline-analytics/issues/341)) ([ab7b70b](https://github.com/alrayyes/pipeline-analytics/commit/ab7b70b3c5f2eb0ea6b59b48058015bc56474739)), closes [#335](https://github.com/alrayyes/pipeline-analytics/issues/335)
+
 ## [0.50.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.49.0...v0.50.0) (2026-10-02)
 
 
