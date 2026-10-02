@@ -108,9 +108,10 @@ The image reports its own health: `docker ps` shows `healthy` once
 `/readyz` answers 200, meaning the server is up _and_ its database
 answers, and `unhealthy` after three failed checks 30 seconds apart. A
 database that's unreachable (a locked or unreadable file, a full disk)
-makes `/readyz` return 503 while `/healthz`, the plain liveness probe,
-stays 200, so an orchestrator can tell "restart me" from "I can't serve
-right now". Both are public and unauthenticated.
+makes `/readyz` return 503 while `/healthz`, which only confirms the
+process is up, stays 200. An orchestrator can then tell a process worth
+restarting from an instance that can't serve right now. Both are public
+and unauthenticated.
 
 Put a reverse proxy (Caddy, Tailscale Funnel, your VPS's existing one) in
 front for TLS — the server itself speaks plain HTTP on `--addr`.
