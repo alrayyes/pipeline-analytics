@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.61.0...v0.62.0) (2026-10-02)
+
+
+### Features
+
+* **api:** report which credentials can be revoked ([#393](https://github.com/alrayyes/pipeline-analytics/issues/393)) ([293310f](https://github.com/alrayyes/pipeline-analytics/commit/293310f22bcf4427da165550cd7485fccd956db4))
+
 ## [0.61.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.60.0...v0.61.0) (2026-10-02)
 
 
