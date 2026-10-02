@@ -27,6 +27,7 @@ $effect(() => {
 });
 
 const links = [
+	{ href: '/', label: 'Overview' },
 	{ href: '/pipelines', label: 'Pipelines' },
 	{ href: '/runs', label: 'Runs' },
 	{ href: '/failures', label: 'Failures' },
@@ -36,6 +37,8 @@ const links = [
 ];
 
 function isActive(href: string): boolean {
+	if (href === '/') return page.url.pathname === '/';
+
 	return page.url.pathname.startsWith(href);
 }
 
@@ -54,7 +57,7 @@ async function handleLogout(): Promise<void> {
 	<ul class="flex items-center gap-4 text-sm max-sm:flex-col max-sm:items-start">
 		{#each links as link (link.href)}
 			<li>
-				{#if hasRepos}
+				{#if hasRepos || link.href === '/'}
 					<a
 						href={link.href}
 						class={cn(
