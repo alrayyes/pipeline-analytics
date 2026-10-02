@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	ApiError,
+	fetchFailureInsights,
 	fetchPipeline,
 	fetchPipelineSteps,
 	fetchPipelines,
 	fetchRepos,
 	fetchRepoUsage,
+	fetchRuns,
 	type PipelineDetail,
 } from './dashboardApi.js';
 
@@ -194,5 +196,158 @@ describe('fetchRepoUsage', () => {
 			if (!(e instanceof ApiError)) throw e;
 			expect(e.status).toBe(404);
 		}
+	});
+});
+
+describe('fetchFailureInsights', () => {
+	const insights = {
+		totalRuns: 10,
+		failedRuns: 2,
+		flakyStepRatio: 0.1,
+		stageDistribution: [],
+		topFailingPipelines: [],
+		failureGroups: [],
+	};
+
+	test('calls GET /api/insights/failures with the window', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse(insights));
+		};
+
+		const result = await fetchFailureInsights(
+			{ window: '30d' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe('/api/insights/failures?window=30d');
+		expect(result).toEqual(insights);
+	});
+
+	test('adds repoId and forge only when given', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse(insights));
+		};
+
+		await fetchFailureInsights(
+			{ window: '24h', repoId: 'r1', forge: 'forgejo' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe(
+			'/api/insights/failures?window=24h&repoId=r1&forge=forgejo',
+		);
+	});
+
+	test('a missing passRate stays absent rather than becoming zero', async () => {
+		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse(insights));
+
+		const result = await fetchFailureInsights(
+			{ window: '7d' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(result.passRate).toBeUndefined();
+	});
+
+	test('throws an ApiError carrying the status on a non-2xx response', async () => {
+		const fetchFn: FetchMock = () =>
+			Promise.resolve(jsonResponse({ message: 'nope' }, 401));
+
+		const error = await fetchFailureInsights(
+			{ window: '7d' },
+			fetchFn as typeof fetch,
+		).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(ApiError);
+		expect((error as ApiError).status).toBe(401);
+	});
+});
+
+describe('fetchRuns', () => {
+	test('calls GET /api/runs with the status and pagination params', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse({ runs: [], hasMore: false }));
+		};
+
+		await fetchRuns(
+			{ limit: 20, offset: 40, status: 'failed' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe('/api/runs?limit=20&offset=40&status=failed');
+	});
+
+	test('omits status when it is "all", the server default', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse({ runs: [], hasMore: false }));
+		};
+
+		await fetchRuns(
+			{ limit: 20, offset: 0, status: 'all' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe('/api/runs?limit=20&offset=0');
+	});
+
+	test('adds repoId, forge and pipeline scope only when given', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse({ runs: [], hasMore: false }));
+		};
+
+		await fetchRuns(
+			{ limit: 10, offset: 0, repoId: 'r1', forge: 'github' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe(
+			'/api/runs?limit=10&offset=0&repoId=r1&forge=github',
+		);
+	});
+
+	test('returns runs with their steps and optional commit fields', async () => {
+		const run = {
+			id: 'run-1',
+			pipelineId: 'p1',
+			pipelineName: 'CI',
+			repoId: 'r1',
+			status: 'completed',
+			conclusion: 'failure',
+			sha: 'c4d291a',
+			steps: [{ name: 'build', status: 'completed', conclusion: 'success' }],
+		};
+		const fetchFn: FetchMock = () =>
+			Promise.resolve(jsonResponse({ runs: [run], hasMore: true }));
+
+		const result = await fetchRuns(
+			{ limit: 1, offset: 0 },
+			fetchFn as typeof fetch,
+		);
+
+		expect(result.runs[0]).toEqual(run);
+		expect(result.runs[0].branch).toBeUndefined();
+		expect(result.hasMore).toBe(true);
+	});
+
+	test('throws an ApiError carrying the status on a non-2xx response', async () => {
+		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 400));
+
+		const error = await fetchRuns(
+			{ limit: 1, offset: 0 },
+			fetchFn as typeof fetch,
+		).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(ApiError);
+		expect((error as ApiError).status).toBe(400);
 	});
 });
