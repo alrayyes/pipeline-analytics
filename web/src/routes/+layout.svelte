@@ -8,6 +8,7 @@ import Nav from '$lib/components/Nav.svelte';
 import { initForgeFilter } from '$lib/forgeFilter.svelte.js';
 import { initPipelinesFilters } from '$lib/pipelinesFilters.svelte.js';
 import { registerServiceWorker } from '$lib/serviceWorker.js';
+import { initTelemetryWindow } from '$lib/telemetryWindow.svelte.js';
 import { initTheme } from '$lib/theme.svelte.js';
 import { registerWebMCPTools } from '$lib/webmcpTools.js';
 
@@ -37,6 +38,7 @@ $effect(() => {
 	const cleanup = initTheme(data.settings?.theme);
 	initForgeFilter(data.settings?.forgeFilter);
 	initPipelinesFilters(data.settings ?? undefined);
+	initTelemetryWindow(data.settings?.telemetryWindow);
 
 	return cleanup;
 });
