@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.54.0...v0.55.0) (2026-10-02)
+
+
+### Features
+
+* **metrics:** list runs newest first with their steps ([#361](https://github.com/alrayyes/pipeline-analytics/issues/361)) ([3bdb62b](https://github.com/alrayyes/pipeline-analytics/commit/3bdb62b7fbb085a54d115f15a1535b9003588335))
+
 ## [0.54.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.53.0...v0.54.0) (2026-10-02)
 
 
