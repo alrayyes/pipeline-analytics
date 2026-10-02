@@ -28,7 +28,9 @@
 	],
 	"overrides": {
 		"@puppeteer/browsers": "3.2.3",
+		"basic-ftp": "6.2.1",
 		"cookie": "0.7.2",
+		"devalue": "6.0.2",
 		"qs": "6.16.0",
 		"smol-toml": "1.7.1",
 		"tmp": "0.2.7",
