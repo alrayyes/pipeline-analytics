@@ -5,6 +5,7 @@ import XIcon from '@lucide/svelte/icons/x';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import logo from '$lib/assets/favicon.svg';
+import { isActivePath } from '$lib/components/navActive.js';
 import { Button } from '$lib/components/ui/button/index.js';
 import { cn } from '$lib/utils.js';
 
@@ -37,9 +38,7 @@ const links = [
 ];
 
 function isActive(href: string): boolean {
-	if (href === '/') return page.url.pathname === '/';
-
-	return page.url.pathname.startsWith(href);
+	return isActivePath(page.url.pathname, href);
 }
 
 async function handleLogout(): Promise<void> {
