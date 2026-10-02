@@ -33,14 +33,14 @@
 - [ ] 4.3 Shared components, each landing with the first view that uses it
       and covered by that view's Playwright journey, since this repo has no
       component-level test layer: `StageProgress` and `RunCard` (done, 5.2);
-      `MetricCard`, `StageDistribution`, `WindowToggle` (5.1);
-      `FailureGroupCard` (5.3); `FlakeMatrix` (5.4); `TabBar` (5.1)
+      `MetricCard`, `StageDistribution`, `TabBar` (5.1); `FlakeMatrix` (5.4);
+      `WindowToggle`, `CategoryBreakdown` and `FailureGroupCard` (done, 5.3)
 
 ## 5. Views (one pull request each)
 
 - [ ] 5.1 Failure overview at `/`; move the repo cards to `/repos`
 - [x] 5.2 Runs list with polling
-- [ ] 5.3 Root cause diagnostics
+- [x] 5.3 Root cause diagnostics
 - [ ] 5.4 Flaky telemetry; `/steps` redirects to `/flaky`
 - [ ] 5.5 Playwright journey and axe scan per view at 390px
 
