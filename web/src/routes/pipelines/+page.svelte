@@ -71,6 +71,10 @@ let repos = $state<Repo[] | null>(null);
 let error = $state<string | null>(null);
 let offset = $state(0);
 let hasMore = $state(false);
+// False only when a filtered load came back empty and an unfiltered probe
+// found nothing either -- i.e. nothing has been ingested at all.
+let anyPipelines = $state(true);
+let loadSequence = 0;
 
 // Grouped by repo (#102) -- a pipeline name alone ("CI") is ambiguous
 // across more than one tracked repo, so each repo's pipelines get their
@@ -79,42 +83,13 @@ let hasMore = $state(false);
 // works, it just can't show a human-readable name yet.
 const repoById = $derived(new Map((repos ?? []).map((r) => [r.id, r])));
 
-// The forge filter and repo selector are pushed down to the server as
-// `forge`/`repoId` query params (#243) rather than filtered client-side --
-// unlike the pre-pagination version of this page, `pipelines` is now only
-// one page of the full result, so filtering after the fact would make a
-// page's size and hasMore both wrong (same fix #141 made for the Repos
-// page's forge filter). Health-status filtering and sort stay
-// client-side, applied to the current page only -- a scoped-down,
-// page-local behavior documented in design.md, not whole-set-correct.
-const visiblePipelines = $derived.by(() => {
-	const healthFilter = getHealthFilter();
-
-	if (!pipelines) return null;
-	if (healthFilter === 'all') return pipelines;
-
-	return pipelines.filter((p) => p.healthStatus === healthFilter);
-});
-
-// "Name" is an explicit alphabetical sort rather than whatever order
-// /api/pipelines happened to return -- the point of offering it as a choice
-// is that it's deterministic, the same way "Most recently run" is.
-function comparePipelines(a: PipelineSummary, b: PipelineSummary): number {
-	if (getSortBy() === 'lastRun') {
-		if (!a.lastRunAt && !b.lastRunAt) return 0;
-		if (!a.lastRunAt) return 1;
-		if (!b.lastRunAt) return -1;
-
-		return new Date(b.lastRunAt).getTime() - new Date(a.lastRunAt).getTime();
-	}
-
-	return a.name.localeCompare(b.name);
-}
-
+// Forge, repo, health filter and sort are all pushed down to the server
+// (#243, #376): `pipelines` is one page of the full result, so anything
+// applied after the fact would make a page's size and hasMore wrong.
 const groupedPipelines = $derived.by(() => {
 	const groups = new Map<string, PipelineGroup>();
 
-	for (const pipeline of visiblePipelines ?? []) {
+	for (const pipeline of pipelines ?? []) {
 		let group = groups.get(pipeline.repoId);
 
 		if (!group) {
@@ -131,11 +106,8 @@ const groupedPipelines = $derived.by(() => {
 		group.pipelines.push(pipeline);
 	}
 
-	for (const group of groups.values()) {
-		group.pipelines.sort(comparePipelines);
-	}
-
-	return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
+	// Map insertion order: groups and their pipelines follow the server's order.
+	return [...groups.values()];
 });
 
 async function loadPipelines(): Promise<void> {
@@ -145,9 +117,12 @@ async function loadPipelines(): Promise<void> {
 			offset: number;
 			forge?: 'github' | 'forgejo';
 			repoId?: string;
+			health?: 'healthy' | 'unhealthy';
+			sort: SortBy;
 		} = {
 			limit: PAGE_SIZE,
 			offset,
+			sort: getSortBy(),
 		};
 
 		const filter = getForgeFilter();
@@ -156,7 +131,30 @@ async function loadPipelines(): Promise<void> {
 		const selectedRepoId = getRepoSelector();
 		if (selectedRepoId !== 'all') params.repoId = selectedRepoId;
 
+		const health = getHealthFilter();
+		if (health !== 'all') params.health = health;
+
+		const sequence = ++loadSequence;
+		const filtered =
+			health !== 'all' || filter !== 'all' || selectedRepoId !== 'all';
 		const body = await fetchPipelines(params);
+		const empty = body.pipelines.length === 0 && offset === 0;
+		let any = !empty;
+
+		// An empty result under a filter is ambiguous: filtered to nothing, or
+		// nothing ingested. Ask the unfiltered question before rendering either.
+		if (empty && filtered) {
+			try {
+				any =
+					(await fetchPipelines({ limit: 1, offset: 0 })).pipelines.length > 0;
+			} catch {
+				any = false;
+			}
+		}
+
+		if (sequence !== loadSequence) return;
+
+		anyPipelines = any;
 		pipelines = body.pipelines;
 		hasMore = body.hasMore;
 	} catch (e) {
@@ -181,8 +179,8 @@ function goToNextPage(): void {
 	offset += PAGE_SIZE;
 }
 
-// Tracks the forge filter's and repo selector's previous values across
-// effect runs so a real change to either (not just re-running for some
+// Tracks the forge filter's, repo selector's, health filter's and sort's
+// previous values across effect runs so a real change to any (not just re-running for some
 // other reason) is the only thing that resets the page -- changing either
 // with the reader on page 2+ shouldn't leave them on an offset the
 // newly-filtered result set might not even reach. Kept as its own effect,
@@ -190,27 +188,37 @@ function goToNextPage(): void {
 // the Repos page's identically-shaped `previousFilter` effect.
 let previousForgeFilter: ReturnType<typeof getForgeFilter> | undefined;
 let previousRepoSelector: string | undefined;
+let previousHealthFilter: HealthFilter | undefined;
+let previousSortBy: SortBy | undefined;
 
 $effect(() => {
 	const filter = getForgeFilter();
 	const selectedRepoId = getRepoSelector();
+	const health = getHealthFilter();
+	const sort = getSortBy();
 
 	if (
 		filter !== previousForgeFilter ||
-		selectedRepoId !== previousRepoSelector
+		selectedRepoId !== previousRepoSelector ||
+		health !== previousHealthFilter ||
+		sort !== previousSortBy
 	) {
 		previousForgeFilter = filter;
 		previousRepoSelector = selectedRepoId;
+		previousHealthFilter = health;
+		previousSortBy = sort;
 		offset = 0;
 	}
 });
 
-// Reload with the current forge filter, repo selector, and page applied
+// Reload with the current filters, sort, and page applied
 // server-side -- replaces the earlier onMount(loadPipelines), and also
 // covers the initial load.
 $effect(() => {
 	getForgeFilter();
 	getRepoSelector();
+	getHealthFilter();
+	getSortBy();
 	offset;
 	loadPipelines();
 });
@@ -238,7 +246,7 @@ function signalLabel(signal: string): string {
 		<p role="alert" class="mt-6 text-destructive">{error}</p>
 	{:else if pipelines === null}
 		<p class="mt-6 text-muted-foreground">Loading…</p>
-	{:else if pipelines.length === 0 && offset === 0}
+	{:else if pipelines.length === 0 && offset === 0 && !anyPipelines}
 		<p class="mt-6 text-muted-foreground">
 			{#if page.data.hasRepos}
 				No pipeline runs ingested yet. New runs arrive by webhook, plus a
@@ -324,17 +332,12 @@ function signalLabel(signal: string): string {
 			</Button>
 		</div>
 
-		{#if visiblePipelines?.length === 0}
+		{#if pipelines.length === 0}
 			<p class="mt-6 text-muted-foreground">No pipelines match the selected filters.</p>
 		{:else}
 			<p class="mt-4 text-sm text-muted-foreground">
-				{#if getHealthFilter() === 'all'}
-					Showing {visiblePipelines?.length ?? 0}
-					{visiblePipelines?.length === 1 ? 'pipeline' : 'pipelines'} on this page.
-				{:else}
-					Showing {visiblePipelines?.length ?? 0} {getHealthFilter()} of {pipelines?.length ??
-						0} on this page.
-				{/if}
+				Showing {pipelines.length}
+				{pipelines.length === 1 ? 'pipeline' : 'pipelines'} on this page.
 			</p>
 
 			<div class="mt-4 grid gap-8">

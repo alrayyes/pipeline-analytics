@@ -49,6 +49,35 @@ describe('fetchPipelines', () => {
 		});
 	});
 
+	test('adds health and sort when given, so the server applies them across every pipeline', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse({ pipelines: [], hasMore: false }));
+		};
+
+		await fetchPipelines(
+			{ limit: 20, offset: 0, health: 'unhealthy', sort: 'lastRun' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe(
+			'/api/pipelines?limit=20&offset=0&health=unhealthy&sort=lastRun',
+		);
+	});
+
+	test('leaves health and sort off the URL when absent, the server defaults', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse({ pipelines: [], hasMore: false }));
+		};
+
+		await fetchPipelines({ limit: 20, offset: 0 }, fetchFn as typeof fetch);
+
+		expect(requestedUrl).toBe('/api/pipelines?limit=20&offset=0');
+	});
+
 	test('omits forge and repoId when not given', async () => {
 		let requestedUrl: string | undefined;
 		const fetchFn: FetchMock = (input) => {

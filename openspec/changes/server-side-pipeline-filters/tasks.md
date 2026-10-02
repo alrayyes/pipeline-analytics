@@ -12,8 +12,8 @@
 
 ## 3. Frontend
 
-- [ ] 3.1 Update the Playwright fixtures to honour `health` and `sort`
-- [ ] 3.2 The Pipelines page sends them; its client-side filter and
+- [x] 3.1 Update the Playwright fixtures to honour `health` and `sort`
+- [x] 3.2 The Pipelines page sends them; its client-side filter and
       comparator are deleted
 
 ## 4. Wrap up

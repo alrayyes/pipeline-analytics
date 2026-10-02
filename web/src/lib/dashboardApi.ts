@@ -181,6 +181,10 @@ export interface PipelinesParams {
 	offset: number;
 	forge?: 'github' | 'forgejo';
 	repoId?: string;
+	// Both are applied by the server across every matching pipeline before
+	// paging; leave them off for the default (every status, by name).
+	health?: 'healthy' | 'unhealthy';
+	sort?: 'name' | 'lastRun';
 }
 
 export async function fetchPipelines(
@@ -193,6 +197,8 @@ export async function fetchPipelines(
 	});
 	if (params.forge) searchParams.set('forge', params.forge);
 	if (params.repoId) searchParams.set('repoId', params.repoId);
+	if (params.health) searchParams.set('health', params.health);
+	if (params.sort) searchParams.set('sort', params.sort);
 
 	const res = await fetchFn(`/api/pipelines?${searchParams}`);
 	if (!res.ok) throw new ApiError(res.status);

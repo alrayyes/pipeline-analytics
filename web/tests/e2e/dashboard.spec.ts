@@ -1,7 +1,59 @@
 import AxeBuilder from '@axe-core/playwright';
+import type { Route } from '@playwright/test';
 import { expect, test } from './fixtures.js';
 
 const a11yTags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+
+interface PipelineFixture {
+	id: string;
+	repoId: string;
+	name: string;
+	healthStatus: 'healthy' | 'unhealthy';
+	triggeredSignals?: string[];
+	lastRunAt?: string;
+}
+
+// Answers GET /api/pipelines the way the server does: the repo and health
+// filters and the sort apply across every pipeline, then the result is paged
+// and hasMore says whether another page follows. A static mock would let the
+// page's own filtering pass this journey, which is exactly what must not
+// happen: the server owns those rules (#376).
+function pipelinesRoute(fixtures: PipelineFixture[]) {
+	return (route: Route) => {
+		const url = new URL(route.request().url());
+		const repoId = url.searchParams.get('repoId');
+		const health = url.searchParams.get('health');
+		const limit = Number(url.searchParams.get('limit') ?? '0');
+		const offset = Number(url.searchParams.get('offset') ?? '0');
+
+		let matching = fixtures.filter(
+			(p) =>
+				(!repoId || p.repoId === repoId) &&
+				(!health || p.healthStatus === health),
+		);
+
+		if (url.searchParams.get('sort') === 'lastRun') {
+			// Most recently run first, a pipeline with no runs last.
+			matching = [...matching].sort(
+				(a, b) =>
+					(b.lastRunAt ? Date.parse(b.lastRunAt) : -Infinity) -
+					(a.lastRunAt ? Date.parse(a.lastRunAt) : -Infinity),
+			);
+		}
+
+		const page =
+			limit > 0
+				? matching.slice(offset, offset + limit)
+				: matching.slice(offset);
+
+		return route.fulfill({
+			json: {
+				pipelines: page,
+				hasMore: limit > 0 && offset + limit < matching.length,
+			},
+		});
+	};
+}
 
 test('registers a passkey, sees the pipeline overview, logs out, then logs back in', async ({
 	page,
@@ -519,29 +571,25 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// so the route glob needs the trailing `*` to still match a request
 	// that now always carries a query string -- same reasoning as the
 	// Repos page's identical comment above.
-	await page.route('**/api/pipelines*', (route) =>
-		route.fulfill({
-			json: {
-				pipelines: [
-					{
-						id: 'healthy-1',
-						repoId: 'repo-1',
-						name: 'CI',
-						healthStatus: 'healthy',
-						lastRunAt: ciLastRunAt,
-					},
-					{
-						id: 'unhealthy-1',
-						repoId: 'repo-1',
-						name: 'Deploy',
-						healthStatus: 'unhealthy',
-						triggeredSignals: ['failure_rate', 'flaky_step'],
-						lastRunAt: deployLastRunAt,
-					},
-				],
-				hasMore: false,
+	await page.route(
+		'**/api/pipelines*',
+		pipelinesRoute([
+			{
+				id: 'healthy-1',
+				repoId: 'repo-1',
+				name: 'CI',
+				healthStatus: 'healthy',
+				lastRunAt: ciLastRunAt,
 			},
-		}),
+			{
+				id: 'unhealthy-1',
+				repoId: 'repo-1',
+				name: 'Deploy',
+				healthStatus: 'unhealthy',
+				triggeredSignals: ['failure_rate', 'flaky_step'],
+				lastRunAt: deployLastRunAt,
+			},
+		]),
 	);
 	await page.reload();
 
@@ -592,21 +640,11 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		id: `page-pipeline-${i}`,
 		repoId: 'repo-1',
 		name: `pipeline-${i}`,
-		healthStatus: 'healthy',
+		// Only the last, on page two, is unhealthy: a filter applied to page one
+		// finds nothing, so the server has to apply it across every pipeline.
+		healthStatus: i === 20 ? ('unhealthy' as const) : ('healthy' as const),
 	}));
-	await page.route('**/api/pipelines*', (route) => {
-		const url = new URL(route.request().url());
-		const limit = Number(url.searchParams.get('limit') ?? '20');
-		const offset = Number(url.searchParams.get('offset') ?? '0');
-		const pagePipelines = paginatedPipelines.slice(offset, offset + limit);
-
-		return route.fulfill({
-			json: {
-				pipelines: pagePipelines,
-				hasMore: offset + limit < paginatedPipelines.length,
-			},
-		});
-	});
+	await page.route('**/api/pipelines*', pipelinesRoute(paginatedPipelines));
 	await page.reload();
 
 	// The health filter is still "All" from earlier in this journey, so the
@@ -636,32 +674,44 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(previousPageButton).toBeDisabled();
 	await forgeFilter.getByRole('radio', { name: 'All' }).click();
 
+	// The health filter is the server's (#376): the fixture's one unhealthy
+	// pipeline is on page two of the unfiltered list, and still shows on the
+	// first page of the filtered one, with nothing left to page to. A filter
+	// applied to the loaded page alone would show nothing here.
+	await healthFilter.getByRole('radio', { name: 'Unhealthy' }).click();
+	await expect(
+		page.getByRole('heading', { name: 'pipeline-20' }),
+	).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'pipeline-0' }),
+	).not.toBeVisible();
+	await expect(previousPageButton).toBeDisabled();
+	await expect(nextPageButton).toBeDisabled();
+	await healthFilter.getByRole('radio', { name: 'All' }).click();
+	await expect(page.getByRole('heading', { name: 'pipeline-0' })).toBeVisible();
+
 	// Restore the two-pipeline fixture the rest of this journey (the sort
 	// assertions above, and the dark-mode/grouping sections below) expects.
 	await page.unroute('**/api/pipelines*');
-	await page.route('**/api/pipelines*', (route) =>
-		route.fulfill({
-			json: {
-				pipelines: [
-					{
-						id: 'healthy-1',
-						repoId: 'repo-1',
-						name: 'CI',
-						healthStatus: 'healthy',
-						lastRunAt: ciLastRunAt,
-					},
-					{
-						id: 'unhealthy-1',
-						repoId: 'repo-1',
-						name: 'Deploy',
-						healthStatus: 'unhealthy',
-						triggeredSignals: ['failure_rate', 'flaky_step'],
-						lastRunAt: deployLastRunAt,
-					},
-				],
-				hasMore: false,
+	await page.route(
+		'**/api/pipelines*',
+		pipelinesRoute([
+			{
+				id: 'healthy-1',
+				repoId: 'repo-1',
+				name: 'CI',
+				healthStatus: 'healthy',
+				lastRunAt: ciLastRunAt,
 			},
-		}),
+			{
+				id: 'unhealthy-1',
+				repoId: 'repo-1',
+				name: 'Deploy',
+				healthStatus: 'unhealthy',
+				triggeredSignals: ['failure_rate', 'flaky_step'],
+				lastRunAt: deployLastRunAt,
+			},
+		]),
 	);
 	await page.reload();
 	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
@@ -720,7 +770,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 			},
 		}),
 	);
-	const groupingPipelines = [
+	const groupingPipelines: PipelineFixture[] = [
 		{
 			id: 'healthy-1',
 			repoId: 'repo-1',
@@ -745,15 +795,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// forge filter already got) -- the mock has to actually honor the
 	// repoId query param the frontend now sends, rather than always
 	// returning every pipeline regardless of which repo is selected below.
-	await page.route('**/api/pipelines*', (route) => {
-		const url = new URL(route.request().url());
-		const repoId = url.searchParams.get('repoId');
-		const pipelines = repoId
-			? groupingPipelines.filter((p) => p.repoId === repoId)
-			: groupingPipelines;
-
-		return route.fulfill({ json: { pipelines, hasMore: false } });
-	});
+	await page.route('**/api/pipelines*', pipelinesRoute(groupingPipelines));
 	await page.reload();
 	await expect(
 		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
@@ -809,27 +851,23 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// Restore the original two-pipeline fixture the rest of this journey
 	// (including the /api/pipelines/unhealthy-1 detail mock below) expects.
 	await page.unroute('**/api/repos*');
-	await page.route('**/api/pipelines*', (route) =>
-		route.fulfill({
-			json: {
-				pipelines: [
-					{
-						id: 'healthy-1',
-						repoId: 'repo-1',
-						name: 'CI',
-						healthStatus: 'healthy',
-					},
-					{
-						id: 'unhealthy-1',
-						repoId: 'repo-1',
-						name: 'Deploy',
-						healthStatus: 'unhealthy',
-						triggeredSignals: ['failure_rate', 'flaky_step'],
-					},
-				],
-				hasMore: false,
+	await page.route(
+		'**/api/pipelines*',
+		pipelinesRoute([
+			{
+				id: 'healthy-1',
+				repoId: 'repo-1',
+				name: 'CI',
+				healthStatus: 'healthy',
 			},
-		}),
+			{
+				id: 'unhealthy-1',
+				repoId: 'repo-1',
+				name: 'Deploy',
+				healthStatus: 'unhealthy',
+				triggeredSignals: ['failure_rate', 'flaky_step'],
+			},
+		]),
 	);
 	await page.reload();
 	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
