@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.55.0...v0.56.0) (2026-10-02)
+
+
+### Features
+
+* **web:** load the release history from a bundled JSON file ([#370](https://github.com/alrayyes/pipeline-analytics/issues/370)) ([a7ba1f2](https://github.com/alrayyes/pipeline-analytics/commit/a7ba1f2cf13c817682e2e13a6bab56da47f87c29)), closes [#368](https://github.com/alrayyes/pipeline-analytics/issues/368)
+
 ## [0.55.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.54.0...v0.55.0) (2026-10-02)
 
 
