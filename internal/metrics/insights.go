@@ -71,6 +71,16 @@ type WindowStep struct {
 type StageFailureCount struct {
 	Step     string
 	Failures int
+	// Share is Failures over every failed-step occurrence in the window.
+	Share float64
+}
+
+// CategoryCount is how many failed-step occurrences fall in one failure
+// category, and that category's share of all of them.
+type CategoryCount struct {
+	Category    FailureCategory
+	Occurrences int
+	Share       float64
 }
 
 // FailureGroup is one step's failures across every pipeline it failed in.
@@ -113,6 +123,9 @@ type FailureInsights struct {
 	// pipeline. A step is flaky when it both passed and failed in the window.
 	FlakyStepRatio    float64
 	StageDistribution []StageFailureCount
+	// CategoryBreakdown is the failed-step occurrences by failure category,
+	// heaviest first; empty when nothing failed.
+	CategoryBreakdown []CategoryCount
 	FailureGroups     []FailureGroup
 }
 
@@ -167,6 +180,7 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 		TopFailingPipelines: topFailingPipelines(current),
 		FlakyStepRatio:      flakyStepRatio(steps),
 		StageDistribution:   stageDistribution(steps),
+		CategoryBreakdown:   categoryBreakdown(steps),
 		FailureGroups:       failureGroups(steps),
 	}
 
@@ -322,9 +336,14 @@ func stageDistribution(steps []WindowStep) []StageFailureCount {
 		}
 	}
 
+	var total int
+	for _, failures := range counts {
+		total += failures
+	}
+
 	distribution := make([]StageFailureCount, 0, len(counts))
 	for name, failures := range counts {
-		distribution = append(distribution, StageFailureCount{Step: name, Failures: failures})
+		distribution = append(distribution, StageFailureCount{Step: name, Failures: failures, Share: rate(failures, total)})
 	}
 
 	slices.SortFunc(distribution, func(a, b StageFailureCount) int {
@@ -429,4 +448,31 @@ func flakyStepRatio(steps []WindowStep) float64 {
 	}
 
 	return rate(flaky, total)
+}
+
+// categoryBreakdown counts failed-step occurrences by failure category, heaviest
+// first (equal weights by category name, so the order is stable). A category
+// is decided per step name and its most common conclusion, the same as the
+// failure groups, so the two views can't disagree about which category a
+// step is in.
+func categoryBreakdown(steps []WindowStep) []CategoryCount {
+	var total int
+
+	counts := make(map[FailureCategory]int)
+
+	for _, group := range failureGroups(steps) {
+		counts[group.Category] += group.Occurrences
+		total += group.Occurrences
+	}
+
+	breakdown := make([]CategoryCount, 0, len(counts))
+	for category, occurrences := range counts {
+		breakdown = append(breakdown, CategoryCount{Category: category, Occurrences: occurrences, Share: rate(occurrences, total)})
+	}
+
+	slices.SortFunc(breakdown, func(a, b CategoryCount) int {
+		return cmp.Or(cmp.Compare(b.Occurrences, a.Occurrences), cmp.Compare(a.Category, b.Category))
+	})
+
+	return breakdown
 }
