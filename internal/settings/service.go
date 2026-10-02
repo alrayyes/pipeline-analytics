@@ -75,6 +75,7 @@ func resolve(raw map[string]string) Settings {
 		PipelinesHealthFilter: valueOr(raw, KeyPipelinesHealthFilter, DefaultPipelinesHealthFilter),
 		PipelinesRepoSelector: valueOr(raw, KeyPipelinesRepoSelector, DefaultPipelinesRepoSelector),
 		PipelinesSortOrder:    valueOr(raw, KeyPipelinesSortOrder, DefaultPipelinesSortOrder),
+		TelemetryWindow:       valueOr(raw, KeyTelemetryWindow, DefaultTelemetryWindow),
 	}
 }
 

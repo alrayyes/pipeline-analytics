@@ -18,6 +18,7 @@ const (
 	KeyPipelinesHealthFilter = "pipelinesHealthFilter"
 	KeyPipelinesRepoSelector = "pipelinesRepoSelector"
 	KeyPipelinesSortOrder    = "pipelinesSortOrder"
+	KeyTelemetryWindow       = "telemetryWindow"
 )
 
 // Keys lists every known setting key, in a stable order -- for validating a
@@ -29,6 +30,7 @@ var Keys = []string{
 	KeyPipelinesHealthFilter,
 	KeyPipelinesRepoSelector,
 	KeyPipelinesSortOrder,
+	KeyTelemetryWindow,
 }
 
 // PipelinesFilterKeys are the three settings "reset filters" clears in one
@@ -50,6 +52,7 @@ const (
 	DefaultPipelinesHealthFilter = "unhealthy"
 	DefaultPipelinesRepoSelector = "all"
 	DefaultPipelinesSortOrder    = "name"
+	DefaultTelemetryWindow       = "7d"
 )
 
 // enumValues holds the valid values for every setting that has a closed
@@ -62,6 +65,7 @@ var enumValues = map[string][]string{
 	KeyForgeFilter:           {"all", "github", "forgejo"},
 	KeyPipelinesHealthFilter: {"all", "healthy", "unhealthy"},
 	KeyPipelinesSortOrder:    {"name", "lastRun"},
+	KeyTelemetryWindow:       {"24h", "7d", "30d"},
 }
 
 // ErrInvalidKey is returned by Update for a key outside Keys.
@@ -80,6 +84,7 @@ type Settings struct {
 	PipelinesHealthFilter string
 	PipelinesRepoSelector string
 	PipelinesSortOrder    string
+	TelemetryWindow       string
 }
 
 // Store is the port account settings are persisted through. It works in
