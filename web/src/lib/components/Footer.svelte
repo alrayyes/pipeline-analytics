@@ -23,16 +23,12 @@ onMount(() => {
 			<span>· dev build</span>
 		{:else if version}
 			·
-			<a
-				href="https://github.com/alrayyes/pipeline-analytics/releases/tag/{version}"
-				class="hover:text-foreground hover:underline"
-			>
-				{version}
-			</a>
-		{/if}
-		{#if page.url.pathname !== '/releases'}
-			·
-			<a href="/releases" class="hover:text-foreground hover:underline">Release history</a>
+			{#if page.url.pathname === '/releases'}
+				<!-- The page you're on isn't a link to itself, as with the privacy link. -->
+				<span>{version}</span>
+			{:else}
+				<a href="/releases" class="hover:text-foreground hover:underline">{version}</a>
+			{/if}
 		{/if}
 		{#if page.url.pathname !== '/legal'}
 			·

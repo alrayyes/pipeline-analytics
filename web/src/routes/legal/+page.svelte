@@ -47,10 +47,10 @@
 		<p>
 			Aside from calling the forge APIs (GitHub's or a Forgejo instance's)
 			that a registered token already has access to, this app makes no
-			outbound calls with a repository's data. The release history page is
-			the one exception: it calls GitHub's public releases API directly from
-			the browser to show this project's own changelog, unrelated to any
-			tracked repository's data.
+			outbound calls with a repository's data. The release history page
+			makes none either: it shows this project's own changelog, bundled
+			into the app when it was built, so opening it contacts no outside
+			service.
 		</p>
 
 		<h2>Disclaimer</h2>
