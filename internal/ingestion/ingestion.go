@@ -233,6 +233,10 @@ type RunSnapshot struct {
 	StartedAt    *time.Time
 	CompletedAt  *time.Time
 	ForgeURL     string
+	Branch       string
+	SHA          string
+	Message      string
+	Actor        string
 	Jobs         []JobSnapshot
 }
 

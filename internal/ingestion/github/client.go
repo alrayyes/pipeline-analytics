@@ -213,6 +213,14 @@ type githubWorkflowRun struct {
 	RunStartedAt string `json:"run_started_at"`
 	UpdatedAt    string `json:"updated_at"`
 	HTMLURL      string `json:"html_url"`
+	HeadBranch   string `json:"head_branch"`
+	HeadSHA      string `json:"head_sha"`
+	HeadCommit   struct {
+		Message string `json:"message"`
+	} `json:"head_commit"`
+	Actor struct {
+		Login string `json:"login"`
+	} `json:"actor"`
 }
 
 // snapshotRun converts one run listing entry to a RunSnapshot, fetching its
@@ -244,6 +252,10 @@ func (c *Client) snapshotRun(ctx context.Context, owner, name string, wr githubW
 		StartedAt:    parseGitHubTime(wr.RunStartedAt),
 		CompletedAt:  completedAt,
 		ForgeURL:     wr.HTMLURL,
+		Branch:       wr.HeadBranch,
+		SHA:          wr.HeadSHA,
+		Message:      ingestion.FirstLine(wr.HeadCommit.Message),
+		Actor:        wr.Actor.Login,
 		Jobs:         jobs,
 	}, nil
 }
