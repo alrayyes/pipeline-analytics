@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	ApiError,
+	type FailureInsights,
 	fetchFailureInsights,
 	fetchPipeline,
 	fetchPipelineSteps,
@@ -230,10 +231,11 @@ describe('fetchRepoUsage', () => {
 });
 
 describe('fetchFailureInsights', () => {
-	const insights = {
+	const insights: FailureInsights = {
 		totalRuns: 10,
 		failedRuns: 2,
 		flakyStepRatio: 0.1,
+		window: '7d',
 		stageDistribution: [],
 		categoryBreakdown: [],
 		topFailingPipelines: [],
@@ -254,6 +256,27 @@ describe('fetchFailureInsights', () => {
 
 		expect(requestedUrl).toBe('/api/insights/failures?window=30d');
 		expect(result).toEqual(insights);
+	});
+
+	test('leaves the window off when there is none, so the server uses its own default', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse(insights));
+		};
+
+		await fetchFailureInsights({}, fetchFn as typeof fetch);
+
+		expect(requestedUrl).toBe('/api/insights/failures');
+	});
+
+	test('returns the window the server reports it used', async () => {
+		const fetchFn: FetchMock = () =>
+			Promise.resolve(jsonResponse({ ...insights, window: '30d' }));
+
+		const result = await fetchFailureInsights({}, fetchFn as typeof fetch);
+
+		expect(result.window).toBe('30d');
 	});
 
 	test('adds repoId and forge only when given', async () => {

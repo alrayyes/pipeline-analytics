@@ -7,6 +7,7 @@ import {
 	type FailureInsights,
 	fetchFailureInsights,
 	fetchRuns,
+	type InsightsWindow,
 	type RunSummary,
 } from '$lib/dashboardApi.js';
 import {
@@ -36,7 +37,7 @@ function plural(count: number, one: string, many: string): string {
 
 async function load(
 	gen: number,
-	window: ReturnType<typeof getTelemetryWindow>,
+	window: InsightsWindow | undefined,
 ): Promise<void> {
 	try {
 		const body = await fetchFailureInsights({ window });
@@ -57,7 +58,7 @@ async function load(
 $effect(() => {
 	if (!data.hasRepos) return;
 
-	const window = getTelemetryWindow();
+	const window = getTelemetryWindow() ?? undefined;
 	const gen = ++generation;
 
 	loading = true;
@@ -97,7 +98,7 @@ $effect(() => {
 	<div class="flex flex-wrap items-center gap-4">
 		<h1 class="text-2xl font-semibold">Overview</h1>
 		{#if data.hasRepos}
-			<WindowToggle value={getTelemetryWindow()} onChange={setTelemetryWindow} />
+			<WindowToggle value={getTelemetryWindow() ?? insights?.window ?? null} onChange={setTelemetryWindow} />
 		{/if}
 	</div>
 

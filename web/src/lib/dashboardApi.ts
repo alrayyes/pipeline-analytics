@@ -144,6 +144,9 @@ export interface FailureGroup {
 }
 
 export interface FailureInsights {
+	// The window these figures cover: the one requested, or the server's own
+	// default when none was. Show this; don't assume a default.
+	window: InsightsWindow;
 	totalRuns: number;
 	failedRuns: number;
 	// Absent, not zero, when no run concluded in the window.
@@ -253,7 +256,8 @@ export async function fetchRepoUsage(
 }
 
 export interface FailureInsightsParams {
-	window: InsightsWindow;
+	// Omit to let the server use its default window.
+	window?: InsightsWindow;
 	forge?: 'github' | 'forgejo';
 	repoId?: string;
 }
@@ -262,11 +266,13 @@ export async function fetchFailureInsights(
 	params: FailureInsightsParams,
 	fetchFn: typeof fetch = fetch,
 ): Promise<FailureInsights> {
-	const searchParams = new URLSearchParams({ window: params.window });
+	const searchParams = new URLSearchParams();
+	if (params.window) searchParams.set('window', params.window);
 	if (params.repoId) searchParams.set('repoId', params.repoId);
 	if (params.forge) searchParams.set('forge', params.forge);
 
-	const res = await fetchFn(`/api/insights/failures?${searchParams}`);
+	const query = searchParams.size > 0 ? `?${searchParams}` : '';
+	const res = await fetchFn(`/api/insights/failures${query}`);
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as FailureInsights;
