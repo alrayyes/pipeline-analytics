@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.48.0...v0.49.0) (2026-10-02)
+
+
+### Features
+
+* **metrics:** categorise a failed step from its name and conclusion ([#347](https://github.com/alrayyes/pipeline-analytics/issues/347)) ([00502e0](https://github.com/alrayyes/pipeline-analytics/commit/00502e0a12906e2cdb41da57d6d38b8545302809)), closes [#335](https://github.com/alrayyes/pipeline-analytics/issues/335)
+
 ## [0.48.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.47.0...v0.48.0) (2026-10-02)
 
 
