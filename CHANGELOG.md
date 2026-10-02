@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.54.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.53.0...v0.54.0) (2026-10-02)
+
+
+### Features
+
+* **api:** serve the failure insights ([#365](https://github.com/alrayyes/pipeline-analytics/issues/365)) ([a4c688f](https://github.com/alrayyes/pipeline-analytics/commit/a4c688f2a45100b3bdb73014540b49dbf7aaffa4))
+* **health:** report readiness from the container health check ([#364](https://github.com/alrayyes/pipeline-analytics/issues/364)) ([fc9227c](https://github.com/alrayyes/pipeline-analytics/commit/fc9227cb47938b1bece8487519633c72701c78f5))
+* **metrics:** compute mean time to recovery ([#353](https://github.com/alrayyes/pipeline-analytics/issues/353)) ([fd055ca](https://github.com/alrayyes/pipeline-analytics/commit/fd055ca4e93fafee3b9c666c1023cb443898a7fe))
+* **metrics:** group failed steps and compute the flaky-step ratio ([#360](https://github.com/alrayyes/pipeline-analytics/issues/360)) ([ff66069](https://github.com/alrayyes/pipeline-analytics/commit/ff66069f4f2d35dcb72aab987e03fd0c5799f1e3))
+* **settings:** persist the telemetry window per account ([#357](https://github.com/alrayyes/pipeline-analytics/issues/357)) ([c7583b7](https://github.com/alrayyes/pipeline-analytics/commit/c7583b784020204af624eb2f64f161d16f4e6dab))
+* **web:** add the telemetry window store ([#366](https://github.com/alrayyes/pipeline-analytics/issues/366)) ([2412b8b](https://github.com/alrayyes/pipeline-analytics/commit/2412b8bc7b26469e723e970b1e2767f07bd5d8db))
+* **web:** add typed fetchers for failure insights and the run list ([#356](https://github.com/alrayyes/pipeline-analytics/issues/356)) ([0d5a0af](https://github.com/alrayyes/pipeline-analytics/commit/0d5a0af569c54cf2ee451ebe6c28fd43d7a5c77e))
+
 ## [0.53.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.52.0...v0.53.0) (2026-10-02)
 
 
