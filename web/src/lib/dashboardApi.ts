@@ -102,6 +102,15 @@ export interface RunListResponse {
 export interface StageFailureCount {
 	step: string;
 	failures: number;
+	// Fraction of all failed-step occurrences in the window, from the server.
+	share: number;
+}
+
+export interface CategoryCount {
+	category: FailureCategory;
+	occurrences: number;
+	// Fraction of all failed-step occurrences in the window, from the server.
+	share: number;
 }
 
 export interface FailingPipeline {
@@ -131,6 +140,7 @@ export interface FailureInsights {
 	// Absent when nothing recovered in the window.
 	mttrSeconds?: number;
 	stageDistribution: StageFailureCount[];
+	categoryBreakdown: CategoryCount[];
 	topFailingPipelines: FailingPipeline[];
 	failureGroups: FailureGroup[];
 }
