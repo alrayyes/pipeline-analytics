@@ -153,7 +153,11 @@ const githubWorkflowRunPayload = `{
     "conclusion": "success",
     "run_started_at": "2026-09-15T10:00:00Z",
     "updated_at": "2026-09-15T10:05:00Z",
-    "html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001"
+    "html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001",
+    "head_branch": "main",
+    "head_sha": "a8f9c1e3b2d4f6a8c0e2a4b6d8f0a2c4e6b8d0f2",
+    "head_commit": {"message": "fix(stripe): webhook retry\n\nLonger body that must not be kept."},
+    "actor": {"login": "marcus-v"}
   },
   "repository": {"full_name": "alrayyes/pipeline-analytics"}
 }`
@@ -195,6 +199,41 @@ func TestProcessGitHubEvent_WorkflowRun(t *testing.T) {
 	require.Equal(t, "success", run.Conclusion)
 	require.NotNil(t, run.StartedAt)
 	require.NotNil(t, run.CompletedAt)
+}
+
+func TestProcessGitHubEvent_WorkflowRunCommitMetadata(t *testing.T) {
+	t.Parallel()
+
+	t.Run("records branch, sha, first message line and actor", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeRunStore()
+		repo := ingestion.Repo{ID: "repo-1", Forge: ingestion.ForgeGitHub}
+
+		err := ingestion.ProcessGitHubEvent(context.Background(), store, repo, "workflow_run", []byte(githubWorkflowRunPayload))
+		require.NoError(t, err)
+
+		run := store.runs["repo-1/1001"]
+		require.Equal(t, "main", run.Branch)
+		require.Equal(t, "a8f9c1e3b2d4f6a8c0e2a4b6d8f0a2c4e6b8d0f2", run.SHA)
+		require.Equal(t, "fix(stripe): webhook retry", run.Message)
+		require.Equal(t, "marcus-v", run.Actor)
+	})
+
+	t.Run("stores the run when the forge omits the actor", func(t *testing.T) {
+		t.Parallel()
+
+		store := newFakeRunStore()
+		repo := ingestion.Repo{ID: "repo-1", Forge: ingestion.ForgeGitHub}
+		payload := `{"workflow_run": {"id": 7, "name": "CI", "status": "completed", "head_branch": "main"}}`
+
+		err := ingestion.ProcessGitHubEvent(context.Background(), store, repo, "workflow_run", []byte(payload))
+		require.NoError(t, err)
+
+		run := store.runs["repo-1/7"]
+		require.Equal(t, "main", run.Branch)
+		require.Empty(t, run.Actor)
+	})
 }
 
 func TestProcessGitHubEvent_WorkflowJob(t *testing.T) {

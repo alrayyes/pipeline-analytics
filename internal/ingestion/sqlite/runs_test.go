@@ -2,9 +2,11 @@ package sqlite_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
+	"github.com/alrayyes/pipeline-analytics/internal/db"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
 	"github.com/stretchr/testify/require"
@@ -85,6 +87,78 @@ func TestStore_UpsertRun(t *testing.T) {
 		require.Equal(t, first.ID, second.ID)
 		require.Equal(t, "completed", second.Status)
 		require.Equal(t, "success", second.Conclusion)
+	})
+}
+
+func TestStore_UpsertRun_CommitMetadata(t *testing.T) {
+	t.Parallel()
+
+	conn, err := db.Open(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	require.NoError(t, db.Migrate(context.Background(), conn))
+
+	store := sqlite.NewStore(conn, make([]byte, 32))
+	ctx := context.Background()
+	repo, err := store.CreateRepo(ctx, ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "a/b", Token: "t"})
+	require.NoError(t, err)
+
+	type commitRow struct{ branch, sha, message, actor sql.NullString }
+
+	read := func(forgeRunID string) commitRow {
+		var row commitRow
+
+		require.NoError(t, conn.QueryRowContext(ctx,
+			"SELECT branch, head_sha, head_message, actor FROM runs WHERE repo_id = ? AND forge_run_id = ?",
+			repo.ID, forgeRunID,
+		).Scan(&row.branch, &row.sha, &row.message, &row.actor))
+
+		return row
+	}
+
+	t.Run("persists the commit fields", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.UpsertRun(ctx, ingestion.Run{
+			RepoID: repo.ID, ForgeRunID: "2001", PipelineName: "ci.yml", Status: "completed",
+			Branch: "main", SHA: "c4d291a", Message: "fix: retry", Actor: "marcus-v",
+		})
+		require.NoError(t, err)
+
+		row := read("2001")
+		require.Equal(t, "main", row.branch.String)
+		require.Equal(t, "c4d291a", row.sha.String)
+		require.Equal(t, "fix: retry", row.message.String)
+		require.Equal(t, "marcus-v", row.actor.String)
+	})
+
+	t.Run("stores null, not empty strings, when the forge omits them", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.UpsertRun(ctx, ingestion.Run{RepoID: repo.ID, ForgeRunID: "2002", PipelineName: "ci.yml", Status: "completed"})
+		require.NoError(t, err)
+
+		row := read("2002")
+		require.False(t, row.branch.Valid)
+		require.False(t, row.actor.Valid)
+	})
+
+	t.Run("a later delivery without commit fields keeps the stored ones", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.UpsertRun(ctx, ingestion.Run{
+			RepoID: repo.ID, ForgeRunID: "2003", PipelineName: "ci.yml", Status: "in_progress",
+			Branch: "main", SHA: "e1803bf", Message: "feat: pkce", Actor: "alex-r",
+		})
+		require.NoError(t, err)
+
+		// A workflow_job event's stub run carries no commit data.
+		_, err = store.UpsertRun(ctx, ingestion.Run{RepoID: repo.ID, ForgeRunID: "2003", PipelineName: "ci.yml", Status: "in_progress"})
+		require.NoError(t, err)
+
+		row := read("2003")
+		require.Equal(t, "e1803bf", row.sha.String)
+		require.Equal(t, "alex-r", row.actor.String)
 	})
 }
 

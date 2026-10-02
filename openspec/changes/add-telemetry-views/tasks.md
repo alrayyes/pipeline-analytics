@@ -4,11 +4,11 @@
 
 - [x] 1.1 Add `GET /api/insights/failures` and `GET /api/runs` to
       `openapi/openapi.yaml`; lint with Redocly
-- [ ] 1.2 Review the contract before any handler is written
+- [x] 1.2 Review the contract before any handler is written
 
 ## 2. Ingestion
 
-- [ ] 2.1 Failing test: run webhook stores branch, SHA, message,
+- [x] 2.1 Failing test: run webhook stores branch, SHA, message,
       actor; migration `00008` adds the nullable columns
 - [ ] 2.2 Populate the same fields in reconciliation, GitHub and
       Forgejo, verified against both forges' payload shapes
