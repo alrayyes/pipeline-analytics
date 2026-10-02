@@ -127,6 +127,7 @@ func TestFailureInsights(t *testing.T) {
 		require.NotContains(t, body, "passRateDelta")
 		require.NotContains(t, body, "mttrSeconds")
 		require.Equal(t, []any{}, body["stageDistribution"])
+		require.Equal(t, []any{}, body["categoryBreakdown"])
 		require.Equal(t, []any{}, body["topFailingPipelines"])
 		require.Equal(t, []any{}, body["failureGroups"])
 		require.InDelta(t, 0, body["flakyStepRatio"], 0)
@@ -200,7 +201,8 @@ func TestFailureInsights(t *testing.T) {
 		require.Equal(t, "CI", pipeline["pipelineName"])
 		require.NotEmpty(t, pipeline["pipelineId"])
 
-		require.Equal(t, []any{map[string]any{"step": "Run unit tests", "failures": float64(1)}}, body["stageDistribution"])
+		require.Equal(t, []any{map[string]any{"step": "Run unit tests", "failures": float64(1), "share": float64(1)}}, body["stageDistribution"])
+		require.Equal(t, []any{map[string]any{"category": "code_tests", "occurrences": float64(1), "share": float64(1)}}, body["categoryBreakdown"])
 		require.InDelta(t, 1, body["flakyStepRatio"], 0, "it both passed and failed: the only step is flaky")
 	})
 

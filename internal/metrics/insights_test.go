@@ -286,6 +286,15 @@ func windowStep(pipeline, step, conclusion string, hoursAgo int) metrics.WindowS
 	}
 }
 
+func stageNames(distribution []metrics.StageFailureCount) []string {
+	names := make([]string, 0, len(distribution))
+	for _, entry := range distribution {
+		names = append(names, entry.Step)
+	}
+
+	return names
+}
+
 func stepInsights(t *testing.T, steps ...metrics.WindowStep) metrics.FailureInsights {
 	t.Helper()
 
@@ -308,14 +317,17 @@ func TestService_GetFailureInsights_StageDistribution(t *testing.T) {
 			windowStep("CI", "lint", "success", 1), windowStep("CI", "docs", "skipped", 1),
 		)
 
-		require.Equal(t, []metrics.StageFailureCount{{Step: "test", Failures: 3}, {Step: "build", Failures: 1}}, got.StageDistribution)
+		require.Equal(t, []string{"test", "build"}, stageNames(got.StageDistribution))
+		require.Equal(t, 3, got.StageDistribution[0].Failures)
+		require.Equal(t, 1, got.StageDistribution[1].Failures)
 	})
 
 	t.Run("a timed-out step counts as a failure", func(t *testing.T) {
 		t.Parallel()
 
 		got := stepInsights(t, windowStep("CI", "e2e", "timed_out", 1))
-		require.Equal(t, []metrics.StageFailureCount{{Step: "e2e", Failures: 1}}, got.StageDistribution)
+		require.Equal(t, []string{"e2e"}, stageNames(got.StageDistribution))
+		require.Equal(t, 1, got.StageDistribution[0].Failures)
 	})
 
 	t.Run("equal counts order by step name, so the result is stable", func(t *testing.T) {
@@ -417,5 +429,65 @@ func TestService_GetFailureInsights_FlakyStepRatio(t *testing.T) {
 		t.Parallel()
 
 		require.Zero(t, stepInsights(t).FlakyStepRatio)
+	})
+}
+
+func TestService_GetFailureInsights_Shares(t *testing.T) {
+	t.Parallel()
+
+	t.Run("each failing step's share is its failures over all failures, and they sum to 1", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("CI", "test", "failure", 1), windowStep("CI", "test", "failure", 2),
+			windowStep("CI", "build", "failure", 1),
+		)
+
+		require.Len(t, got.StageDistribution, 2)
+		require.InDelta(t, 2.0/3, got.StageDistribution[0].Share, 1e-9)
+		require.InDelta(t, 1.0/3, got.StageDistribution[1].Share, 1e-9)
+	})
+
+	t.Run("the category breakdown counts occurrences, not groups, heaviest first", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("CI", "Run unit tests", "failure", 1), windowStep("CI", "Run unit tests", "failure", 2),
+			windowStep("web", "lint", "failure", 3), // code_tests again: 3 in all
+			windowStep("CI", "Docker login", "failure", 1),
+		)
+
+		require.Equal(t, []metrics.CategoryCount{
+			{Category: metrics.CategoryCodeTests, Occurrences: 3, Share: 0.75},
+			{Category: metrics.CategoryConfigSecrets, Occurrences: 1, Share: 0.25},
+		}, got.CategoryBreakdown)
+	})
+
+	t.Run("a timeout counts under network and timeouts", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t, windowStep("CI", "deploy", "timed_out", 1))
+
+		require.Len(t, got.CategoryBreakdown, 1)
+		require.Equal(t, metrics.CategoryNetworkTimeouts, got.CategoryBreakdown[0].Category)
+		require.InDelta(t, 1.0, got.CategoryBreakdown[0].Share, 1e-9)
+	})
+
+	t.Run("equal categories order by name so the result is stable", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t, windowStep("CI", "Publish release", "failure", 1), windowStep("CI", "Run unit tests", "failure", 1))
+
+		require.Equal(t, metrics.CategoryCodeTests, got.CategoryBreakdown[0].Category)
+		require.Equal(t, metrics.CategoryUncategorised, got.CategoryBreakdown[1].Category)
+	})
+
+	t.Run("nothing failed gives empty lists, not zero shares", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t, windowStep("CI", "test", "success", 1))
+
+		require.Empty(t, got.StageDistribution)
+		require.Empty(t, got.CategoryBreakdown)
 	})
 }
