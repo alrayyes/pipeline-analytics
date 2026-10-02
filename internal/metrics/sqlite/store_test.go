@@ -300,3 +300,55 @@ func TestStore_RepoUsage(t *testing.T) {
 	require.InDelta(t, 5*60, byPipeline["CI"], 0.01)
 	require.InDelta(t, 10*60, byPipeline["Deploy"], 0.01)
 }
+
+func TestStore_WindowRuns(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t)
+
+	// Minutes from the epoch: 100 and 200 are inside [150-100, 250), 300 is not.
+	f.seedRun(t, "CI", "1", 40, 5, "success")  // before the window
+	f.seedRun(t, "CI", "2", 100, 5, "failure") // inside
+	f.seedRun(t, "Lint", "3", 200, 5, "success")
+	f.seedRun(t, "CI", "4", 300, 5, "success") // after
+
+	t.Run("returns runs started within [since, until) with their pipeline", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := f.metrics.WindowRuns(context.Background(), metrics.RunWindowFilter{Since: *at(50), Until: *at(250)})
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+
+		names := []string{got[0].Pipeline.Name, got[1].Pipeline.Name}
+		require.ElementsMatch(t, []string{"CI", "Lint"}, names)
+		require.Equal(t, f.repo.ID, got[0].Pipeline.RepoID)
+	})
+
+	t.Run("the upper bound is exclusive", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := f.metrics.WindowRuns(context.Background(), metrics.RunWindowFilter{Since: *at(50), Until: *at(200)})
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+	})
+
+	t.Run("filters by repo", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := f.metrics.WindowRuns(context.Background(), metrics.RunWindowFilter{RepoID: "no-such-repo", Since: *at(0), Until: *at(1000)})
+		require.NoError(t, err)
+		require.Empty(t, got)
+	})
+
+	t.Run("filters by forge", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := f.metrics.WindowRuns(context.Background(), metrics.RunWindowFilter{Forge: "forgejo", Since: *at(0), Until: *at(1000)})
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		got, err = f.metrics.WindowRuns(context.Background(), metrics.RunWindowFilter{Forge: "github", Since: *at(0), Until: *at(1000)})
+		require.NoError(t, err)
+		require.Len(t, got, 4)
+	})
+}

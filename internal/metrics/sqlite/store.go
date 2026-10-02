@@ -154,6 +154,60 @@ func (s *Store) PipelineSteps(ctx context.Context, ref metrics.PipelineRef, wind
 	return scanStepOccurrences(rows)
 }
 
+// WindowRuns implements metrics.Store.
+func (s *Store) WindowRuns(ctx context.Context, filter metrics.RunWindowFilter) ([]metrics.WindowRun, error) {
+	query := "SELECT r.id, r.repo_id, r.pipeline_name, r.status, r.conclusion, r.started_at, r.completed_at FROM runs r"
+	args := []any{}
+
+	// As in pipelineListQuery: runs has no forge column, so the join to the
+	// owning repo is only added when a forge filter needs it.
+	if filter.Forge != "" {
+		query += " JOIN repos p ON p.id = r.repo_id"
+	}
+
+	query += " WHERE r.started_at >= ? AND r.started_at < ?"
+	args = append(args, filter.Since, filter.Until)
+
+	if filter.RepoID != "" {
+		query += " AND r.repo_id = ?"
+		args = append(args, filter.RepoID)
+	}
+
+	if filter.Forge != "" {
+		query += " AND p.forge = ?"
+		args = append(args, filter.Forge)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query window runs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var runs []metrics.WindowRun
+
+	for rows.Next() {
+		var (
+			wr         metrics.WindowRun
+			conclusion sql.NullString
+		)
+
+		err := rows.Scan(&wr.Run.ID, &wr.Pipeline.RepoID, &wr.Pipeline.Name, &wr.Run.Status, &conclusion, &wr.Run.StartedAt, &wr.Run.CompletedAt)
+		if err != nil {
+			return nil, fmt.Errorf("scan window run: %w", err)
+		}
+
+		wr.Run.Conclusion = conclusion.String
+		runs = append(runs, wr)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate window runs: %w", err)
+	}
+
+	return runs, nil
+}
+
 // RunSteps implements metrics.Store.
 func (s *Store) RunSteps(ctx context.Context, runID string) ([]metrics.StepOccurrence, error) {
 	rows, err := s.db.QueryContext(ctx, `
