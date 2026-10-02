@@ -72,9 +72,12 @@ func (s *Store) UpsertRun(ctx context.Context, run ingestion.Run) (ingestion.Run
 		run.ID = existingID
 
 		_, err := s.db.ExecContext(ctx, `
-			UPDATE runs SET pipeline_name = ?, status = ?, conclusion = ?, started_at = ?, completed_at = ?, forge_url = ?
+			UPDATE runs SET pipeline_name = ?, status = ?, conclusion = ?, started_at = ?, completed_at = ?, forge_url = ?,
+				branch = COALESCE(?, branch), head_sha = COALESCE(?, head_sha),
+				head_message = COALESCE(?, head_message), actor = COALESCE(?, actor)
 			WHERE id = ?
-		`, run.PipelineName, run.Status, nullable(run.Conclusion), run.StartedAt, run.CompletedAt, run.ForgeURL, run.ID)
+		`, run.PipelineName, run.Status, nullable(run.Conclusion), run.StartedAt, run.CompletedAt, run.ForgeURL,
+			nullable(run.Branch), nullable(run.SHA), nullable(run.Message), nullable(run.Actor), run.ID)
 		if err != nil {
 			return ingestion.Run{}, fmt.Errorf("update run: %w", err)
 		}
@@ -85,9 +88,11 @@ func (s *Store) UpsertRun(ctx context.Context, run ingestion.Run) (ingestion.Run
 	run.ID = uuid.NewString()
 
 	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO runs (id, repo_id, forge_run_id, pipeline_name, status, conclusion, started_at, completed_at, forge_url)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, run.ID, run.RepoID, run.ForgeRunID, run.PipelineName, run.Status, nullable(run.Conclusion), run.StartedAt, run.CompletedAt, run.ForgeURL)
+		INSERT INTO runs (id, repo_id, forge_run_id, pipeline_name, status, conclusion, started_at, completed_at, forge_url,
+			branch, head_sha, head_message, actor)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, run.ID, run.RepoID, run.ForgeRunID, run.PipelineName, run.Status, nullable(run.Conclusion), run.StartedAt, run.CompletedAt, run.ForgeURL,
+		nullable(run.Branch), nullable(run.SHA), nullable(run.Message), nullable(run.Actor))
 	if err != nil {
 		return ingestion.Run{}, fmt.Errorf("insert run: %w", err)
 	}

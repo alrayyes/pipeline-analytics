@@ -17,6 +17,13 @@ type Run struct {
 	StartedAt    *time.Time
 	CompletedAt  *time.Time
 	ForgeURL     string
+
+	// Commit metadata, empty where the forge didn't send it. A later
+	// delivery that leaves these empty keeps what's already stored.
+	Branch  string
+	SHA     string
+	Message string // first line of the head commit message
+	Actor   string
 }
 
 // Job is one job within a Run.

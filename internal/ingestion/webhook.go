@@ -79,6 +79,14 @@ type githubWorkflowRunEvent struct {
 		RunStartedAt string `json:"run_started_at"`
 		UpdatedAt    string `json:"updated_at"`
 		HTMLURL      string `json:"html_url"`
+		HeadBranch   string `json:"head_branch"`
+		HeadSHA      string `json:"head_sha"`
+		HeadCommit   struct {
+			Message string `json:"message"`
+		} `json:"head_commit"`
+		Actor struct {
+			Login string `json:"login"`
+		} `json:"actor"`
 	} `json:"workflow_run"`
 }
 
@@ -96,6 +104,10 @@ func processGitHubWorkflowRun(ctx context.Context, store RunStore, repo Repo, pa
 		Conclusion:   event.WorkflowRun.Conclusion,
 		StartedAt:    parseTime(event.WorkflowRun.RunStartedAt),
 		ForgeURL:     event.WorkflowRun.HTMLURL,
+		Branch:       event.WorkflowRun.HeadBranch,
+		SHA:          event.WorkflowRun.HeadSHA,
+		Message:      firstLine(event.WorkflowRun.HeadCommit.Message),
+		Actor:        event.WorkflowRun.Actor.Login,
 	}
 
 	if run.Status == "completed" {
@@ -200,4 +212,12 @@ func parseTime(s string) *time.Time {
 	}
 
 	return &t
+}
+
+// firstLine is a commit message's subject: the body is long, often noisy and
+// not something a run card needs.
+func firstLine(message string) string {
+	line, _, _ := strings.Cut(message, "\n")
+
+	return strings.TrimSpace(line)
 }
