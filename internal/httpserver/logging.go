@@ -21,8 +21,9 @@ func (r *statusRecorder) WriteHeader(status int) {
 // requestLogger wraps next with a middleware that emits one structured log
 // record per request after it completes -- method, path, status, duration,
 // remote address -- at a level chosen by the response's status class (5xx
-// Error, 4xx Warn, else Info). /healthz is excluded outright: it's polled
-// continuously by whatever checks liveness and adds no actionable signal.
+// Error, 4xx Warn, else Info). /healthz and /readyz are excluded outright:
+// they're polled continuously by whatever checks liveness or readiness and
+// add no actionable signal (a failing /readyz logs its own cause).
 //
 // Wrapped outside requireSession (not the mux directly), so a request
 // requireSession rejects before any handler runs is still logged, with the
@@ -32,7 +33,7 @@ func (r *statusRecorder) WriteHeader(status int) {
 // request/response bodies -- only the fields listed above.
 func requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/healthz" {
+		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
 			next.ServeHTTP(w, r)
 
 			return
