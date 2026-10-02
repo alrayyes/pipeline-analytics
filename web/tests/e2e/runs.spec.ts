@@ -32,6 +32,7 @@ const failedRun = {
 	repoId: 'r1',
 	status: 'completed',
 	conclusion: 'failure',
+	outcome: 'failed',
 	startedAt: '2026-10-02T12:00:00Z',
 	durationSeconds: 402,
 	branch: 'main',
@@ -40,10 +41,25 @@ const failedRun = {
 	actor: 'marcus-v',
 	forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/1',
 	steps: [
-		{ name: 'checkout', status: 'completed', conclusion: 'success' },
-		{ name: 'build', status: 'completed', conclusion: 'success' },
-		{ name: 'canary', status: 'completed', conclusion: 'failure' },
-		{ name: 'promote', status: 'queued' },
+		{
+			name: 'checkout',
+			status: 'completed',
+			conclusion: 'success',
+			outcome: 'passed',
+		},
+		{
+			name: 'build',
+			status: 'completed',
+			conclusion: 'success',
+			outcome: 'passed',
+		},
+		{
+			name: 'canary',
+			status: 'completed',
+			conclusion: 'timed_out',
+			outcome: 'failed',
+		},
+		{ name: 'promote', status: 'queued', outcome: 'queued' },
 	],
 };
 
@@ -53,12 +69,18 @@ const runningRun = {
 	pipelineName: 'preview-build',
 	repoId: 'r1',
 	status: 'in_progress',
+	outcome: 'running',
 	startedAt: '2026-10-02T12:10:00Z',
 	forgeUrl: 'https://github.com/alrayyes/web/actions/runs/2',
 	steps: [
-		{ name: 'install', status: 'completed', conclusion: 'success' },
-		{ name: 'e2e-test', status: 'in_progress' },
-		{ name: 'upload', status: 'queued' },
+		{
+			name: 'install',
+			status: 'completed',
+			conclusion: 'success',
+			outcome: 'passed',
+		},
+		{ name: 'e2e-test', status: 'in_progress', outcome: 'running' },
+		{ name: 'upload', status: 'queued', outcome: 'queued' },
 	],
 };
 
@@ -69,12 +91,23 @@ const passedRun = {
 	repoId: 'r1',
 	status: 'completed',
 	conclusion: 'success',
+	outcome: 'passed',
 	startedAt: '2026-10-02T11:00:00Z',
 	durationSeconds: 115,
 	forgeUrl: 'https://github.com/alrayyes/infra/actions/runs/3',
 	steps: [
-		{ name: 'init', status: 'completed', conclusion: 'success' },
-		{ name: 'plan', status: 'completed', conclusion: 'success' },
+		{
+			name: 'init',
+			status: 'completed',
+			conclusion: 'success',
+			outcome: 'passed',
+		},
+		{
+			name: 'plan',
+			status: 'completed',
+			conclusion: 'success',
+			outcome: 'passed',
+		},
 	],
 };
 

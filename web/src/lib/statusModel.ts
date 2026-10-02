@@ -1,42 +1,44 @@
-// One mapping from a forge's run/step status and conclusion to the four
-// tones the telemetry views draw (pass, fail, running, flaky) plus a neutral
-// one, and to the text beside each. Colour is never the only signal: every
-// tone has a label a component renders next to its icon.
+// Maps the API's normalized outcome to the tones the telemetry views draw
+// and the text beside each. What a forge's status or conclusion means is
+// decided by the server (metrics.OutcomeOf) and arrives as `outcome`; this
+// file only decides how an outcome looks. Colour is never the only signal:
+// every tone has a label a component renders next to its icon.
+
+import type { Outcome } from './dashboardApi.js';
 
 export type Tone = 'pass' | 'fail' | 'running' | 'flaky' | 'neutral';
 
-const FAILED = new Set(['failure', 'timed_out']);
-const RUNNING = new Set(['in_progress', 'queued', 'waiting', 'pending']);
+const TONES: Record<Outcome, Tone> = {
+	passed: 'pass',
+	failed: 'fail',
+	running: 'running',
+	// Work still to come reads like running: it is about to be.
+	queued: 'running',
+	cancelled: 'neutral',
+	skipped: 'neutral',
+	unknown: 'neutral',
+};
 
-export function statusTone(status: string, conclusion?: string): Tone {
-	// A conclusion wins: a stale in_progress status next to a concluded
-	// run means the status hasn't caught up, not that it's still going.
-	if (conclusion === 'success') return 'pass';
-	if (conclusion && FAILED.has(conclusion)) return 'fail';
-	if (conclusion) return 'neutral';
-
-	return RUNNING.has(status) ? 'running' : 'neutral';
-}
-
-const CONCLUSION_LABELS: Record<string, string> = {
-	success: 'Passed',
-	failure: 'Failed',
-	timed_out: 'Timed out',
+const LABELS: Record<Exclude<Outcome, 'unknown'>, string> = {
+	passed: 'Passed',
+	failed: 'Failed',
+	running: 'Running',
+	queued: 'Queued',
 	cancelled: 'Cancelled',
 	skipped: 'Skipped',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-	in_progress: 'Running',
-	queued: 'Queued',
-	waiting: 'Queued',
-	pending: 'Queued',
-};
+export function outcomeTone(outcome: Outcome): Tone {
+	return TONES[outcome];
+}
 
-export function statusLabel(status: string, conclusion?: string): string {
-	if (conclusion && CONCLUSION_LABELS[conclusion]) {
-		return CONCLUSION_LABELS[conclusion];
-	}
+// An outcome the server couldn't classify shows the forge's own text (the
+// conclusion, else the status) rather than a blank or a guess.
+export function outcomeLabel(outcome: Outcome, fallback?: string): string {
+	return outcome === 'unknown' ? (fallback ?? 'Unknown') : LABELS[outcome];
+}
 
-	return STATUS_LABELS[status] ?? status;
+// Work still to come: a list showing it should keep refreshing.
+export function isPending(outcome: Outcome): boolean {
+	return outcome === 'running' || outcome === 'queued';
 }

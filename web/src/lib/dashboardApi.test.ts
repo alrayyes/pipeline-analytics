@@ -9,6 +9,7 @@ import {
 	fetchRepoUsage,
 	fetchRuns,
 	type PipelineDetail,
+	type RunSummary,
 } from './dashboardApi.js';
 
 type FetchMock = (input: RequestInfo | URL) => Promise<Response>;
@@ -316,15 +317,23 @@ describe('fetchRuns', () => {
 	});
 
 	test('returns runs with their steps and optional commit fields', async () => {
-		const run = {
+		const run: RunSummary = {
 			id: 'run-1',
 			pipelineId: 'p1',
 			pipelineName: 'CI',
 			repoId: 'r1',
 			status: 'completed',
 			conclusion: 'failure',
+			outcome: 'failed',
 			sha: 'c4d291a',
-			steps: [{ name: 'build', status: 'completed', conclusion: 'success' }],
+			steps: [
+				{
+					name: 'build',
+					status: 'completed',
+					conclusion: 'success',
+					outcome: 'passed',
+				},
+			],
 		};
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(jsonResponse({ runs: [run], hasMore: true }));

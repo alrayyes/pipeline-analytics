@@ -18,7 +18,7 @@ import {
 	RUNS_PAGE_SIZE,
 	setStatus,
 } from '$lib/runsFilters.svelte.js';
-import { statusTone } from '$lib/statusModel.js';
+import { isPending } from '$lib/statusModel.js';
 
 const REFRESH_MS = 15_000;
 
@@ -69,7 +69,7 @@ async function load(
 
 	loading = false;
 
-	if (runs?.some((r) => statusTone(r.status, r.conclusion) === 'running')) {
+	if (runs?.some((r) => isPending(r.outcome))) {
 		timer = setTimeout(() => load(gen, params, true), REFRESH_MS);
 	}
 }

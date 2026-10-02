@@ -12,7 +12,7 @@ import {
 import type { RunSummary } from '$lib/dashboardApi.js';
 import { formatSeconds } from '$lib/format.js';
 import { formatRelativeTime } from '$lib/relativeTime.js';
-import { statusLabel, statusTone } from '$lib/statusModel.js';
+import { outcomeLabel, outcomeTone } from '$lib/statusModel.js';
 
 let { run }: { run: RunSummary } = $props();
 
@@ -25,8 +25,8 @@ const hasCommit = $derived(Boolean(run.sha || run.message || run.actor));
 			<h2 class="min-w-0 truncate">{run.pipelineName}</h2>
 		</CardTitle>
 		<StatusBadge
-			tone={statusTone(run.status, run.conclusion)}
-			label={statusLabel(run.status, run.conclusion)}
+			tone={outcomeTone(run.outcome)}
+			label={outcomeLabel(run.outcome, run.conclusion ?? run.status)}
 		/>
 	</CardHeader>
 	<CardContent class="grid min-w-0 gap-3">
