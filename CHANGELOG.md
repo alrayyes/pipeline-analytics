@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.51.0...v0.52.0) (2026-10-02)
+
+
+### Features
+
+* **web:** map run and step status to tones and stage progress ([#351](https://github.com/alrayyes/pipeline-analytics/issues/351)) ([3aa9e83](https://github.com/alrayyes/pipeline-analytics/commit/3aa9e8304ebd7cd137effd559c05ae11d4fb991d)), closes [#335](https://github.com/alrayyes/pipeline-analytics/issues/335)
+
 ## [0.51.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.50.0...v0.51.0) (2026-10-02)
 
 
