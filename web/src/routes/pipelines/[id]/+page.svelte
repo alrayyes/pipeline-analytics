@@ -123,7 +123,7 @@ function failureRateSeries(trend: Trend) {
 </svelte:head>
 
 <main class="mx-auto max-w-4xl px-4 py-8">
-	<a href="/" class="text-sm text-muted-foreground hover:underline">&larr; All pipelines</a>
+	<a href="/pipelines" class="text-sm text-muted-foreground hover:underline">&larr; All pipelines</a>
 
 	{#if error}
 		<p role="alert" class="mt-6 text-destructive">{error}</p>

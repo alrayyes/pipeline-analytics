@@ -27,7 +27,7 @@ $effect(() => {
 });
 
 const links = [
-	{ href: '/', label: 'Pipelines' },
+	{ href: '/pipelines', label: 'Pipelines' },
 	{ href: '/runs', label: 'Runs' },
 	{ href: '/failures', label: 'Failures' },
 	{ href: '/steps', label: 'Steps' },
@@ -36,9 +36,7 @@ const links = [
 ];
 
 function isActive(href: string): boolean {
-	return href === '/'
-		? page.url.pathname === '/'
-		: page.url.pathname.startsWith(href);
+	return page.url.pathname.startsWith(href);
 }
 
 async function handleLogout(): Promise<void> {
