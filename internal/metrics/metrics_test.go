@@ -51,12 +51,13 @@ func TestParseWindow(t *testing.T) {
 // fakeStore is an in-memory metrics.Store fixture: every method reads
 // straight from the fields below, set up per test.
 type fakeStore struct {
-	pipelines  []metrics.PipelineRef
-	runs       map[metrics.PipelineRef][]metrics.RunRecord
-	steps      map[metrics.PipelineRef][]metrics.StepOccurrence
-	runSteps   map[string][]metrics.StepOccurrence
-	usage      map[string][]metrics.UsageRecord
-	windowRuns []metrics.WindowRun
+	pipelines   []metrics.PipelineRef
+	runs        map[metrics.PipelineRef][]metrics.RunRecord
+	steps       map[metrics.PipelineRef][]metrics.StepOccurrence
+	runSteps    map[string][]metrics.StepOccurrence
+	usage       map[string][]metrics.UsageRecord
+	windowRuns  []metrics.WindowRun
+	windowSteps []metrics.WindowStep
 }
 
 // ListPipelines applies filter.RepoID and pagination the same way the real
@@ -119,6 +120,27 @@ func (f *fakeStore) WindowRuns(_ context.Context, filter metrics.RunWindowFilter
 		}
 
 		matching = append(matching, wr)
+	}
+
+	return matching, nil
+}
+
+// WindowSteps applies the same bounds as WindowRuns, on the owning run's
+// start time.
+func (f *fakeStore) WindowSteps(_ context.Context, filter metrics.RunWindowFilter) ([]metrics.WindowStep, error) {
+	var matching []metrics.WindowStep
+
+	for _, ws := range f.windowSteps {
+		started := ws.Step.RunStartedAt
+		if started == nil || started.Before(filter.Since) || !started.Before(filter.Until) {
+			continue
+		}
+
+		if filter.RepoID != "" && ws.Pipeline.RepoID != filter.RepoID {
+			continue
+		}
+
+		matching = append(matching, ws)
 	}
 
 	return matching, nil

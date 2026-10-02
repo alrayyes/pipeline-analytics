@@ -352,3 +352,63 @@ func TestStore_WindowRuns(t *testing.T) {
 		require.Len(t, got, 4)
 	})
 }
+
+func TestStore_WindowSteps(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t)
+
+	before := f.seedRun(t, "CI", "1", 40, 5, "success")
+	inside := f.seedRun(t, "CI", "2", 100, 5, "failure")
+	other := f.seedRun(t, "Lint", "3", 200, 5, "success")
+
+	f.seedJobWithStep(t, before.ID, "10", "build", 40, 41, 44, "success")
+	f.seedJobWithStep(t, inside.ID, "11", "test", 100, 101, 104, "failure")
+	f.seedJobWithStep(t, other.ID, "12", "golangci-lint", 200, 201, 204, "success")
+
+	t.Run("returns steps of runs started in [since, until) with their pipeline", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := f.metrics.WindowSteps(context.Background(), metrics.RunWindowFilter{Since: *at(50), Until: *at(250)})
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+
+		byStep := map[string]metrics.WindowStep{}
+		for _, ws := range got {
+			byStep[ws.Step.Name] = ws
+		}
+
+		require.Equal(t, "CI", byStep["test"].Pipeline.Name)
+		require.Equal(t, f.repo.ID, byStep["test"].Pipeline.RepoID)
+		require.Equal(t, "failure", byStep["test"].Step.Conclusion)
+		require.Equal(t, inside.ID, byStep["test"].Step.RunID)
+		require.Equal(t, "Lint", byStep["golangci-lint"].Pipeline.Name)
+	})
+
+	t.Run("excludes steps of runs outside the window", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := f.metrics.WindowSteps(context.Background(), metrics.RunWindowFilter{Since: *at(50), Until: *at(250)})
+		require.NoError(t, err)
+
+		for _, ws := range got {
+			require.NotEqual(t, "build", ws.Step.Name)
+		}
+	})
+
+	t.Run("filters by repo and forge", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := f.metrics.WindowSteps(context.Background(), metrics.RunWindowFilter{RepoID: "nope", Since: *at(0), Until: *at(1000)})
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		got, err = f.metrics.WindowSteps(context.Background(), metrics.RunWindowFilter{Forge: "forgejo", Since: *at(0), Until: *at(1000)})
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		got, err = f.metrics.WindowSteps(context.Background(), metrics.RunWindowFilter{Forge: "github", Since: *at(0), Until: *at(1000)})
+		require.NoError(t, err)
+		require.Len(t, got, 3)
+	})
+}
