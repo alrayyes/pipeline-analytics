@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.47.0...v0.48.0) (2026-10-02)
+
+
+### Features
+
+* **ingestion:** record run branch, SHA, message and actor from webhooks ([#340](https://github.com/alrayyes/pipeline-analytics/issues/340)) ([5a7685b](https://github.com/alrayyes/pipeline-analytics/commit/5a7685b585669dfbfea0043c96b27fe6444bbefc)), closes [#335](https://github.com/alrayyes/pipeline-analytics/issues/335)
+
 ## [0.47.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.46.2...v0.47.0) (2026-10-02)
 
 
