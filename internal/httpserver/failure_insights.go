@@ -8,8 +8,15 @@ import (
 )
 
 type stageFailureDTO struct {
-	Step     string `json:"step"`
-	Failures int    `json:"failures"`
+	Step     string  `json:"step"`
+	Failures int     `json:"failures"`
+	Share    float64 `json:"share"`
+}
+
+type categoryCountDTO struct {
+	Category    string  `json:"category"`
+	Occurrences int     `json:"occurrences"`
+	Share       float64 `json:"share"`
 }
 
 type failingPipelineDTO struct {
@@ -44,6 +51,7 @@ type failureInsightsDTO struct {
 	FlakyStepRatio      float64              `json:"flakyStepRatio"`
 	MTTRSeconds         *float64             `json:"mttrSeconds,omitempty"`
 	StageDistribution   []stageFailureDTO    `json:"stageDistribution"`
+	CategoryBreakdown   []categoryCountDTO   `json:"categoryBreakdown"`
 	TopFailingPipelines []failingPipelineDTO `json:"topFailingPipelines"`
 	FailureGroups       []failureGroupDTO    `json:"failureGroups"`
 }
@@ -56,6 +64,7 @@ func toFailureInsightsDTO(in metrics.FailureInsights) failureInsightsDTO {
 		PassRateDelta:       in.PassRateDelta,
 		FlakyStepRatio:      in.FlakyStepRatio,
 		StageDistribution:   make([]stageFailureDTO, 0, len(in.StageDistribution)),
+		CategoryBreakdown:   make([]categoryCountDTO, 0, len(in.CategoryBreakdown)),
 		TopFailingPipelines: make([]failingPipelineDTO, 0, len(in.TopFailingPipelines)),
 		FailureGroups:       make([]failureGroupDTO, 0, len(in.FailureGroups)),
 	}
@@ -66,7 +75,11 @@ func toFailureInsightsDTO(in metrics.FailureInsights) failureInsightsDTO {
 	}
 
 	for _, s := range in.StageDistribution {
-		dto.StageDistribution = append(dto.StageDistribution, stageFailureDTO{Step: s.Step, Failures: s.Failures})
+		dto.StageDistribution = append(dto.StageDistribution, stageFailureDTO{Step: s.Step, Failures: s.Failures, Share: s.Share})
+	}
+
+	for _, c := range in.CategoryBreakdown {
+		dto.CategoryBreakdown = append(dto.CategoryBreakdown, categoryCountDTO{Category: string(c.Category), Occurrences: c.Occurrences, Share: c.Share})
 	}
 
 	for _, p := range in.TopFailingPipelines {
