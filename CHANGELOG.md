@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.60.0...v0.61.0) (2026-10-02)
+
+
+### Features
+
+* **api:** filter and sort the pipeline list across every pipeline ([#391](https://github.com/alrayyes/pipeline-analytics/issues/391)) ([4218366](https://github.com/alrayyes/pipeline-analytics/commit/421836692c20d35d83ff47b207ed18510ebd31ff))
+
 ## [0.60.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.59.0...v0.60.0) (2026-10-02)
 
 
