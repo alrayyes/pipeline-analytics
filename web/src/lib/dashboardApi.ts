@@ -66,6 +66,75 @@ export interface RunStep {
 	forgeUrl?: string;
 }
 
+export type RunStatusFilter = 'all' | 'failed' | 'running' | 'success';
+export type InsightsWindow = '24h' | '7d' | '30d';
+
+export type FailureCategory =
+	| 'infrastructure'
+	| 'code_tests'
+	| 'network_timeouts'
+	| 'config_secrets'
+	| 'uncategorised';
+
+export interface RunSummary {
+	id: string;
+	pipelineId: string;
+	pipelineName: string;
+	repoId: string;
+	status: string;
+	conclusion?: string;
+	startedAt?: string;
+	durationSeconds?: number;
+	// Commit fields are absent on runs ingested before they were recorded.
+	branch?: string;
+	sha?: string;
+	message?: string;
+	actor?: string;
+	forgeUrl?: string;
+	steps: RunStep[];
+}
+
+export interface RunListResponse {
+	runs: RunSummary[];
+	hasMore: boolean;
+}
+
+export interface StageFailureCount {
+	step: string;
+	failures: number;
+}
+
+export interface FailingPipeline {
+	pipelineId: string;
+	pipelineName: string;
+	repoId: string;
+	runs: number;
+	failedRuns: number;
+}
+
+export interface FailureGroup {
+	step: string;
+	category: FailureCategory;
+	conclusion?: string;
+	occurrences: number;
+	pipelines: { pipelineId: string; pipelineName: string }[];
+}
+
+export interface FailureInsights {
+	totalRuns: number;
+	failedRuns: number;
+	// Absent, not zero, when no run concluded in the window.
+	passRate?: number;
+	// Percentage points against the preceding window; absent without one.
+	passRateDelta?: number;
+	flakyStepRatio: number;
+	// Absent when nothing recovered in the window.
+	mttrSeconds?: number;
+	stageDistribution: StageFailureCount[];
+	topFailingPipelines: FailingPipeline[];
+	failureGroups: FailureGroup[];
+}
+
 export interface UsageEntry {
 	workflow: string;
 	runnerMinutes: number;
@@ -151,4 +220,53 @@ export async function fetchRepoUsage(
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as UsageEntry[];
+}
+
+export interface FailureInsightsParams {
+	window: InsightsWindow;
+	forge?: 'github' | 'forgejo';
+	repoId?: string;
+}
+
+export async function fetchFailureInsights(
+	params: FailureInsightsParams,
+	fetchFn: typeof fetch = fetch,
+): Promise<FailureInsights> {
+	const searchParams = new URLSearchParams({ window: params.window });
+	if (params.repoId) searchParams.set('repoId', params.repoId);
+	if (params.forge) searchParams.set('forge', params.forge);
+
+	const res = await fetchFn(`/api/insights/failures?${searchParams}`);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as FailureInsights;
+}
+
+export interface RunsParams {
+	limit: number;
+	offset: number;
+	status?: RunStatusFilter;
+	forge?: 'github' | 'forgejo';
+	repoId?: string;
+}
+
+export async function fetchRuns(
+	params: RunsParams,
+	fetchFn: typeof fetch = fetch,
+): Promise<RunListResponse> {
+	const searchParams = new URLSearchParams({
+		limit: String(params.limit),
+		offset: String(params.offset),
+	});
+	// "all" is the server's default, so it's left off the URL.
+	if (params.status && params.status !== 'all') {
+		searchParams.set('status', params.status);
+	}
+	if (params.repoId) searchParams.set('repoId', params.repoId);
+	if (params.forge) searchParams.set('forge', params.forge);
+
+	const res = await fetchFn(`/api/runs?${searchParams}`);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as RunListResponse;
 }
