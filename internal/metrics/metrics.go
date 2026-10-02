@@ -259,6 +259,10 @@ type Store interface {
 	// WindowRuns returns every run, across pipelines, that started in
 	// [filter.Since, filter.Until), with its pipeline. Order is unspecified.
 	WindowRuns(ctx context.Context, filter RunWindowFilter) ([]WindowRun, error)
+	// WindowSteps returns every step occurrence, across pipelines, of runs
+	// that started in [filter.Since, filter.Until), with its pipeline. Order
+	// is unspecified.
+	WindowSteps(ctx context.Context, filter RunWindowFilter) ([]WindowStep, error)
 	// RunSteps returns every step occurrence recorded within one run's
 	// jobs, in recorded order. Empty for an unknown runID.
 	RunSteps(ctx context.Context, runID string) ([]StepOccurrence, error)

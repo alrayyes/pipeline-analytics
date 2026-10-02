@@ -268,3 +268,154 @@ func TestService_GetFailureInsights_MTTR(t *testing.T) {
 		require.Equal(t, 40*time.Minute, *got)
 	})
 }
+
+// windowStep is one recorded step execution in a run that started hoursAgo
+// before insightsNow.
+func windowStep(pipeline, step, conclusion string, hoursAgo int) metrics.WindowStep {
+	started := insightsNow.Add(-time.Duration(hoursAgo) * time.Hour)
+
+	return metrics.WindowStep{
+		Pipeline: metrics.PipelineRef{RepoID: "repo-1", Name: pipeline},
+		Step: metrics.StepOccurrence{
+			Name:         step,
+			Status:       "completed",
+			Conclusion:   conclusion,
+			RunID:        fmt.Sprintf("%s-%d", pipeline, hoursAgo),
+			RunStartedAt: &started,
+		},
+	}
+}
+
+func stepInsights(t *testing.T, steps ...metrics.WindowStep) metrics.FailureInsights {
+	t.Helper()
+
+	got, err := metrics.NewService(&fakeStore{windowSteps: steps}).GetFailureInsights(
+		context.Background(), insightsNow, metrics.InsightWindow{Duration: 24 * time.Hour}, metrics.InsightFilter{})
+	require.NoError(t, err)
+
+	return got
+}
+
+func TestService_GetFailureInsights_StageDistribution(t *testing.T) {
+	t.Parallel()
+
+	t.Run("counts failed steps by name, highest first, ignoring passes and skips", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("CI", "test", "failure", 1), windowStep("CI", "test", "failure", 2), windowStep("api", "test", "failure", 3),
+			windowStep("CI", "build", "failure", 1),
+			windowStep("CI", "lint", "success", 1), windowStep("CI", "docs", "skipped", 1),
+		)
+
+		require.Equal(t, []metrics.StageFailureCount{{Step: "test", Failures: 3}, {Step: "build", Failures: 1}}, got.StageDistribution)
+	})
+
+	t.Run("a timed-out step counts as a failure", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t, windowStep("CI", "e2e", "timed_out", 1))
+		require.Equal(t, []metrics.StageFailureCount{{Step: "e2e", Failures: 1}}, got.StageDistribution)
+	})
+
+	t.Run("equal counts order by step name, so the result is stable", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t, windowStep("CI", "zeta", "failure", 1), windowStep("CI", "alpha", "failure", 1))
+		require.Equal(t, "alpha", got.StageDistribution[0].Step)
+	})
+
+	t.Run("steps from the preceding window are not counted", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t, windowStep("CI", "test", "failure", 30))
+		require.Empty(t, got.StageDistribution)
+	})
+}
+
+func TestService_GetFailureInsights_FailureGroups(t *testing.T) {
+	t.Parallel()
+
+	t.Run("groups a step across pipelines with its occurrences and affected pipelines", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("web", "Run unit tests", "failure", 1),
+			windowStep("api", "Run unit tests", "failure", 2),
+			windowStep("api", "Run unit tests", "failure", 3),
+		)
+
+		require.Len(t, got.FailureGroups, 1)
+
+		group := got.FailureGroups[0]
+		require.Equal(t, "Run unit tests", group.Step)
+		require.Equal(t, 3, group.Occurrences)
+		require.Equal(t, metrics.CategoryCodeTests, group.Category)
+		require.Equal(t, "failure", group.Conclusion)
+		require.Equal(t, []metrics.PipelineRef{{RepoID: "repo-1", Name: "api"}, {RepoID: "repo-1", Name: "web"}}, group.Pipelines)
+	})
+
+	t.Run("the most common conclusion drives the category", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("CI", "deploy", "timed_out", 1), windowStep("CI", "deploy", "timed_out", 2), windowStep("CI", "deploy", "failure", 3),
+		)
+
+		require.Equal(t, "timed_out", got.FailureGroups[0].Conclusion)
+		require.Equal(t, metrics.CategoryNetworkTimeouts, got.FailureGroups[0].Category)
+	})
+
+	t.Run("a step no rule recognises is uncategorised", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t, windowStep("CI", "Publish release", "failure", 1))
+		require.Equal(t, metrics.CategoryUncategorised, got.FailureGroups[0].Category)
+	})
+
+	t.Run("groups are ordered by occurrences, highest first", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("CI", "lint", "failure", 1),
+			windowStep("CI", "test", "failure", 1), windowStep("CI", "test", "failure", 2),
+		)
+
+		require.Equal(t, "test", got.FailureGroups[0].Step)
+		require.Equal(t, "lint", got.FailureGroups[1].Step)
+	})
+}
+
+func TestService_GetFailureInsights_FlakyStepRatio(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a step that both passed and failed is flaky; the ratio is flaky steps over distinct steps", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("CI", "test", "success", 1), windowStep("CI", "test", "failure", 2), // flaky
+			windowStep("CI", "build", "success", 1), windowStep("CI", "build", "success", 2),
+			windowStep("CI", "lint", "failure", 1), windowStep("CI", "lint", "failure", 2), // broken, not flaky
+			windowStep("CI", "docs", "success", 1),
+		)
+
+		require.InDelta(t, 0.25, got.FlakyStepRatio, 1e-9) // 1 of 4
+	})
+
+	t.Run("the same step name in two pipelines is two steps", func(t *testing.T) {
+		t.Parallel()
+
+		got := stepInsights(t,
+			windowStep("web", "test", "success", 1), windowStep("web", "test", "failure", 2), // flaky in web
+			windowStep("api", "test", "success", 1), windowStep("api", "test", "success", 2),
+		)
+
+		require.InDelta(t, 0.5, got.FlakyStepRatio, 1e-9)
+	})
+
+	t.Run("no steps gives zero, not a division error", func(t *testing.T) {
+		t.Parallel()
+
+		require.Zero(t, stepInsights(t).FlakyStepRatio)
+	})
+}

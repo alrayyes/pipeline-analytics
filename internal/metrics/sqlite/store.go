@@ -208,6 +208,67 @@ func (s *Store) WindowRuns(ctx context.Context, filter metrics.RunWindowFilter) 
 	return runs, nil
 }
 
+// WindowSteps implements metrics.Store.
+func (s *Store) WindowSteps(ctx context.Context, filter metrics.RunWindowFilter) ([]metrics.WindowStep, error) {
+	query := `
+		SELECT r.repo_id, r.pipeline_name,
+			s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url, j.run_id, r.started_at
+		FROM steps s
+		JOIN jobs j ON j.id = s.job_id
+		JOIN runs r ON r.id = j.run_id`
+	args := []any{}
+
+	if filter.Forge != "" {
+		query += " JOIN repos p ON p.id = r.repo_id"
+	}
+
+	query += " WHERE r.started_at >= ? AND r.started_at < ?"
+	args = append(args, filter.Since, filter.Until)
+
+	if filter.RepoID != "" {
+		query += " AND r.repo_id = ?"
+		args = append(args, filter.RepoID)
+	}
+
+	if filter.Forge != "" {
+		query += " AND p.forge = ?"
+		args = append(args, filter.Forge)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query window steps: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var steps []metrics.WindowStep
+
+	for rows.Next() {
+		var (
+			ws         metrics.WindowStep
+			conclusion sql.NullString
+		)
+
+		err := rows.Scan(
+			&ws.Pipeline.RepoID, &ws.Pipeline.Name,
+			&ws.Step.Name, &ws.Step.Status, &conclusion, &ws.Step.StartedAt, &ws.Step.CompletedAt,
+			&ws.Step.JobQueuedAt, &ws.Step.JobStartedAt, &ws.Step.JobForgeURL, &ws.Step.RunID, &ws.Step.RunStartedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan window step: %w", err)
+		}
+
+		ws.Step.Conclusion = conclusion.String
+		steps = append(steps, ws)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate window steps: %w", err)
+	}
+
+	return steps, nil
+}
+
 // RunSteps implements metrics.Store.
 func (s *Store) RunSteps(ctx context.Context, runID string) ([]metrics.StepOccurrence, error) {
 	rows, err := s.db.QueryContext(ctx, `
