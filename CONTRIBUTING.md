@@ -137,3 +137,17 @@ That step needs the repo's Settings → Actions → General → "Allow GitHub
 Actions to create and approve pull requests" enabled -- GitHub's default
 `GITHUB_TOKEN` can't open a PR without it, and the job fails silently on
 `gh pr create` otherwise.
+
+## Which CI checks run
+
+`ci.yml` runs a check only when files it covers change. Its first job,
+`changes`, turns the changed files into one flag per kind of check, using the
+paths in `.github/scripts/changes.sh`, and every other job runs on its flag.
+A skipped job counts as a pass for the required checks. Editing `ci.yml` or
+the script runs everything.
+
+When a job starts reading a new kind of file, widen its group in
+`changes.sh` and add a case to `.github/scripts/changes.test.sh` first. The
+test runs in the `changes` job, so a missing path fails CI instead of
+skipping a check that should have run. Run it locally with
+`.github/scripts/changes.test.sh`.
