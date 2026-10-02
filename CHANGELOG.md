@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.52.0...v0.53.0) (2026-10-02)
+
+
+### Features
+
+* **metrics:** compute pass rate, its change and top failing pipelines over a time window ([#350](https://github.com/alrayyes/pipeline-analytics/issues/350)) ([5fdc583](https://github.com/alrayyes/pipeline-analytics/commit/5fdc58323d5b131778bbd33644d994e70c0fdcec)), closes [#335](https://github.com/alrayyes/pipeline-analytics/issues/335)
+
 ## [0.52.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.51.0...v0.52.0) (2026-10-02)
 
 
