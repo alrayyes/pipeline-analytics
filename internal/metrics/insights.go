@@ -58,6 +58,34 @@ type WindowRun struct {
 	Run      RunRecord
 }
 
+// WindowStep is one recorded step execution with the pipeline it ran in.
+// Step.RunStartedAt is the owning run's start, which is what a window
+// bounds.
+type WindowStep struct {
+	Pipeline PipelineRef
+	Step     StepOccurrence
+}
+
+// StageFailureCount is how many times one step failed in the window. "Stage"
+// means step: forges have no stage taxonomy.
+type StageFailureCount struct {
+	Step     string
+	Failures int
+}
+
+// FailureGroup is one step's failures across every pipeline it failed in.
+type FailureGroup struct {
+	Step string
+	// Category is a heuristic from Conclusion and the step's name, never from
+	// a log; see CategorizeFailure.
+	Category FailureCategory
+	// Conclusion is the group's most common conclusion, shown so a heuristic
+	// category can be checked against it.
+	Conclusion  string
+	Occurrences int
+	Pipelines   []PipelineRef
+}
+
 // FailingPipeline is one pipeline's run and failed-run counts in the window.
 type FailingPipeline struct {
 	Pipeline   PipelineRef
@@ -81,6 +109,11 @@ type FailureInsights struct {
 	// recovered, since an unrecovered failure has no recovery time.
 	MTTR                *time.Duration
 	TopFailingPipelines []FailingPipeline
+	// FlakyStepRatio is flaky steps over distinct steps, counting a step per
+	// pipeline. A step is flaky when it both passed and failed in the window.
+	FlakyStepRatio    float64
+	StageDistribution []StageFailureCount
+	FailureGroups     []FailureGroup
 }
 
 // GetFailureInsights computes the failure overview for the window ending at
@@ -113,6 +146,16 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 		}
 	}
 
+	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
+		RepoID: filter.RepoID,
+		Forge:  filter.Forge,
+		Since:  boundary,
+		Until:  now,
+	})
+	if err != nil {
+		return FailureInsights{}, fmt.Errorf("list window steps: %w", err)
+	}
+
 	currentRate, currentFailed := passRate(current)
 	priorRate, _ := passRate(prior)
 
@@ -122,6 +165,9 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 		PassRate:            currentRate,
 		MTTR:                meanTimeToRecovery(current),
 		TopFailingPipelines: topFailingPipelines(current),
+		FlakyStepRatio:      flakyStepRatio(steps),
+		StageDistribution:   stageDistribution(steps),
+		FailureGroups:       failureGroups(steps),
 	}
 
 	if currentRate != nil && priorRate != nil {
@@ -259,4 +305,128 @@ func finishedAt(run RunRecord) time.Time {
 	}
 
 	return time.Time{}
+}
+
+// isFailedStep reports whether a step execution ended in a failure. As for
+// runs, a timeout is a failure; a skipped or cancelled step is not.
+func isFailedStep(occ StepOccurrence) bool {
+	return occ.Status == "completed" && isFailed(occ.Conclusion)
+}
+
+func stageDistribution(steps []WindowStep) []StageFailureCount {
+	counts := make(map[string]int)
+
+	for _, ws := range steps {
+		if isFailedStep(ws.Step) {
+			counts[ws.Step.Name]++
+		}
+	}
+
+	distribution := make([]StageFailureCount, 0, len(counts))
+	for name, failures := range counts {
+		distribution = append(distribution, StageFailureCount{Step: name, Failures: failures})
+	}
+
+	slices.SortFunc(distribution, func(a, b StageFailureCount) int {
+		return cmp.Or(cmp.Compare(b.Failures, a.Failures), cmp.Compare(a.Step, b.Step))
+	})
+
+	return distribution
+}
+
+func failureGroups(steps []WindowStep) []FailureGroup {
+	type acc struct {
+		occurrences int
+		conclusions map[string]int
+		pipelines   map[PipelineRef]struct{}
+	}
+
+	byStep := make(map[string]*acc)
+
+	for _, ws := range steps {
+		if !isFailedStep(ws.Step) {
+			continue
+		}
+
+		a, ok := byStep[ws.Step.Name]
+		if !ok {
+			a = &acc{conclusions: map[string]int{}, pipelines: map[PipelineRef]struct{}{}}
+			byStep[ws.Step.Name] = a
+		}
+
+		a.occurrences++
+		a.conclusions[ws.Step.Conclusion]++
+		a.pipelines[ws.Pipeline] = struct{}{}
+	}
+
+	groups := make([]FailureGroup, 0, len(byStep))
+
+	for name, a := range byStep {
+		conclusion := mostCommon(a.conclusions)
+
+		pipelines := make([]PipelineRef, 0, len(a.pipelines))
+		for ref := range a.pipelines {
+			pipelines = append(pipelines, ref)
+		}
+
+		slices.SortFunc(pipelines, func(x, y PipelineRef) int {
+			return cmp.Or(cmp.Compare(x.RepoID, y.RepoID), cmp.Compare(x.Name, y.Name))
+		})
+
+		groups = append(groups, FailureGroup{
+			Step:        name,
+			Category:    CategorizeFailure(name, conclusion),
+			Conclusion:  conclusion,
+			Occurrences: a.occurrences,
+			Pipelines:   pipelines,
+		})
+	}
+
+	slices.SortFunc(groups, func(a, b FailureGroup) int {
+		return cmp.Or(cmp.Compare(b.Occurrences, a.Occurrences), cmp.Compare(a.Step, b.Step))
+	})
+
+	return groups
+}
+
+// mostCommon returns the key with the highest count, the alphabetically
+// first on a tie so the result doesn't depend on map order.
+func mostCommon(counts map[string]int) string {
+	var (
+		best      string
+		bestCount int
+	)
+
+	for key, count := range counts {
+		if count > bestCount || (count == bestCount && key < best) {
+			best, bestCount = key, count
+		}
+	}
+
+	return best
+}
+
+// flakyStepRatio is flaky steps over distinct steps, a step being one name
+// within one pipeline: "test" flaking in web says nothing about "test" in
+// api. Flakiness is the existing definition (it both passed and failed), via
+// aggregateSteps.
+func flakyStepRatio(steps []WindowStep) float64 {
+	byPipeline := make(map[PipelineRef][]StepOccurrence)
+	for _, ws := range steps {
+		byPipeline[ws.Pipeline] = append(byPipeline[ws.Pipeline], ws.Step)
+	}
+
+	var total, flaky int
+
+	for _, occurrences := range byPipeline {
+		for _, step := range aggregateSteps(occurrences) {
+			total++
+
+			if step.Flaky {
+				flaky++
+			}
+		}
+	}
+
+	return rate(flaky, total)
 }
