@@ -24,8 +24,9 @@
 
 ## 4. Frontend foundations
 
-- [ ] 4.1 `dashboardApi.ts` types and fetchers (types, fetchers, status model and stage mapping done); `telemetryWindow` and
-      `runsFilters` stores with unit tests
+- [x] 4.1 `dashboardApi.ts` types and fetchers, the status model, stage
+      mapping and the `telemetryWindow` store, all with unit tests
+      (`runsFilters` is page-local and lands with the runs view, 5.2)
 - [ ] 4.2 Theme tokens (`--warning`, `--running`) and `StatusBadge`
 - [ ] 4.3 `MetricCard`, `StageProgress`, `FlakeMatrix`,
       `StageDistribution`, `FailureGroupCard`, `RunCard`,
