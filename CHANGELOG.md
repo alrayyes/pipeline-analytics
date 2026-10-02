@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.46.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.46.1...v0.46.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* bump dompurify from 3.4.15 to 3.4.16 in /web ([#327](https://github.com/alrayyes/pipeline-analytics/issues/327)) ([66e812e](https://github.com/alrayyes/pipeline-analytics/commit/66e812eb0037a08273098165bb68899d061deacb))
+* **web:** override devalue and basic-ftp to patched versions ([#333](https://github.com/alrayyes/pipeline-analytics/issues/333)) ([b3e6285](https://github.com/alrayyes/pipeline-analytics/commit/b3e628503c86018984f950784fe4a7b29dad16e8)), closes [#332](https://github.com/alrayyes/pipeline-analytics/issues/332)
+
 ## [0.46.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.46.0...v0.46.1) (2026-09-28)
 
 
