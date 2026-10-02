@@ -100,7 +100,11 @@ docker run -d \
 ```
 
 Everything the server writes goes to `/data` (the SQLite file and its
-WAL), so `--read-only` on the rest of the container is safe. Adjust
+WAL), so `--read-only` on the rest of the container is safe.
+The image creates `/data` owned by the container's non-root user (user ID 10001), so
+a fresh named volume works as written. A bind mount (`-v ./data:/data`) keeps
+the host directory's owner, so it has to be writable by user ID 10001, for
+example `chown 10001:10001 ./data`; the server says so at startup if it isn't. Adjust
 `--memory` to what your host can spare — 256m is comfortable headroom
 for a single Go binary and SQLite, not a measured minimum.
 

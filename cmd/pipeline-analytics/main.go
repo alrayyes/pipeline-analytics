@@ -152,6 +152,10 @@ func runServe(ctx context.Context) error {
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})))
 
+	if err := db.CheckDir(cfg.DBPath); err != nil {
+		return fmt.Errorf("preflight: %w", err)
+	}
+
 	conn, err := db.Open(cfg.DBPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)

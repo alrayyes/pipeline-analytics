@@ -4,9 +4,15 @@
 # per non-native arch in the release matrix).
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
+# /data is created and owned by the non-root user here so a fresh named volume
+# mounted on it inherits that ownership: Docker copies the image directory's
+# owner onto an empty volume, and without the directory the volume comes up
+# root-owned and the server can't open its database.
 RUN apk add --no-cache ca-certificates=20260909-r0 && \
     addgroup -S -g 10001 pipeline-analytics && \
-    adduser -S -u 10001 -G pipeline-analytics pipeline-analytics
+    adduser -S -u 10001 -G pipeline-analytics pipeline-analytics && \
+    mkdir /data && \
+    chown 10001:10001 /data
 
 COPY pipeline-analytics /usr/local/bin/pipeline-analytics
 
