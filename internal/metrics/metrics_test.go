@@ -51,11 +51,12 @@ func TestParseWindow(t *testing.T) {
 // fakeStore is an in-memory metrics.Store fixture: every method reads
 // straight from the fields below, set up per test.
 type fakeStore struct {
-	pipelines []metrics.PipelineRef
-	runs      map[metrics.PipelineRef][]metrics.RunRecord
-	steps     map[metrics.PipelineRef][]metrics.StepOccurrence
-	runSteps  map[string][]metrics.StepOccurrence
-	usage     map[string][]metrics.UsageRecord
+	pipelines  []metrics.PipelineRef
+	runs       map[metrics.PipelineRef][]metrics.RunRecord
+	steps      map[metrics.PipelineRef][]metrics.StepOccurrence
+	runSteps   map[string][]metrics.StepOccurrence
+	usage      map[string][]metrics.UsageRecord
+	windowRuns []metrics.WindowRun
 }
 
 // ListPipelines applies filter.RepoID and pagination the same way the real
@@ -100,6 +101,27 @@ func (f *fakeStore) PipelineSteps(_ context.Context, ref metrics.PipelineRef, _ 
 
 func (f *fakeStore) RepoUsage(_ context.Context, repoID string, _ metrics.Window) ([]metrics.UsageRecord, error) {
 	return f.usage[repoID], nil
+}
+
+// WindowRuns applies the filter's time bounds and repo the way the real
+// store does; Forge is covered at the sqlite layer, as for ListPipelines.
+func (f *fakeStore) WindowRuns(_ context.Context, filter metrics.RunWindowFilter) ([]metrics.WindowRun, error) {
+	var matching []metrics.WindowRun
+
+	for _, wr := range f.windowRuns {
+		started := wr.Run.StartedAt
+		if started == nil || started.Before(filter.Since) || !started.Before(filter.Until) {
+			continue
+		}
+
+		if filter.RepoID != "" && wr.Pipeline.RepoID != filter.RepoID {
+			continue
+		}
+
+		matching = append(matching, wr)
+	}
+
+	return matching, nil
 }
 
 func (f *fakeStore) RunSteps(_ context.Context, runID string) ([]metrics.StepOccurrence, error) {
