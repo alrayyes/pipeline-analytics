@@ -47,7 +47,7 @@ onMount(load);
 </svelte:head>
 
 <main class="mx-auto max-w-3xl px-4 py-8">
-	<a href="/" class="text-sm text-muted-foreground hover:underline">&larr; All pipelines</a>
+	<a href="/pipelines" class="text-sm text-muted-foreground hover:underline">&larr; All pipelines</a>
 
 	<h1 class="mt-4 text-2xl font-semibold">Runner-minutes usage</h1>
 

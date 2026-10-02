@@ -54,7 +54,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	await registerButton.click();
 
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 	await expect(page.getByText('No repositories registered yet')).toBeVisible();
 
@@ -250,7 +250,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// back to normal, and the Pipelines page says so without telling the
 	// user to register a repository again.
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 	await expect(
 		page.getByRole('link', { name: 'Register a repository' }),
 	).toHaveCount(0);
@@ -390,7 +390,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	// Persisted across navigation, shared with the Pipelines list page.
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 	await expect(page.getByRole('radio', { name: 'Forgejo' })).toHaveAttribute(
 		'aria-checked',
 		'true',
@@ -500,7 +500,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page
 		.getByRole('link', { name: 'Pipelines' })
 		.click({ timeout: 45_000 });
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 
 	// The overview's own rendering logic (health badges, per-pipeline
 	// cards) is exercised against a controlled response here -- seeding
@@ -689,7 +689,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('radio', { name: 'Light' }).click();
 	await expect(page.locator('html')).not.toHaveClass('dark');
 	await page.getByRole('link', { name: 'Pipelines' }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 
 	// Grouped by repo (#102): a pipeline name alone ("CI") is ambiguous
 	// across more than one tracked repo, so a second repo with its own "CI"
@@ -1044,7 +1044,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	await page.unroute('**/api/repos/repo-1/usage');
 	await page.getByRole('link', { name: 'All pipelines' }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 
 	// GitHub API rate-limit insights page -- the aggregation/grouping-by-
 	// token logic is already covered by
@@ -1084,7 +1084,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	await page.unroute('**/api/insights/github-rate-limit');
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 
 	// Cross-pipeline unhealthy-steps overview (#150) -- the same per-step
 	// health the pipeline detail page's own Steps table shows, aggregated
@@ -1256,10 +1256,10 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'Back to pipeline' }).click();
 	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1$/);
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 	await page.unroute('**/api/steps/unhealthy*');
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 
 	// Release history (#368): the page loads releases.json, generated from
 	// CHANGELOG.md at build time and served by the app itself. Any request to
@@ -1322,7 +1322,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	expect(legalScan.violations).toEqual([]);
 
 	await page.getByRole('link', { name: 'Pipelines' }).click();
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 
 	await page.unroute('**/api/pipelines*');
 	await page.getByRole('button', { name: 'Log out' }).click();
@@ -1332,7 +1332,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(loginButton).toBeVisible();
 	await loginButton.click();
 
-	await expect(page).toHaveURL('/');
+	await expect(page).toHaveURL('/pipelines');
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 
 	await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId });

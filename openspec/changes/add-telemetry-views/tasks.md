@@ -38,7 +38,10 @@
 
 ## 5. Views (one pull request each)
 
-- [ ] 5.1 Failure overview at `/`; move the repo cards to `/repos`
+- [x] 5.1a Move the Pipelines list to `/pipelines` and redirect `/` there.
+      (The "repo cards" planned for `/repos` never existed: `add-repo-overview-
+      homepage` was not implemented, so `/` was the flat Pipelines list.)
+- [ ] 5.1b Failure overview at `/`
 - [x] 5.2 Runs list with polling
 - [x] 5.3 Root cause diagnostics
 - [ ] 5.4 Flaky telemetry; `/steps` redirects to `/flaky`
