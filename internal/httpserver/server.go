@@ -2,8 +2,11 @@
 package httpserver
 
 import (
+	"context"
 	"io/fs"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
@@ -27,6 +30,10 @@ type Deps struct {
 	// GitHub token, for GET /api/insights/github-rate-limit. nil is fine --
 	// the endpoint just reports every token with no status yet.
 	GitHubRateLimits ingestion.RateLimitReporter
+	// Ready reports whether the instance can serve, for GET /readyz --
+	// in production, a database read. nil means always ready, so a Deps
+	// built without one (most tests) still answers.
+	Ready func(ctx context.Context) error
 	// Version is reported by GET /api/version -- the build's tagged
 	// version, or "dev" for a local build.
 	Version string
@@ -43,6 +50,7 @@ func New(deps Deps) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("/readyz", readyzHandler(deps.Ready))
 	mux.HandleFunc("GET /api/version", versionHandler(deps.Version))
 
 	repos := &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore}
@@ -104,4 +112,31 @@ func registerAuthRoutes(mux *http.ServeMux, authH *authHandler) {
 	mux.HandleFunc("POST /api/auth/credentials", authH.addCredential)
 	mux.HandleFunc("GET /api/auth/credentials", authH.listCredentials)
 	mux.HandleFunc("DELETE /api/auth/credentials/{credentialId}", authH.revokeCredential)
+}
+
+// readyzTimeout bounds the readiness probe. It's under the healthcheck
+// subcommand's own 2s request timeout, so a hung database still gets a 503
+// back to the checker instead of the checker giving up first.
+const readyzTimeout = time.Second
+
+// readyzHandler answers whether the instance can serve: 200 when ready
+// reports nil, 503 otherwise. The cause goes to the log, never the response,
+// since the endpoint is unauthenticated.
+func readyzHandler(ready func(ctx context.Context) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if ready != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), readyzTimeout)
+			defer cancel()
+
+			if err := ready(ctx); err != nil {
+				slog.ErrorContext(r.Context(), "readiness check failed", "error", err)
+				writeError(w, http.StatusServiceUnavailable, "not_ready", "not ready")
+
+				return
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}
 }

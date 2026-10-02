@@ -43,10 +43,10 @@ import (
 // leaves it at "dev".
 var version = "dev"
 
-// errHealthzStatus is newHealthcheckCmd's own sentinel - err113 wants a
+// errReadyzStatus is newHealthcheckCmd's own sentinel - err113 wants a
 // wrapped static error rather than a bare fmt.Errorf built from the status
 // code alone.
-var errHealthzStatus = errors.New("healthz check failed")
+var errReadyzStatus = errors.New("readyz check failed")
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
@@ -69,14 +69,14 @@ func newRootCmd() *cobra.Command {
 // distroless (no shell, no curl, no wget), so there's nothing else inside it
 // that could exec a probe. Deliberately does not go through loadConfig -
 // that requires CallbackURL and a valid EncryptionKey, neither of which a
-// liveness probe needs, so it reads PIPELINE_ANALYTICS_ADDR directly instead,
+// readiness probe needs, so it reads PIPELINE_ANALYTICS_ADDR directly instead,
 // falling back to serve's own default. A HEALTHCHECK exec inherits the same
 // environment the server itself was started with, so it sees the real value
 // if one was set.
 func newHealthcheckCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:    "healthcheck",
-		Short:  "Check that this server answers its own /healthz",
+		Short:  "Check that this server is ready: it answers its own /readyz",
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := os.Getenv("PIPELINE_ANALYTICS_ADDR")
@@ -92,19 +92,19 @@ func newHealthcheckCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Second)
 			defer cancel()
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:"+port+"/healthz", nil) //nolint:gosec // G704: loopback-only, port is our own config, not attacker input
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:"+port+"/readyz", nil) //nolint:gosec // G704: loopback-only, port is our own config, not attacker input
 			if err != nil {
 				return fmt.Errorf("build request: %w", err)
 			}
 
 			resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: same request built above, loopback-only
 			if err != nil {
-				return fmt.Errorf("request /healthz: %w", err)
+				return fmt.Errorf("request /readyz: %w", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("%w: /healthz returned %d", errHealthzStatus, resp.StatusCode)
+				return fmt.Errorf("%w: /readyz returned %d", errReadyzStatus, resp.StatusCode)
 			}
 
 			return nil
@@ -255,6 +255,21 @@ func parseLogLevel(s string) (slog.Level, error) {
 	return level, nil
 }
 
+// dbReady is the readiness probe: it reads the schema table, so it fails on a
+// database that can't actually be queried, and not only when a connection
+// can't be opened. sql.DB.PingContext alone would pass on a file that opens
+// and then fails its first query (corruption, a bad restore, a disk error).
+func dbReady(conn *sql.DB) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		var tables int
+		if err := conn.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_master").Scan(&tables); err != nil {
+			return fmt.Errorf("read database schema: %w", err)
+		}
+
+		return nil
+	}
+}
+
 func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqlite.Store, forgeClients map[ingestion.Forge]ingestion.ForgeClient, reconciler ingestion.RepoReconciler) (http.Handler, error) {
 	registrar := ingestion.NewRegistrar(ingestionStore, forgeClients, cfg.CallbackURL)
 
@@ -285,6 +300,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		Auth:             auth.NewService(webAuthn, authStore),
 		AuthStore:        authStore,
 		Settings:         settings.NewService(settingssqlite.NewStore(conn)),
+		Ready:            dbReady(conn),
 		Version:          version,
 		Assets:           assets,
 	}), nil

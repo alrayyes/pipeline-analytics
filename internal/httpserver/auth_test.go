@@ -365,7 +365,7 @@ func TestCredentialManagementHTTPFlow(t *testing.T) {
 func TestRequireSession(t *testing.T) {
 	t.Parallel()
 
-	publicPaths := []string{"/healthz", "/api/version", "/api/auth/register/options", "/webhooks/github", "/", "/releases"}
+	publicPaths := []string{"/healthz", "/readyz", "/api/version", "/api/auth/register/options", "/webhooks/github", "/", "/releases"}
 	for _, path := range publicPaths {
 		t.Run("public: "+path, func(t *testing.T) {
 			t.Parallel()
