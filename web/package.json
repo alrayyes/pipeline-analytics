@@ -4,9 +4,11 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"prebuild": "bun scripts/generate-releases.ts",
 		"build": "vite build",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"predev": "bun scripts/generate-releases.ts",
 		"dev": "vite dev",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
