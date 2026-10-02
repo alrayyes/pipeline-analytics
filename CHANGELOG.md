@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.58.0...v0.59.0) (2026-10-02)
+
+
+### Features
+
+* **api:** report a normalized outcome on every run and step ([#380](https://github.com/alrayyes/pipeline-analytics/issues/380)) ([0153a3e](https://github.com/alrayyes/pipeline-analytics/commit/0153a3e5f9e54fd53dd43af5f6abd77f05524ab3))
+
 ## [0.58.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.57.0...v0.58.0) (2026-10-02)
 
 
