@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.46.2...v0.47.0) (2026-10-02)
+
+
+### Features
+
+* **api:** specify failure insights and run list endpoints ([#337](https://github.com/alrayyes/pipeline-analytics/issues/337)) ([ecd33e7](https://github.com/alrayyes/pipeline-analytics/commit/ecd33e7cd9e54ec6f959203d0f3dc67da92e3161))
+
 ## [0.46.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.46.1...v0.46.2) (2026-10-02)
 
 
