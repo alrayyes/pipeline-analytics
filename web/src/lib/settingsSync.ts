@@ -9,6 +9,7 @@ export interface ServerSettings {
 	pipelinesHealthFilter: 'all' | 'healthy' | 'unhealthy';
 	pipelinesRepoSelector: string;
 	pipelinesSortOrder: 'name' | 'lastRun';
+	telemetryWindow: '24h' | '7d' | '30d';
 }
 
 // Used by +layout.ts's load(), which supplies SvelteKit's own fetch (so
