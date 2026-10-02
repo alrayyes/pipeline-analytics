@@ -13,8 +13,11 @@ COPY pipeline-analytics /usr/local/bin/pipeline-analytics
 USER 10001:10001
 EXPOSE 8080
 
+# Readiness, not just liveness: the `healthcheck` subcommand asks /readyz,
+# which reads the database, so a container whose SQLite file is unreadable
+# reports unhealthy instead of healthy because the process still answers.
 # Exec form, not shell form - this image has no curl or wget, only busybox's
-# own sh. The binary's own `healthcheck` subcommand exists for exactly this.
+# own sh, and the subcommand exists for exactly this.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/usr/local/bin/pipeline-analytics", "healthcheck"]
 
