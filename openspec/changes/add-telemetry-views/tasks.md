@@ -20,7 +20,7 @@
 - [x] 3.2 MTTR with tests for no-recovery and multiple recoveries
 - [x] 3.3 Step/category grouping and the category matcher, table
       tested including "uncategorised"
-- [ ] 3.4 Handlers for both endpoints
+- [ ] 3.4 Handlers for both endpoints (failure insights done; runs next)
 
 ## 4. Frontend foundations
 
