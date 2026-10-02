@@ -102,11 +102,18 @@ type runStepDTO struct {
 	Name       string `json:"name"`
 	Status     string `json:"status"`
 	Conclusion string `json:"conclusion,omitempty"`
+	Outcome    string `json:"outcome"`
 	ForgeURL   string `json:"forgeUrl,omitempty"`
 }
 
 func toRunStepDTO(s metrics.RunStep) runStepDTO {
-	return runStepDTO{Name: s.Name, Status: s.Status, Conclusion: s.Conclusion, ForgeURL: s.ForgeURL}
+	return runStepDTO{
+		Name:       s.Name,
+		Status:     s.Status,
+		Conclusion: s.Conclusion,
+		Outcome:    string(metrics.OutcomeOf(s.Status, s.Conclusion)),
+		ForgeURL:   s.ForgeURL,
+	}
 }
 
 type runDetailDTO struct {
