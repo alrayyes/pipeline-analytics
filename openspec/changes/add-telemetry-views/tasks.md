@@ -15,7 +15,7 @@
 
 ## 3. Metrics
 
-- [ ] 3.1 Window aggregates (pass rate, delta, flake ratio done) with
+- [x] 3.1 Window aggregates (pass rate, delta, flake ratio) with
       table tests
 - [x] 3.2 MTTR with tests for no-recovery and multiple recoveries
 - [x] 3.3 Step/category grouping and the category matcher, table
