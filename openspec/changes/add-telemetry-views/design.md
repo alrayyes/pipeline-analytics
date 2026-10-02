@@ -23,7 +23,7 @@ Existing state this builds on (verified against the tree):
 | --- | --- | --- | --- |
 | CI/CD Failure Overview | `/` (replaces the repo overview) | `GET /api/insights/failures` | Window toggle, repo scope |
 | Pipelines & Runs | `/runs` | `GET /api/runs` | Existing `/runs/[id]` stays as the run detail |
-| Root Cause Diagnostics | `/failures` | `GET /api/insights/failures?groupBy=step` | Links into `/pipelines/[id]/flaky-runs` |
+| Root Cause Diagnostics | `/failures` | `GET /api/insights/failures` (`failureGroups`) | Links into `/pipelines/[id]/flaky-runs` |
 | Flaky Tests & Telemetry | `/flaky` | `GET /api/steps/unhealthy` plus per-step history | Supersedes `/steps`, which redirects here |
 
 ## Components (`web/src/lib/components/telemetry/`)
