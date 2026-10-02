@@ -40,6 +40,10 @@ func TestReconciler_ReconcileRepo(t *testing.T) {
 					Status:       "completed",
 					Conclusion:   "success",
 					StartedAt:    &startedAt,
+					Branch:       "main",
+					SHA:          "a8f9c1e",
+					Message:      "fix: retry",
+					Actor:        "marcus-v",
 					Jobs: []ingestion.JobSnapshot{{
 						ForgeJobID: "5001",
 						Name:       "build",
@@ -58,6 +62,10 @@ func TestReconciler_ReconcileRepo(t *testing.T) {
 
 		run, ok := runStore.runs[repo.ID+"/1001"]
 		require.True(t, ok)
+		require.Equal(t, "main", run.Branch)
+		require.Equal(t, "a8f9c1e", run.SHA)
+		require.Equal(t, "fix: retry", run.Message)
+		require.Equal(t, "marcus-v", run.Actor)
 		require.Equal(t, "CI", run.PipelineName)
 
 		job, ok := runStore.jobs[run.ID+"/5001"]

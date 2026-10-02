@@ -10,7 +10,7 @@
 
 - [x] 2.1 Failing test: run webhook stores branch, SHA, message,
       actor; migration `00008` adds the nullable columns
-- [ ] 2.2 Populate the same fields in reconciliation, GitHub and
+- [x] 2.2 Populate the same fields in reconciliation, GitHub and
       Forgejo, verified against both forges' payload shapes
 
 ## 3. Metrics

@@ -214,6 +214,10 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 			StartedAt:    nonZeroTime(run.StartedAt),
 			CompletedAt:  nonZeroTime(run.CompletedAt),
 			ForgeURL:     run.HTMLURL,
+			Branch:       run.HeadBranch,
+			SHA:          run.HeadSha,
+			Message:      ingestion.FirstLine(run.DisplayTitle),
+			Actor:        actorName(run),
 			Jobs:         jobs,
 		})
 	}
@@ -351,4 +355,18 @@ func splitIdentifier(identifier string) (owner, name string, err error) {
 	}
 
 	return parts[0], parts[1], nil
+}
+
+// actorName prefers the user who actually triggered the run over the
+// workflow's original actor, matching what a person would call "who ran this".
+func actorName(run *gitea.ActionWorkflowRun) string {
+	if run.TriggerActor != nil && run.TriggerActor.UserName != "" {
+		return run.TriggerActor.UserName
+	}
+
+	if run.Actor != nil {
+		return run.Actor.UserName
+	}
+
+	return ""
 }
