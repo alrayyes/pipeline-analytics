@@ -3,6 +3,7 @@ package httpserver_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -715,4 +716,126 @@ func pipelineIDFromList(t *testing.T, srv testServer) string {
 	require.NotEmpty(t, id)
 
 	return id
+}
+
+// seedFailingRuns gives a pipeline three recent runs, two of them failures,
+// the shape the health signal reads as unhealthy.
+func seedFailingRuns(t *testing.T, srv testServer, repoID, pipeline string, startedMin int) {
+	t.Helper()
+
+	for i, conclusion := range []string{"success", "failure", "failure"} {
+		_, err := srv.runStore.UpsertRun(context.Background(), ingestion.Run{
+			RepoID:       repoID,
+			ForgeRunID:   fmt.Sprintf("%s-%d", pipeline, i),
+			PipelineName: pipeline,
+			Status:       "completed",
+			Conclusion:   conclusion,
+			StartedAt:    at(startedMin + i),
+			CompletedAt:  at(startedMin + i + 1),
+			ForgeURL:     "https://github.com/alrayyes/pipeline-analytics/actions/runs/" + pipeline,
+		})
+		require.NoError(t, err)
+	}
+}
+
+func listPipelinesBody(t *testing.T, srv testServer, query string) (int, pipelineListResponse) {
+	t.Helper()
+
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?"+query, nil)))
+
+	var body pipelineListResponse
+	if rec.Code == http.StatusOK {
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	}
+
+	return rec.Code, body
+}
+
+func pipelineNames(body pipelineListResponse) []string {
+	names := make([]string, 0, len(body.Pipelines))
+	for _, p := range body.Pipelines {
+		names = append(names, p["name"].(string))
+	}
+
+	return names
+}
+
+func TestPipelinesList_HealthFilterAndSort(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the health filter spans pages: the match on the second page is found", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		seedRun(t, srv, repoID, "ok-1", 10, 1)
+		seedFailingRuns(t, srv, repoID, "Z-broken", 100)
+
+		// "CI" (healthy) sorts before "Z-broken": on a page of one, a
+		// client-side filter would show an empty first page.
+		code, body := listPipelinesBody(t, srv, "health=unhealthy&limit=1")
+
+		require.Equal(t, http.StatusOK, code)
+		require.Equal(t, []string{"Z-broken"}, pipelineNames(body))
+		require.False(t, body.HasMore)
+	})
+
+	t.Run("hasMore is accurate over the filtered set", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		seedFailingRuns(t, srv, repoID, "A", 10)
+		seedFailingRuns(t, srv, repoID, "B", 20)
+
+		_, first := listPipelinesBody(t, srv, "health=unhealthy&limit=1")
+		require.Equal(t, []string{"A"}, pipelineNames(first))
+		require.True(t, first.HasMore)
+
+		_, second := listPipelinesBody(t, srv, "health=unhealthy&limit=1&offset=1")
+		require.Equal(t, []string{"B"}, pipelineNames(second))
+		require.False(t, second.HasMore)
+	})
+
+	t.Run("sort=lastRun orders by the most recent run, name alphabetically", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		seedFailingRuns(t, srv, repoID, "Aardvark", 10) // alphabetically first, run longest ago
+		seedFailingRuns(t, srv, repoID, "Zebra", 500)   // alphabetically last, run most recently
+
+		_, byName := listPipelinesBody(t, srv, "")
+		_, byNameExplicit := listPipelinesBody(t, srv, "sort=name")
+		_, byLastRun := listPipelinesBody(t, srv, "sort=lastRun")
+
+		require.Equal(t, []string{"Aardvark", "Zebra"}, pipelineNames(byName))
+		require.Equal(t, []string{"Aardvark", "Zebra"}, pipelineNames(byNameExplicit))
+		require.Equal(t, []string{"Zebra", "Aardvark"}, pipelineNames(byLastRun))
+	})
+
+	t.Run("an unknown health value is a 400, not an empty list", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?health=broken", nil)))
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), `"code":"invalid_health"`)
+	})
+
+	t.Run("an unknown sort is a 400", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/pipelines?sort=newest", nil)))
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), `"code":"invalid_sort"`)
+	})
 }

@@ -393,3 +393,43 @@ func TestMCPBearerTokenAuthenticates(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, res.Tools)
 }
+
+func TestMCPListPipelines_HealthFilterAndSort(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	repoID := seedRepo(t, srv)
+	seedRun(t, srv, repoID, "ok", 0, 5) // "CI", healthy
+	seedFailingRuns(t, srv, repoID, "Broken", 100)
+
+	session := connectMCP(t, srv)
+
+	t.Run("the health filter reaches the tool, across pages", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[pipelineListResponse](t, session, "list_pipelines", map[string]any{"health": "unhealthy", "limit": 1})
+
+		require.Len(t, got.Pipelines, 1)
+		require.Equal(t, "Broken", got.Pipelines[0]["name"])
+		require.False(t, got.HasMore)
+	})
+
+	t.Run("the sort reaches the tool", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[pipelineListResponse](t, session, "list_pipelines", map[string]any{"sort": "lastRun"})
+
+		require.Equal(t, []string{"Broken", "CI"}, pipelineNames(got))
+	})
+
+	t.Run("an unknown health value is a tool error, not an empty list", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+			Name:      "list_pipelines",
+			Arguments: map[string]any{"health": "broken"},
+		})
+		require.NoError(t, err)
+		require.True(t, res.IsError)
+	})
+}

@@ -131,9 +131,25 @@ func (h *pipelinesHandler) list(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
+	health, err := metrics.ParseHealthFilter(r.URL.Query().Get("health"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_health", "health must be healthy or unhealthy")
+
+		return
+	}
+
+	sortOrder, err := metrics.ParsePipelineSort(r.URL.Query().Get("sort"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_sort", "sort must be name or lastRun")
+
+		return
+	}
+
 	pipelines, hasMore, err := h.service.ListPipelines(r.Context(), window, metrics.PipelineListFilter{
 		RepoID: r.URL.Query().Get("repoId"),
 		Forge:  r.URL.Query().Get("forge"),
+		Health: health,
+		Sort:   sortOrder,
 		Limit:  limit,
 		Offset: offset,
 	})

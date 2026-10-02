@@ -82,6 +82,8 @@ func newMCPHandler(deps Deps) http.Handler {
 type listPipelinesInput struct {
 	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted returns every repo's pipelines"`
 	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted returns every forge"`
+	Health string `json:"health,omitempty" jsonschema:"restrict to healthy or unhealthy pipelines; omitted returns every status"`
+	Sort   string `json:"sort,omitempty" jsonschema:"name (default) or lastRun, most recently run first"`
 	Window string `json:"window,omitempty" jsonschema:"trailing run count the health status is computed over; omitted uses a server-chosen default"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"max pipelines to return; omitted returns every matching pipeline"`
 	Offset int    `json:"offset,omitempty" jsonschema:"pipelines to skip before the returned page"`
@@ -90,9 +92,21 @@ type listPipelinesInput struct {
 func (h *mcpHandler) listPipelines(ctx context.Context, _ *mcp.CallToolRequest, in listPipelinesInput) (*mcp.CallToolResult, pipelineListDTO, error) {
 	window := metrics.ParseWindow(in.Window)
 
+	health, err := metrics.ParseHealthFilter(in.Health)
+	if err != nil {
+		return nil, pipelineListDTO{}, fmt.Errorf("list pipelines: %w", err)
+	}
+
+	sortOrder, err := metrics.ParsePipelineSort(in.Sort)
+	if err != nil {
+		return nil, pipelineListDTO{}, fmt.Errorf("list pipelines: %w", err)
+	}
+
 	pipelines, hasMore, err := h.metrics.ListPipelines(ctx, window, metrics.PipelineListFilter{
 		RepoID: in.RepoID,
 		Forge:  in.Forge,
+		Health: health,
+		Sort:   sortOrder,
 		Limit:  in.Limit,
 		Offset: in.Offset,
 	})
