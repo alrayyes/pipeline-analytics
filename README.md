@@ -104,6 +104,14 @@ WAL), so `--read-only` on the rest of the container is safe. Adjust
 `--memory` to what your host can spare — 256m is comfortable headroom
 for a single Go binary and SQLite, not a measured minimum.
 
+The image reports its own health: `docker ps` shows `healthy` once
+`/readyz` answers 200, meaning the server is up _and_ its database
+answers, and `unhealthy` after three failed checks 30 seconds apart. A
+database that's unreachable (a locked or unreadable file, a full disk)
+makes `/readyz` return 503 while `/healthz`, the plain liveness probe,
+stays 200, so an orchestrator can tell "restart me" from "I can't serve
+right now". Both are public and unauthenticated.
+
 Put a reverse proxy (Caddy, Tailscale Funnel, your VPS's existing one) in
 front for TLS — the server itself speaks plain HTTP on `--addr`.
 

@@ -86,7 +86,7 @@ func bearerToken(r *http.Request) (string, bool) {
 
 func isPublicPath(path string) bool {
 	switch {
-	case path == "/healthz", path == "/api/version":
+	case path == "/healthz", path == "/readyz", path == "/api/version":
 		return true
 	case path == "/api/auth/tokens", strings.HasPrefix(path, "/api/auth/tokens/"):
 		return false // session-only, not the general /api/auth/ exemption below
