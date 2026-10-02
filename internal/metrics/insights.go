@@ -36,6 +36,20 @@ func ParseInsightWindow(raw string) InsightWindow {
 	}
 }
 
+// Label is the window as the API names it ("24h", "7d", "30d"). A duration
+// the parser would never produce labels as the default, so a response always
+// names a window a client can send back.
+func (w InsightWindow) Label() string {
+	switch w.Duration {
+	case 24 * time.Hour:
+		return "24h"
+	case 30 * 24 * time.Hour:
+		return "30d"
+	default:
+		return "7d"
+	}
+}
+
 // InsightFilter scopes the insights to one repo and/or forge. The zero value
 // covers every tracked repo.
 type InsightFilter struct {
@@ -105,6 +119,9 @@ type FailingPipeline struct {
 
 // FailureInsights is the failure overview for one window.
 type FailureInsights struct {
+	// Window is the window these figures cover: the one requested, or the
+	// default when the request named none or an unknown one.
+	Window     InsightWindow
 	TotalRuns  int
 	FailedRuns int
 	// PassRate is the fraction in [0, 1] of concluded runs that succeeded.
@@ -173,6 +190,7 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 	priorRate, _ := passRate(prior)
 
 	insights := FailureInsights{
+		Window:              window,
 		TotalRuns:           len(current),
 		FailedRuns:          currentFailed,
 		PassRate:            currentRate,
