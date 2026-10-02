@@ -33,10 +33,10 @@
 
 ## 5. Views (one pull request each)
 
-- [ ] 5.1 Failure overview, once open question 1 is settled
+- [ ] 5.1 Failure overview at `/`; move the repo cards to `/repos`
 - [ ] 5.2 Runs list with polling
 - [ ] 5.3 Root cause diagnostics
-- [ ] 5.4 Flaky telemetry; `/steps` redirect if question 2 is yes
+- [ ] 5.4 Flaky telemetry; `/steps` redirects to `/flaky`
 - [ ] 5.5 Playwright journey and axe scan per view at 390px
 
 ## 6. Docs

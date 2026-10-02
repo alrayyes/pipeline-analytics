@@ -21,10 +21,10 @@ Existing state this builds on (verified against the tree):
 
 | Design screen | Route | Data | Notes |
 | --- | --- | --- | --- |
-| CI/CD Failure Overview | `/` (see Open questions) | `GET /api/insights/failures` | Window toggle, repo scope |
+| CI/CD Failure Overview | `/` (replaces the repo overview) | `GET /api/insights/failures` | Window toggle, repo scope |
 | Pipelines & Runs | `/runs` | `GET /api/runs` | Existing `/runs/[id]` stays as the run detail |
 | Root Cause Diagnostics | `/failures` | `GET /api/insights/failures?groupBy=step` | Links into `/pipelines/[id]/flaky-runs` |
-| Flaky Tests & Telemetry | `/flaky` | `GET /api/steps/unhealthy` plus per-step history | Supersedes `/steps` |
+| Flaky Tests & Telemetry | `/flaky` | `GET /api/steps/unhealthy` plus per-step history | Supersedes `/steps`, which redirects here |
 
 ## Components (`web/src/lib/components/telemetry/`)
 
@@ -115,14 +115,13 @@ mode keeps working; the app's theme toggle is unchanged. Biome
   data supports; every dropped element is listed in the proposal so
   the omission is deliberate.
 
-## Open questions
+## Settled questions
 
-1. **Where does the failure overview live?** `/` is the repo overview
-   (`add-repo-overview-homepage`). Options: (a) the failure overview
-   replaces `/` and the repo cards move under `/repos`; (b) keep `/`
-   and put the overview at `/failures`, with root-cause as a tab
-   inside. Recommendation: (a), since the overview's repo scope
-   covers what the repo cards do.
-2. **Does `/flaky` replace `/steps`?** Recommendation: yes, with a
-   redirect, since both list flaky and failing steps.
-3. **Bottom tab bar on desktop?** Recommendation: phone widths only.
+1. **The failure overview replaces `/`.** The repo overview cards
+   move to `/repos`; the overview's repo scope covers the same triage
+   need. This is **BREAKING** for anyone bookmarking the old landing
+   page's shape.
+2. **`/flaky` replaces `/steps`**, with a redirect, since both list
+   flaky and failing steps.
+3. **The bottom tab bar shows at phone widths only.** Desktop keeps
+   `Nav.svelte`'s layout.

@@ -33,6 +33,8 @@ Four views, each limited to what ingested data can feed:
   runs.
 - **Flaky tests & telemetry**: per flaky step, a pass/fail matrix of
   its last 40 runs, flake rate and run count, ranked by flake rate.
+- **BREAKING**: the failure overview takes over `/`; the repo overview
+  cards move to `/repos`. `/steps` redirects to `/flaky`.
 - New read endpoints: `GET /api/insights/failures`, `GET /api/runs`.
 - Ingestion starts recording run branch, head SHA, commit message and
   actor so runs can carry the commit tags the designs show.
