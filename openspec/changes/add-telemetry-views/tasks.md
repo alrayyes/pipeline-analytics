@@ -33,7 +33,8 @@
 - [ ] 4.3 Shared components, each landing with the first view that uses it
       and covered by that view's Playwright journey, since this repo has no
       component-level test layer: `StageProgress` and `RunCard` (done, 5.2);
-      `MetricCard`, `StageDistribution`, `TabBar` (5.1); `FlakeMatrix` (5.4);
+      `TabBar` (5.1c); `FlakeMatrix` (5.4); `MetricCard` (done, 5.1b; the stage
+      distribution is inline on the overview, not a component);
       `WindowToggle`, `CategoryBreakdown` and `FailureGroupCard` (done, 5.3)
 
 ## 5. Views (one pull request each)
@@ -41,7 +42,7 @@
 - [x] 5.1a Move the Pipelines list to `/pipelines` and redirect `/` there.
       (The "repo cards" planned for `/repos` never existed: `add-repo-overview-
       homepage` was not implemented, so `/` was the flat Pipelines list.)
-- [ ] 5.1b Failure overview at `/`
+- [x] 5.1b Failure overview at `/`
 - [x] 5.2 Runs list with polling
 - [x] 5.3 Root cause diagnostics
 - [ ] 5.4 Flaky telemetry; `/steps` redirects to `/flaky`

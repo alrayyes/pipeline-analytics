@@ -54,7 +54,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	await registerButton.click();
 
-	await expect(page).toHaveURL('/pipelines');
+	await expect(page).toHaveURL('/');
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 	await expect(page.getByText('No repositories registered yet')).toBeVisible();
 
@@ -1332,7 +1332,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(loginButton).toBeVisible();
 	await loginButton.click();
 
-	await expect(page).toHaveURL('/pipelines');
+	await expect(page).toHaveURL('/');
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 
 	await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId });
