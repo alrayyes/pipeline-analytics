@@ -106,7 +106,7 @@ func processGitHubWorkflowRun(ctx context.Context, store RunStore, repo Repo, pa
 		ForgeURL:     event.WorkflowRun.HTMLURL,
 		Branch:       event.WorkflowRun.HeadBranch,
 		SHA:          event.WorkflowRun.HeadSHA,
-		Message:      firstLine(event.WorkflowRun.HeadCommit.Message),
+		Message:      FirstLine(event.WorkflowRun.HeadCommit.Message),
 		Actor:        event.WorkflowRun.Actor.Login,
 	}
 
@@ -214,9 +214,9 @@ func parseTime(s string) *time.Time {
 	return &t
 }
 
-// firstLine is a commit message's subject: the body is long, often noisy and
+// FirstLine is a commit message's subject: the body is long, often noisy and
 // not something a run card needs.
-func firstLine(message string) string {
+func FirstLine(message string) string {
 	line, _, _ := strings.Cut(message, "\n")
 
 	return strings.TrimSpace(line)

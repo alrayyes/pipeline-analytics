@@ -125,6 +125,10 @@ func (r *Reconciler) storeRunSnapshot(ctx context.Context, repo Repo, snapshot R
 		StartedAt:    snapshot.StartedAt,
 		CompletedAt:  snapshot.CompletedAt,
 		ForgeURL:     snapshot.ForgeURL,
+		Branch:       snapshot.Branch,
+		SHA:          snapshot.SHA,
+		Message:      snapshot.Message,
+		Actor:        snapshot.Actor,
 	})
 	if err != nil {
 		return fmt.Errorf("upsert run: %w", err)

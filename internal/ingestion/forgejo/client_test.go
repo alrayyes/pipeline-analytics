@@ -114,7 +114,11 @@ const actionRunsPayload = `{
       "conclusion": "success",
       "started_at": "2026-09-15T10:00:00Z",
       "completed_at": "2026-09-15T10:05:00Z",
-      "html_url": "https://forgejo.example.com/alrayyes/dotfiles/actions/runs/42"
+      "html_url": "https://forgejo.example.com/alrayyes/dotfiles/actions/runs/42",
+      "head_branch": "main",
+      "head_sha": "c4d291a",
+      "display_title": "fix(stripe): webhook retry",
+      "actor": {"login": "marcus-v"}
     }
   ]
 }`
@@ -176,6 +180,10 @@ func TestClient_ListRecentRuns(t *testing.T) {
 		require.Equal(t, "42", run.ForgeRunID)
 		require.Equal(t, "ci", run.PipelineName)
 		require.Equal(t, "success", run.Conclusion)
+		require.Equal(t, "main", run.Branch)
+		require.Equal(t, "c4d291a", run.SHA)
+		require.Equal(t, "fix(stripe): webhook retry", run.Message)
+		require.Equal(t, "marcus-v", run.Actor)
 		require.Len(t, run.Jobs, 1)
 
 		job := run.Jobs[0]
