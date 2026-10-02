@@ -20,6 +20,7 @@ type runSummaryDTO struct {
 	RepoID          string       `json:"repoId"`
 	Status          string       `json:"status"`
 	Conclusion      string       `json:"conclusion,omitempty"`
+	Outcome         string       `json:"outcome"`
 	StartedAt       *time.Time   `json:"startedAt,omitempty"`
 	DurationSeconds *float64     `json:"durationSeconds,omitempty"`
 	Branch          string       `json:"branch,omitempty"`
@@ -43,6 +44,7 @@ func toRunSummaryDTO(e metrics.RunEntry) runSummaryDTO {
 		RepoID:       e.Pipeline.RepoID,
 		Status:       e.Status,
 		Conclusion:   e.Conclusion,
+		Outcome:      string(metrics.OutcomeOf(e.Status, e.Conclusion)),
 		StartedAt:    e.StartedAt,
 		Branch:       e.Branch,
 		SHA:          e.SHA,

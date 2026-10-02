@@ -1,17 +1,21 @@
 import { describe, expect, test } from 'bun:test';
+import type { Outcome } from './dashboardApi.js';
 import { stageSegments, stageSummary } from './stageProgress.js';
 
-const step = (name: string, status: string, conclusion?: string) => ({
+// The forge's raw status and conclusion ride along but are never read: the
+// outcome is all the mapping looks at.
+const step = (name: string, outcome: Outcome) => ({
 	name,
-	status,
-	conclusion,
+	status: 'ignored',
+	conclusion: 'ignored',
+	outcome,
 });
 
 describe('stageSegments', () => {
 	test('maps each step to a segment with its tone and a text label', () => {
 		const segments = stageSegments([
-			step('checkout', 'completed', 'success'),
-			step('canary', 'completed', 'failure'),
+			step('checkout', 'passed'),
+			step('canary', 'failed'),
 			step('promote', 'queued'),
 		]);
 
@@ -20,6 +24,19 @@ describe('stageSegments', () => {
 			{ name: 'canary', tone: 'fail', label: 'Failed' },
 			{ name: 'promote', tone: 'running', label: 'Queued' },
 		]);
+	});
+
+	test('an unknown step shows its forge text as the label', () => {
+		const [segment] = stageSegments([
+			{
+				name: 'gate',
+				status: 'completed',
+				conclusion: 'action_required',
+				outcome: 'unknown',
+			},
+		]);
+
+		expect(segment.label).toBe('action_required');
 	});
 
 	test('no steps is no segments', () => {
@@ -31,48 +48,39 @@ describe('stageSummary', () => {
 	test('names the first failing stage and its position', () => {
 		expect(
 			stageSummary([
-				step('checkout', 'completed', 'success'),
-				step('build', 'completed', 'success'),
-				step('canary', 'completed', 'failure'),
+				step('checkout', 'passed'),
+				step('build', 'passed'),
+				step('canary', 'failed'),
 				step('promote', 'queued'),
 			]),
 		).toBe('Stage 3/4: canary');
 	});
 
 	test('a failure outranks a later running stage', () => {
-		expect(
-			stageSummary([
-				step('a', 'completed', 'failure'),
-				step('b', 'in_progress'),
-			]),
-		).toBe('Stage 1/2: a');
+		expect(stageSummary([step('a', 'failed'), step('b', 'running')])).toBe(
+			'Stage 1/2: a',
+		);
 	});
 
 	test('names the first running stage when nothing has failed', () => {
 		expect(
 			stageSummary([
-				step('install', 'completed', 'success'),
-				step('e2e', 'in_progress'),
+				step('install', 'passed'),
+				step('e2e', 'running'),
 				step('upload', 'queued'),
 			]),
 		).toBe('Stage 2/3: e2e');
 	});
 
 	test('all passed reads as a count', () => {
-		expect(
-			stageSummary([
-				step('init', 'completed', 'success'),
-				step('plan', 'completed', 'success'),
-			]),
-		).toBe('2/2 passed');
+		expect(stageSummary([step('init', 'passed'), step('plan', 'passed')])).toBe(
+			'2/2 passed',
+		);
 	});
 
 	test('a skipped step is not counted as passed', () => {
 		expect(
-			stageSummary([
-				step('init', 'completed', 'success'),
-				step('lint', 'completed', 'skipped'),
-			]),
+			stageSummary([step('init', 'passed'), step('lint', 'skipped')]),
 		).toBe('1/2 passed');
 	});
 

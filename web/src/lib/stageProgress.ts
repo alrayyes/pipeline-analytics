@@ -3,7 +3,7 @@
 // workflows, jobs and steps, but no stage taxonomy.
 
 import type { RunStep } from './dashboardApi.js';
-import { statusLabel, statusTone, type Tone } from './statusModel.js';
+import { outcomeLabel, outcomeTone, type Tone } from './statusModel.js';
 
 export interface StageSegment {
 	name: string;
@@ -14,8 +14,8 @@ export interface StageSegment {
 export function stageSegments(steps: RunStep[]): StageSegment[] {
 	return steps.map((step) => ({
 		name: step.name,
-		tone: statusTone(step.status, step.conclusion),
-		label: statusLabel(step.status, step.conclusion),
+		tone: outcomeTone(step.outcome),
+		label: outcomeLabel(step.outcome, step.conclusion ?? step.status),
 	}));
 }
 

@@ -1,46 +1,55 @@
 import { describe, expect, test } from 'bun:test';
-import { statusLabel, statusTone } from './statusModel.js';
+import { isPending, outcomeLabel, outcomeTone } from './statusModel.js';
 
-describe('statusTone', () => {
+describe('outcomeTone', () => {
 	test.each([
-		['completed', 'success', 'pass'],
-		['completed', 'failure', 'fail'],
-		['completed', 'timed_out', 'fail'],
-		['in_progress', undefined, 'running'],
-		['queued', undefined, 'running'],
-		['completed', 'cancelled', 'neutral'],
-		['completed', 'skipped', 'neutral'],
-	] as const)('%s / %s is %s', (status, conclusion, tone) => {
-		expect(statusTone(status, conclusion)).toBe(tone);
-	});
-
-	test('a conclusion wins over a stale in_progress status', () => {
-		expect(statusTone('in_progress', 'failure')).toBe('fail');
-	});
-
-	test('an unrecognised state is neutral, not a pass', () => {
-		expect(statusTone('weird', 'strange')).toBe('neutral');
-	});
-
-	test('a completed run with no conclusion is neutral, not a pass', () => {
-		expect(statusTone('completed', undefined)).toBe('neutral');
+		['passed', 'pass'],
+		['failed', 'fail'],
+		['running', 'running'],
+		['queued', 'running'],
+		['cancelled', 'neutral'],
+		['skipped', 'neutral'],
+		['unknown', 'neutral'],
+	] as const)('%s is %s', (outcome, tone) => {
+		expect(outcomeTone(outcome)).toBe(tone);
 	});
 });
 
-describe('statusLabel', () => {
+describe('outcomeLabel', () => {
 	test.each([
-		['completed', 'success', 'Passed'],
-		['completed', 'failure', 'Failed'],
-		['completed', 'timed_out', 'Timed out'],
-		['completed', 'cancelled', 'Cancelled'],
-		['completed', 'skipped', 'Skipped'],
-		['in_progress', undefined, 'Running'],
-		['queued', undefined, 'Queued'],
-	] as const)('%s / %s reads %s', (status, conclusion, label) => {
-		expect(statusLabel(status, conclusion)).toBe(label);
+		['passed', 'Passed'],
+		['failed', 'Failed'],
+		['running', 'Running'],
+		['queued', 'Queued'],
+		['cancelled', 'Cancelled'],
+		['skipped', 'Skipped'],
+	] as const)('%s reads %s', (outcome, label) => {
+		expect(outcomeLabel(outcome)).toBe(label);
 	});
 
-	test('an unrecognised state falls back to its raw status text', () => {
-		expect(statusLabel('weird', undefined)).toBe('weird');
+	test('an unknown outcome shows the forge text it was given, so it is never blank', () => {
+		expect(outcomeLabel('unknown', 'action_required')).toBe('action_required');
 	});
+
+	test('an unknown outcome with nothing to show says so', () => {
+		expect(outcomeLabel('unknown')).toBe('Unknown');
+	});
+
+	test('the fallback is only for unknown: a known outcome ignores it', () => {
+		expect(outcomeLabel('passed', 'success')).toBe('Passed');
+	});
+});
+
+describe('isPending', () => {
+	test('running and queued are work still to come, so a list should keep refreshing', () => {
+		expect(isPending('running')).toBe(true);
+		expect(isPending('queued')).toBe(true);
+	});
+
+	test.each(['passed', 'failed', 'cancelled', 'skipped', 'unknown'] as const)(
+		'%s is not pending',
+		(outcome) => {
+			expect(isPending(outcome)).toBe(false);
+		},
+	);
 });

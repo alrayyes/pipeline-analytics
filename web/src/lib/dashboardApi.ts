@@ -59,10 +59,23 @@ export interface Step {
 	forgeUrl?: string;
 }
 
+// What a run's or step's forge state means, decided by the server
+// (metrics.OutcomeOf). The raw status and conclusion ride along but a client
+// shouldn't interpret them.
+export type Outcome =
+	| 'passed'
+	| 'failed'
+	| 'running'
+	| 'queued'
+	| 'cancelled'
+	| 'skipped'
+	| 'unknown';
+
 export interface RunStep {
 	name: string;
 	status: string;
 	conclusion?: string;
+	outcome: Outcome;
 	forgeUrl?: string;
 }
 
@@ -83,6 +96,7 @@ export interface RunSummary {
 	repoId: string;
 	status: string;
 	conclusion?: string;
+	outcome: Outcome;
 	startedAt?: string;
 	durationSeconds?: number;
 	// Commit fields are absent on runs ingested before they were recorded.

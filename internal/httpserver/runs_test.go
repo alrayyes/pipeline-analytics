@@ -159,6 +159,51 @@ func TestListRuns(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code)
 	})
 
+	t.Run("every run and step carries a normalized outcome, and the run-steps endpoint does too", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		repoID := seedRepo(t, srv)
+		failed := seedRunWith(t, srv, repoID, ingestion.Run{ForgeRunID: "1", Status: "completed", Conclusion: "failure", StartedAt: at(30), CompletedAt: at(31)})
+		seedRunWith(t, srv, repoID, ingestion.Run{ForgeRunID: "2", Status: "in_progress", StartedAt: at(20)})
+		seedRunWith(t, srv, repoID, ingestion.Run{ForgeRunID: "3", Status: "queued", StartedAt: at(10)})
+		seedJobStep(t, srv, failed.ID, "10", "build", "success")
+		seedJobStep(t, srv, failed.ID, "11", "deploy", "timed_out")
+
+		_, body := getRuns(t, srv, "")
+
+		outcomes := map[string]any{}
+		for _, run := range body.Runs {
+			outcomes[run["id"].(string)] = run["outcome"]
+		}
+
+		require.Equal(t, "failed", outcomes[failed.ID])
+		require.ElementsMatch(t, []any{"failed", "running", "queued"}, []any{body.Runs[0]["outcome"], body.Runs[1]["outcome"], body.Runs[2]["outcome"]})
+
+		var steps []any
+
+		for _, run := range body.Runs {
+			if run["id"] == failed.ID {
+				steps, _ = run["steps"].([]any)
+			}
+		}
+
+		require.Len(t, steps, 2)
+		require.Equal(t, "passed", steps[0].(map[string]any)["outcome"])
+		require.Equal(t, "failed", steps[1].(map[string]any)["outcome"], "a timed_out step is failed; its conclusion stays timed_out")
+		require.Equal(t, "timed_out", steps[1].(map[string]any)["conclusion"])
+
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/runs/"+failed.ID+"/steps", nil)))
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var detail struct {
+			Steps []map[string]any `json:"steps"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &detail))
+		require.Equal(t, "failed", detail.Steps[1]["outcome"])
+	})
+
 	t.Run("filters by status bucket", func(t *testing.T) {
 		t.Parallel()
 
