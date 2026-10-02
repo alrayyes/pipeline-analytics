@@ -59,6 +59,13 @@ export interface Step {
 	forgeUrl?: string;
 }
 
+export interface RunStep {
+	name: string;
+	status: string;
+	conclusion?: string;
+	forgeUrl?: string;
+}
+
 export interface UsageEntry {
 	workflow: string;
 	runnerMinutes: number;
