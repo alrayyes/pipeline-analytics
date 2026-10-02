@@ -14,6 +14,7 @@ type settingsDTO struct {
 	PipelinesHealthFilter string `json:"pipelinesHealthFilter"`
 	PipelinesRepoSelector string `json:"pipelinesRepoSelector"`
 	PipelinesSortOrder    string `json:"pipelinesSortOrder"`
+	TelemetryWindow       string `json:"telemetryWindow"`
 }
 
 func toSettingsDTO(s settings.Settings) settingsDTO {
@@ -23,6 +24,7 @@ func toSettingsDTO(s settings.Settings) settingsDTO {
 		PipelinesHealthFilter: s.PipelinesHealthFilter,
 		PipelinesRepoSelector: s.PipelinesRepoSelector,
 		PipelinesSortOrder:    s.PipelinesSortOrder,
+		TelemetryWindow:       s.TelemetryWindow,
 	}
 }
 
