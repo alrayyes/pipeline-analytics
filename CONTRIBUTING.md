@@ -28,6 +28,10 @@ The frontend has to build first — `web/vite.config.ts`'s adapter writes
 straight into `internal/webassets/dist`, which the Go binary embeds via
 `go:embed`.
 
+`bun run build` and `bun run dev` first run `web/scripts/generate-releases.ts`,
+which turns `CHANGELOG.md` into `releases.json` for the release history page.
+That file is generated and not committed; edit the changelog, not the JSON.
+
 The dashboard also registers three read-only
 [WebMCP](https://github.com/webmachinelearning/webmcp) tools
 (`list_pipelines`, `get_pipeline`, `get_repo_usage`) on mount, so an
