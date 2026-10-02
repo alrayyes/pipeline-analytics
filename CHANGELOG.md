@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.58.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.57.0...v0.58.0) (2026-10-02)
+
+
+### Features
+
+* **api:** report failure shares and a category breakdown ([#382](https://github.com/alrayyes/pipeline-analytics/issues/382)) ([94f5f38](https://github.com/alrayyes/pipeline-analytics/commit/94f5f381e8a20d22b90dd5ac2f32420b51be2e08)), closes [#381](https://github.com/alrayyes/pipeline-analytics/issues/381)
+* **web:** add the root-cause diagnostics view ([#383](https://github.com/alrayyes/pipeline-analytics/issues/383)) ([7f8ca46](https://github.com/alrayyes/pipeline-analytics/commit/7f8ca463f70935f6635209af399cbf23679567e3))
+* **web:** link the footer's version to the release history ([#385](https://github.com/alrayyes/pipeline-analytics/issues/385)) ([c1b485e](https://github.com/alrayyes/pipeline-analytics/commit/c1b485ed20bec94adc3841130f3aa44022f16dbd))
+
 ## [0.57.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.56.0...v0.57.0) (2026-10-02)
 
 
