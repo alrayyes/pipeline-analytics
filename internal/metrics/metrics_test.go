@@ -51,13 +51,16 @@ func TestParseWindow(t *testing.T) {
 // fakeStore is an in-memory metrics.Store fixture: every method reads
 // straight from the fields below, set up per test.
 type fakeStore struct {
-	pipelines   []metrics.PipelineRef
-	runs        map[metrics.PipelineRef][]metrics.RunRecord
-	steps       map[metrics.PipelineRef][]metrics.StepOccurrence
-	runSteps    map[string][]metrics.StepOccurrence
-	usage       map[string][]metrics.UsageRecord
-	windowRuns  []metrics.WindowRun
-	windowSteps []metrics.WindowStep
+	pipelines        []metrics.PipelineRef
+	runs             map[metrics.PipelineRef][]metrics.RunRecord
+	steps            map[metrics.PipelineRef][]metrics.StepOccurrence
+	runSteps         map[string][]metrics.StepOccurrence
+	usage            map[string][]metrics.UsageRecord
+	windowRuns       []metrics.WindowRun
+	windowSteps      []metrics.WindowStep
+	runList          []metrics.RunEntry
+	runListHasMore   bool
+	gotRunListFilter metrics.RunListFilter
 }
 
 // ListPipelines applies filter.RepoID and pagination the same way the real
@@ -144,6 +147,12 @@ func (f *fakeStore) WindowSteps(_ context.Context, filter metrics.RunWindowFilte
 	}
 
 	return matching, nil
+}
+
+func (f *fakeStore) ListRuns(_ context.Context, filter metrics.RunListFilter) ([]metrics.RunEntry, bool, error) {
+	f.gotRunListFilter = filter
+
+	return f.runList, f.runListHasMore, nil
 }
 
 func (f *fakeStore) RunSteps(_ context.Context, runID string) ([]metrics.StepOccurrence, error) {
