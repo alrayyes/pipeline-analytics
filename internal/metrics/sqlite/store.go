@@ -5,6 +5,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
@@ -267,6 +268,169 @@ func (s *Store) WindowSteps(ctx context.Context, filter metrics.RunWindowFilter)
 	}
 
 	return steps, nil
+}
+
+// runListQuery builds the SQL and args ListRuns runs for filter.
+func runListQuery(filter metrics.RunListFilter) (string, []any) {
+	query := `
+		SELECT r.id, r.repo_id, r.pipeline_name, r.status, r.conclusion, r.started_at, r.completed_at,
+			r.branch, r.head_sha, r.head_message, r.actor, r.forge_url
+		FROM runs r`
+	args := []any{}
+
+	if filter.Forge != "" {
+		query += " JOIN repos p ON p.id = r.repo_id"
+	}
+
+	query += " WHERE 1 = 1"
+
+	if filter.RepoID != "" {
+		query += " AND r.repo_id = ?"
+		args = append(args, filter.RepoID)
+	}
+
+	if filter.Forge != "" {
+		query += " AND p.forge = ?"
+		args = append(args, filter.Forge)
+	}
+
+	switch filter.Status {
+	case metrics.RunStatusFailed:
+		query += " AND r.conclusion IN ('failure', 'timed_out')"
+	case metrics.RunStatusRunning:
+		query += " AND r.status != 'completed'"
+	case metrics.RunStatusSuccess:
+		query += " AND r.conclusion = 'success'"
+	case metrics.RunStatusAll:
+	}
+
+	// A run that hasn't started has no start time yet and is the newest, so
+	// NULLs sort first.
+	query += " ORDER BY r.started_at IS NULL DESC, r.started_at DESC, r.id DESC"
+
+	// One extra row tells the caller whether another page exists without a
+	// separate COUNT(*), as in pipelineListQuery.
+	if filter.Limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		args = append(args, filter.Limit+1, filter.Offset)
+	}
+
+	return query, args
+}
+
+// ListRuns implements metrics.Store.
+func (s *Store) ListRuns(ctx context.Context, filter metrics.RunListFilter) ([]metrics.RunEntry, bool, error) {
+	query, args := runListQuery(filter)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, false, fmt.Errorf("query runs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var runs []metrics.RunEntry
+
+	for rows.Next() {
+		run, err := scanRunEntry(rows)
+		if err != nil {
+			return nil, false, err
+		}
+
+		runs = append(runs, run)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, false, fmt.Errorf("iterate runs: %w", err)
+	}
+
+	hasMore := filter.Limit > 0 && len(runs) > filter.Limit
+	if hasMore {
+		runs = runs[:filter.Limit]
+	}
+
+	if err := s.attachSteps(ctx, runs); err != nil {
+		return nil, false, err
+	}
+
+	return runs, hasMore, nil
+}
+
+func scanRunEntry(rows *sql.Rows) (metrics.RunEntry, error) {
+	var (
+		run                                     metrics.RunEntry
+		conclusion, branch, sha, message, actor sql.NullString
+	)
+
+	err := rows.Scan(
+		&run.ID, &run.Pipeline.RepoID, &run.Pipeline.Name, &run.Status, &conclusion, &run.StartedAt, &run.CompletedAt,
+		&branch, &sha, &message, &actor, &run.ForgeURL,
+	)
+	if err != nil {
+		return metrics.RunEntry{}, fmt.Errorf("scan run: %w", err)
+	}
+
+	run.Conclusion = conclusion.String
+	run.Branch, run.SHA, run.Message, run.Actor = branch.String, sha.String, message.String, actor.String
+	run.Steps = []metrics.RunStep{}
+
+	return run, nil
+}
+
+// attachSteps fills each run's Steps with one query for the whole page,
+// rather than one per run.
+func (s *Store) attachSteps(ctx context.Context, runs []metrics.RunEntry) error {
+	if len(runs) == 0 {
+		return nil
+	}
+
+	index := make(map[string]int, len(runs))
+	ids := make([]string, 0, len(runs))
+
+	for i, run := range runs {
+		index[run.ID] = i
+		ids = append(ids, run.ID)
+	}
+
+	// The ids go in as one JSON array read by json_each, so the query text
+	// is fixed however many runs are on the page -- no SQL assembled from
+	// a variable-length placeholder list.
+	idsJSON, err := json.Marshal(ids)
+	if err != nil {
+		return fmt.Errorf("encode run ids: %w", err)
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT j.run_id, s.name, s.status, s.conclusion, j.forge_url
+		FROM steps s
+		JOIN jobs j ON j.id = s.job_id
+		WHERE j.run_id IN (SELECT value FROM json_each(?))
+		ORDER BY j.run_id, j.started_at, s.number
+	`, string(idsJSON))
+	if err != nil {
+		return fmt.Errorf("query run steps: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var (
+			runID      string
+			step       metrics.RunStep
+			conclusion sql.NullString
+		)
+
+		if err := rows.Scan(&runID, &step.Name, &step.Status, &conclusion, &step.ForgeURL); err != nil {
+			return fmt.Errorf("scan run step: %w", err)
+		}
+
+		step.Conclusion = conclusion.String
+		runs[index[runID]].Steps = append(runs[index[runID]].Steps, step)
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate run steps: %w", err)
+	}
+
+	return nil
 }
 
 // RunSteps implements metrics.Store.

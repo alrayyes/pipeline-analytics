@@ -77,6 +77,9 @@ func New(deps Deps) http.Handler {
 	failureInsights := &failureInsightsHandler{service: deps.Metrics}
 	mux.HandleFunc("GET /api/insights/failures", failureInsights.get)
 
+	runList := &runListHandler{service: deps.Metrics}
+	mux.HandleFunc("GET /api/runs", runList.list)
+
 	registerAuthRoutes(mux, &authHandler{service: deps.Auth})
 
 	settingsH := &settingsHandler{service: deps.Settings}

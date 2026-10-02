@@ -263,6 +263,11 @@ type Store interface {
 	// that started in [filter.Since, filter.Until), with its pipeline. Order
 	// is unspecified.
 	WindowSteps(ctx context.Context, filter RunWindowFilter) ([]WindowStep, error)
+	// ListRuns returns a page of runs matching filter, newest first (a run
+	// that hasn't started yet before the rest), each with its steps, plus
+	// whether more beyond this page match -- always false when filter.Limit
+	// is 0.
+	ListRuns(ctx context.Context, filter RunListFilter) (runs []RunEntry, hasMore bool, err error)
 	// RunSteps returns every step occurrence recorded within one run's
 	// jobs, in recorded order. Empty for an unknown runID.
 	RunSteps(ctx context.Context, runID string) ([]StepOccurrence, error)

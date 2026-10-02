@@ -412,3 +412,178 @@ func TestStore_WindowSteps(t *testing.T) {
 		require.Len(t, got, 3)
 	})
 }
+
+func (f testFixture) seedRunWith(t *testing.T, run ingestion.Run) ingestion.Run {
+	t.Helper()
+
+	run.RepoID = f.repo.ID
+	if run.PipelineName == "" {
+		run.PipelineName = "CI"
+	}
+
+	if run.ForgeURL == "" {
+		run.ForgeURL = "https://github.com/alrayyes/pipeline-analytics/actions/runs/" + run.ForgeRunID
+	}
+
+	created, err := f.runs.UpsertRun(context.Background(), run)
+	require.NoError(t, err)
+
+	return created
+}
+
+func TestStore_ListRuns(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t)
+	ctx := context.Background()
+
+	oldest := f.seedRunWith(t, ingestion.Run{ForgeRunID: "1", Status: "completed", Conclusion: "success", StartedAt: at(10), CompletedAt: at(15)})
+	failed := f.seedRunWith(t, ingestion.Run{
+		ForgeRunID: "2", Status: "completed", Conclusion: "failure", StartedAt: at(20), CompletedAt: at(27),
+		Branch: "main", SHA: "c4d291a", Message: "fix(stripe): webhook retry", Actor: "marcus-v",
+	})
+	timedOut := f.seedRunWith(t, ingestion.Run{ForgeRunID: "3", PipelineName: "Lint", Status: "completed", Conclusion: "timed_out", StartedAt: at(30), CompletedAt: at(40)})
+	running := f.seedRunWith(t, ingestion.Run{ForgeRunID: "4", Status: "in_progress", StartedAt: at(50)})
+	queued := f.seedRunWith(t, ingestion.Run{ForgeRunID: "5", Status: "queued"}) // no start time yet
+	f.seedRunWith(t, ingestion.Run{ForgeRunID: "6", Status: "completed", Conclusion: "cancelled", StartedAt: at(5), CompletedAt: at(6)})
+
+	// Two jobs in the failed run, the first started earlier: steps must come
+	// back in job order, then step number.
+	f.seedJobWithStep(t, failed.ID, "20", "checkout", 20, 21, 22, "success")
+	f.seedJobWithStep(t, failed.ID, "21", "canary", 22, 23, 27, "failure")
+
+	ids := func(runs []metrics.RunEntry) []string {
+		out := make([]string, 0, len(runs))
+		for _, r := range runs {
+			out = append(out, r.ID)
+		}
+
+		return out
+	}
+
+	t.Run("lists newest first, with a run that hasn't started yet before the rest", func(t *testing.T) {
+		t.Parallel()
+
+		got, hasMore, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusAll})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Equal(t, []string{queued.ID, running.ID, timedOut.ID, failed.ID, oldest.ID}, ids(got)[:5])
+		require.Len(t, got, 6)
+	})
+
+	t.Run("carries the run's pipeline, commit fields and forge link", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusFailed})
+		require.NoError(t, err)
+
+		var run metrics.RunEntry
+
+		for _, r := range got {
+			if r.ID == failed.ID {
+				run = r
+			}
+		}
+
+		require.Equal(t, "CI", run.Pipeline.Name)
+		require.Equal(t, f.repo.ID, run.Pipeline.RepoID)
+		require.Equal(t, "main", run.Branch)
+		require.Equal(t, "c4d291a", run.SHA)
+		require.Equal(t, "fix(stripe): webhook retry", run.Message)
+		require.Equal(t, "marcus-v", run.Actor)
+		require.Contains(t, run.ForgeURL, "/actions/runs/2")
+	})
+
+	t.Run("leaves commit fields empty when the run has none", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusSuccess})
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		require.Empty(t, got[0].SHA)
+		require.Empty(t, got[0].Actor)
+	})
+
+	t.Run("failed covers failure and timed_out, nothing else", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusFailed})
+		require.NoError(t, err)
+		require.Equal(t, []string{timedOut.ID, failed.ID}, ids(got))
+	})
+
+	t.Run("running covers every run that hasn't completed", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusRunning})
+		require.NoError(t, err)
+		require.Equal(t, []string{queued.ID, running.ID}, ids(got))
+	})
+
+	t.Run("success covers only successful conclusions", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusSuccess})
+		require.NoError(t, err)
+		require.Equal(t, []string{oldest.ID}, ids(got))
+	})
+
+	t.Run("attaches each run's steps in job order", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusFailed})
+		require.NoError(t, err)
+
+		var steps []metrics.RunStep
+
+		for _, r := range got {
+			if r.ID == failed.ID {
+				steps = r.Steps
+			}
+		}
+
+		require.Len(t, steps, 2)
+		require.Equal(t, "checkout", steps[0].Name)
+		require.Equal(t, "canary", steps[1].Name)
+		require.Equal(t, "failure", steps[1].Conclusion)
+	})
+
+	t.Run("a run with no recorded steps has an empty, non-nil step list", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusSuccess})
+		require.NoError(t, err)
+		require.NotNil(t, got[0].Steps)
+		require.Empty(t, got[0].Steps)
+	})
+
+	t.Run("paginates and reports whether more remain", func(t *testing.T) {
+		t.Parallel()
+
+		first, hasMore, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusAll, Limit: 2})
+		require.NoError(t, err)
+		require.True(t, hasMore)
+		require.Equal(t, []string{queued.ID, running.ID}, ids(first))
+
+		last, hasMore, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{Status: metrics.RunStatusAll, Limit: 4, Offset: 4})
+		require.NoError(t, err)
+		require.False(t, hasMore)
+		require.Len(t, last, 2)
+	})
+
+	t.Run("filters by repo and forge", func(t *testing.T) {
+		t.Parallel()
+
+		got, _, err := f.metrics.ListRuns(ctx, metrics.RunListFilter{RepoID: "nope", Status: metrics.RunStatusAll})
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		got, _, err = f.metrics.ListRuns(ctx, metrics.RunListFilter{Forge: "forgejo", Status: metrics.RunStatusAll})
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		got, _, err = f.metrics.ListRuns(ctx, metrics.RunListFilter{Forge: "github", Status: metrics.RunStatusAll})
+		require.NoError(t, err)
+		require.Len(t, got, 6)
+	})
+}
