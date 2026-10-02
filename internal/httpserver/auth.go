@@ -275,6 +275,7 @@ type credentialDTO struct {
 	ID        string    `json:"id"`
 	Label     string    `json:"label"`
 	CreatedAt time.Time `json:"createdAt"`
+	Revocable bool      `json:"revocable"`
 }
 
 func toCredentialDTOs(infos []auth.CredentialInfo) []credentialDTO {
@@ -284,6 +285,7 @@ func toCredentialDTOs(infos []auth.CredentialInfo) []credentialDTO {
 			ID:        base64.RawURLEncoding.EncodeToString(info.ID),
 			Label:     info.Label,
 			CreatedAt: info.CreatedAt,
+			Revocable: info.Revocable,
 		}
 	}
 
