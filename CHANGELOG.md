@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.60.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.59.0...v0.60.0) (2026-10-02)
+
+
+### Features
+
+* **web:** add the failure overview as the landing page ([#389](https://github.com/alrayyes/pipeline-analytics/issues/389)) ([8e11327](https://github.com/alrayyes/pipeline-analytics/commit/8e11327fb35beb9da8e1f62aa15c4d2739f8b7b8))
+
 ## [0.59.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.58.0...v0.59.0) (2026-10-02)
 
 
