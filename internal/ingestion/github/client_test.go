@@ -111,7 +111,11 @@ const workflowRunsPayload = `{
       "conclusion": "success",
       "run_started_at": "2026-09-15T10:00:00Z",
       "updated_at": "2026-09-15T10:05:00Z",
-      "html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001"
+      "html_url": "https://github.com/alrayyes/pipeline-analytics/actions/runs/1001",
+      "head_branch": "main",
+      "head_sha": "a8f9c1e3b2d4f6a8c0e2a4b6d8f0a2c4e6b8d0f2",
+      "head_commit": {"message": "fix(stripe): webhook retry\n\nBody."},
+      "actor": {"login": "marcus-v"}
     }
   ]
 }`
@@ -176,6 +180,10 @@ func TestClient_ListRecentRuns(t *testing.T) {
 		require.Equal(t, "1001", run.ForgeRunID)
 		require.Equal(t, "CI", run.PipelineName)
 		require.Equal(t, "success", run.Conclusion)
+		require.Equal(t, "main", run.Branch)
+		require.Equal(t, "a8f9c1e3b2d4f6a8c0e2a4b6d8f0a2c4e6b8d0f2", run.SHA)
+		require.Equal(t, "fix(stripe): webhook retry", run.Message)
+		require.Equal(t, "marcus-v", run.Actor)
 		require.Len(t, run.Jobs, 1)
 
 		job := run.Jobs[0]
