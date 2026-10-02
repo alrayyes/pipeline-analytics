@@ -233,6 +233,13 @@ type PipelineListFilter struct {
 	// Forge restricts the list to one forge, via a join on the owning repo
 	// (a pipeline has no forge column of its own). Empty matches every forge.
 	Forge string
+	// Health restricts the list to pipelines with this health status. Empty
+	// matches every status. Health is computed, so a filter on it makes
+	// ListPipelines summarise every match before it pages.
+	Health HealthStatus
+	// Sort orders the list; the zero value is SortByName. SortByLastRun also
+	// orders the whole match before it pages.
+	Sort PipelineSort
 	// Limit caps how many pipelines are returned. Zero means unlimited.
 	Limit int
 	// Offset skips this many matching pipelines before the page starts.
@@ -293,6 +300,12 @@ func NewService(store Store) *Service {
 // ListPipelines returns a page of tracked pipelines' summaries and health
 // status, plus whether more pipelines beyond this page match filter.
 func (s *Service) ListPipelines(ctx context.Context, window Window, filter PipelineListFilter) ([]Pipeline, bool, error) {
+	// A health filter or a last-run sort needs every match summarised before
+	// it can page; the plain list pages in the store.
+	if filter.Health != "" || filter.Sort == SortByLastRun {
+		return s.listAcrossPipelines(ctx, window, filter)
+	}
+
 	refs, hasMore, err := s.store.ListPipelines(ctx, filter)
 	if err != nil {
 		return nil, false, fmt.Errorf("list pipelines: %w", err)
