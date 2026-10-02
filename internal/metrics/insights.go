@@ -74,7 +74,12 @@ type FailureInsights struct {
 	PassRate *float64
 	// PassRateDelta is the change in percentage points against the preceding
 	// window of equal length. Nil when either window has no concluded run.
-	PassRateDelta       *float64
+	PassRateDelta *float64
+	// MTTR is the mean time to recovery: for each pipeline, from the
+	// completion of a failed run to the completion of the next successful
+	// one, averaged over every recovery in the window. Nil when nothing
+	// recovered, since an unrecovered failure has no recovery time.
+	MTTR                *time.Duration
 	TopFailingPipelines []FailingPipeline
 }
 
@@ -115,6 +120,7 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 		TotalRuns:           len(current),
 		FailedRuns:          currentFailed,
 		PassRate:            currentRate,
+		MTTR:                meanTimeToRecovery(current),
 		TopFailingPipelines: topFailingPipelines(current),
 	}
 
@@ -191,4 +197,66 @@ func topFailingPipelines(runs []WindowRun) []FailingPipeline {
 	})
 
 	return failing
+}
+
+// meanTimeToRecovery averages, over every recovery, the time from a failed
+// run's completion to the next successful run's completion in the same
+// pipeline. A run of consecutive failures counts from the first; cancelled
+// and unfinished runs neither start nor end an outage.
+func meanTimeToRecovery(runs []WindowRun) *time.Duration {
+	byPipeline := make(map[PipelineRef][]WindowRun)
+
+	for _, wr := range runs {
+		if wr.Run.Conclusion == "success" || isFailed(wr.Run.Conclusion) {
+			byPipeline[wr.Pipeline] = append(byPipeline[wr.Pipeline], wr)
+		}
+	}
+
+	var (
+		total      time.Duration
+		recoveries int
+	)
+
+	for _, pipelineRuns := range byPipeline {
+		slices.SortFunc(pipelineRuns, func(a, b WindowRun) int {
+			return finishedAt(a.Run).Compare(finishedAt(b.Run))
+		})
+
+		var downSince *time.Time
+
+		for _, wr := range pipelineRuns {
+			at := finishedAt(wr.Run)
+
+			switch {
+			case isFailed(wr.Run.Conclusion) && downSince == nil:
+				downSince = &at
+			case wr.Run.Conclusion == "success" && downSince != nil:
+				total += at.Sub(*downSince)
+				recoveries++
+				downSince = nil
+			}
+		}
+	}
+
+	if recoveries == 0 {
+		return nil
+	}
+
+	mean := total / time.Duration(recoveries)
+
+	return &mean
+}
+
+// finishedAt is when a run is known to have ended, falling back to its start
+// when no completion was recorded.
+func finishedAt(run RunRecord) time.Time {
+	if run.CompletedAt != nil {
+		return *run.CompletedAt
+	}
+
+	if run.StartedAt != nil {
+		return *run.StartedAt
+	}
+
+	return time.Time{}
 }

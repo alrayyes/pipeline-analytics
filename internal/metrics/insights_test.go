@@ -176,3 +176,95 @@ func TestService_GetFailureInsights(t *testing.T) {
 		require.Zero(t, got.FailedRuns)
 	})
 }
+
+// finishedRun is a concluded run that completed the given number of minutes
+// before insightsNow, for recovery timing.
+func finishedRun(pipeline, conclusion string, completedMinAgo int) metrics.WindowRun {
+	completed := insightsNow.Add(-time.Duration(completedMinAgo) * time.Minute)
+	started := completed.Add(-5 * time.Minute)
+
+	return metrics.WindowRun{
+		Pipeline: metrics.PipelineRef{RepoID: "repo-1", Name: pipeline},
+		Run: metrics.RunRecord{
+			ID:          fmt.Sprintf("%s-%d-%s", pipeline, completedMinAgo, conclusion),
+			Status:      "completed",
+			Conclusion:  conclusion,
+			StartedAt:   &started,
+			CompletedAt: &completed,
+		},
+	}
+}
+
+func TestService_GetFailureInsights_MTTR(t *testing.T) {
+	t.Parallel()
+
+	day := metrics.InsightWindow{Duration: 24 * time.Hour}
+
+	mttr := func(t *testing.T, runs ...metrics.WindowRun) *time.Duration {
+		t.Helper()
+
+		got, err := metrics.NewService(&fakeStore{windowRuns: runs}).GetFailureInsights(context.Background(), insightsNow, day, metrics.InsightFilter{})
+		require.NoError(t, err)
+
+		return got.MTTR
+	}
+
+	t.Run("a failure fixed by the next success contributes the gap between them", func(t *testing.T) {
+		t.Parallel()
+
+		got := mttr(t, finishedRun("CI", "failure", 100), finishedRun("CI", "success", 60))
+		require.NotNil(t, got)
+		require.Equal(t, 40*time.Minute, *got)
+	})
+
+	t.Run("averages across recoveries, and across pipelines", func(t *testing.T) {
+		t.Parallel()
+
+		got := mttr(t,
+			finishedRun("CI", "failure", 200), finishedRun("CI", "success", 180), // 20m
+			finishedRun("api", "failure", 100), finishedRun("api", "success", 40), // 60m
+		)
+		require.NotNil(t, got)
+		require.Equal(t, 40*time.Minute, *got)
+	})
+
+	t.Run("repeated failures count from the first one", func(t *testing.T) {
+		t.Parallel()
+
+		got := mttr(t,
+			finishedRun("CI", "failure", 120), finishedRun("CI", "failure", 90), finishedRun("CI", "success", 60),
+		)
+		require.NotNil(t, got)
+		require.Equal(t, 60*time.Minute, *got)
+	})
+
+	t.Run("a failure that never recovered contributes nothing", func(t *testing.T) {
+		t.Parallel()
+
+		require.Nil(t, mttr(t, finishedRun("CI", "success", 100), finishedRun("CI", "failure", 60)))
+	})
+
+	t.Run("cancelled and running runs neither break nor end an outage", func(t *testing.T) {
+		t.Parallel()
+
+		got := mttr(t,
+			finishedRun("CI", "failure", 100), finishedRun("CI", "cancelled", 80), finishedRun("CI", "success", 60),
+		)
+		require.NotNil(t, got)
+		require.Equal(t, 40*time.Minute, *got)
+	})
+
+	t.Run("a pipeline that only passed has no MTTR", func(t *testing.T) {
+		t.Parallel()
+
+		require.Nil(t, mttr(t, finishedRun("CI", "success", 100), finishedRun("CI", "success", 60)))
+	})
+
+	t.Run("runs given newest-first are ordered before pairing", func(t *testing.T) {
+		t.Parallel()
+
+		got := mttr(t, finishedRun("CI", "success", 60), finishedRun("CI", "failure", 100))
+		require.NotNil(t, got)
+		require.Equal(t, 40*time.Minute, *got)
+	})
+}
