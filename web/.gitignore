@@ -32,3 +32,6 @@ vite.config.ts.timestamp-*
 
 # Lighthouse CI
 /.lighthouseci
+
+# Generated from ../CHANGELOG.md by scripts/generate-releases.ts
+/static/releases.json

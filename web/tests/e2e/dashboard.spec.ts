@@ -1256,42 +1256,41 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
 	await expect(page).toHaveURL('/');
 
-	// Release history (task: footer/releases layout fix) -- the page fetches
-	// GitHub's own releases API directly, no backend proxy, so that's what
-	// gets mocked here rather than an internal endpoint.
-	await page.route(
-		'https://api.github.com/repos/alrayyes/pipeline-analytics/releases',
-		(route) =>
-			route.fulfill({
-				json: [
-					{
-						tag_name: 'v0.10.0',
-						name: 'v0.10.0',
-						html_url:
-							'https://github.com/alrayyes/pipeline-analytics/releases/tag/v0.10.0',
-						published_at: '2026-09-16T00:00:00Z',
-						body: '### Features\n\n* add a dark mode toggle ([#61](https://github.com/alrayyes/pipeline-analytics/issues/61))',
-					},
-				],
-			}),
-	);
+	// Release history (#368): the page loads releases.json, generated from
+	// CHANGELOG.md at build time and served by the app itself. Any request to
+	// GitHub's API means it went back to querying a third party on every
+	// visit, which is what this journey exists to prevent.
+	const githubRequests: string[] = [];
+	await page.route('https://api.github.com/**', (route) => {
+		githubRequests.push(route.request().url());
+
+		return route.abort();
+	});
 	await page.getByRole('link', { name: 'Release history' }).click();
 	await expect(page).toHaveURL('/releases');
-	await expect(page.getByRole('heading', { name: 'v0.10.0' })).toBeVisible();
+	// v0.10.0 is real history: its changelog section has a "Features" list
+	// with a #61 link. The page lists every release, so locators that match
+	// once per release take the first.
+	await expect(
+		page.getByRole('heading', { name: 'v0.10.0', exact: true }),
+	).toBeVisible();
 	// The markdown body rendered as real HTML, not raw "### Features" text.
-	await expect(page.getByRole('heading', { name: 'Features' })).toBeVisible();
-	await expect(page.getByRole('link', { name: '#61' })).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'Features' }).first(),
+	).toBeVisible();
+	await expect(
+		page.getByRole('link', { name: '#61', exact: true }).first(),
+	).toBeVisible();
 	// Long-form date (#73), matching forge-dashboard's own release history.
-	await expect(page.getByText('September 16, 2026')).toBeVisible();
+	await expect(page.getByText('September 16, 2026').first()).toBeVisible();
+	expect(githubRequests).toEqual([]);
 
 	const releasesScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
 		.analyze();
 	expect(releasesScan.violations).toEqual([]);
 
-	await page.unroute(
-		'https://api.github.com/repos/alrayyes/pipeline-analytics/releases',
-	);
+	await page.unroute('https://api.github.com/**');
 
 	// Privacy & disclaimer (#78), reached from the footer everywhere else is.
 	await page.getByRole('link', { name: 'Privacy & disclaimer' }).click();
