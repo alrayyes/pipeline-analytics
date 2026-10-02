@@ -196,3 +196,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## License
 
 [AGPL-3.0](LICENSE)
+
+<!-- CI path-filter probe: delete me -->
