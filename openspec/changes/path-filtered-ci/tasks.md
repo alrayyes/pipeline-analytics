@@ -12,8 +12,9 @@
       `git diff`, fall back to everything on an unknown base
 - [x] 2.2 `needs: changes` and an `if:` on every other job; the Pages deploy
       keeps its spec dependency
-- [ ] 2.3 Verify on a pull request that touches only one kind of file: only
-      its jobs ran, the combined status isn't empty, it's mergeable
+- [x] 2.3 Verified on a docs-only pull request (opened on this branch,
+      closed unmerged): `changes` and the prose and markdown jobs ran, all 11
+      code jobs and the Pages deploy were skipped, status not empty
 
 ## 3. Wrap up
 
