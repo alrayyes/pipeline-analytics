@@ -69,6 +69,7 @@ func TestService_Get(t *testing.T) {
 			PipelinesHealthFilter: settings.DefaultPipelinesHealthFilter,
 			PipelinesRepoSelector: settings.DefaultPipelinesRepoSelector,
 			PipelinesSortOrder:    settings.DefaultPipelinesSortOrder,
+			TelemetryWindow:       settings.DefaultTelemetryWindow,
 		}, got)
 	})
 
@@ -107,6 +108,42 @@ func TestService_Update(t *testing.T) {
 		got, err := settings.NewService(store).Get(context.Background(), "user-1")
 		require.NoError(t, err)
 		require.Equal(t, "lastRun", got.PipelinesSortOrder)
+	})
+
+	t.Run("the telemetry window defaults to 7d and accepts 24h, 7d and 30d", func(t *testing.T) {
+		t.Parallel()
+
+		svc := settings.NewService(newFakeStore())
+		ctx := context.Background()
+
+		got, err := svc.Get(ctx, "user-1")
+		require.NoError(t, err)
+		require.Equal(t, "7d", got.TelemetryWindow)
+
+		for _, window := range []string{"24h", "7d", "30d"} {
+			got, err := svc.Update(ctx, "user-1", map[string]*string{settings.KeyTelemetryWindow: new(window)})
+			require.NoError(t, err)
+			require.Equal(t, window, got.TelemetryWindow)
+		}
+	})
+
+	t.Run("a telemetry window outside the documented set is rejected, leaving the stored one", func(t *testing.T) {
+		t.Parallel()
+
+		svc := settings.NewService(newFakeStore())
+		ctx := context.Background()
+
+		_, err := svc.Update(ctx, "user-1", map[string]*string{settings.KeyTelemetryWindow: new("30d")})
+		require.NoError(t, err)
+
+		for _, bad := range []string{"12", "1y", "", "7D"} {
+			_, err = svc.Update(ctx, "user-1", map[string]*string{settings.KeyTelemetryWindow: new(bad)})
+			require.ErrorIs(t, err, settings.ErrInvalidValue, bad)
+		}
+
+		got, err := svc.Get(ctx, "user-1")
+		require.NoError(t, err)
+		require.Equal(t, "30d", got.TelemetryWindow)
 	})
 
 	t.Run("nil clears a key back to its default", func(t *testing.T) {
@@ -204,6 +241,7 @@ func TestService_ResetPipelinesFilters(t *testing.T) {
 		settings.KeyPipelinesRepoSelector: new("some-repo"),
 		settings.KeyPipelinesSortOrder:    new("lastRun"),
 		settings.KeyTheme:                 new("dark"),
+		settings.KeyTelemetryWindow:       new("30d"),
 	})
 	require.NoError(t, err)
 
@@ -213,4 +251,5 @@ func TestService_ResetPipelinesFilters(t *testing.T) {
 	require.Equal(t, settings.DefaultPipelinesRepoSelector, got.PipelinesRepoSelector)
 	require.Equal(t, settings.DefaultPipelinesSortOrder, got.PipelinesSortOrder)
 	require.Equal(t, "dark", got.Theme, "not a Pipelines filter -- untouched by reset")
+	require.Equal(t, "30d", got.TelemetryWindow, "not a Pipelines filter -- untouched by reset")
 }

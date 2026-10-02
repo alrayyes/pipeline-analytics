@@ -73,6 +73,7 @@ func TestSettingsGet(t *testing.T) {
 		require.Equal(t, settings.DefaultPipelinesHealthFilter, got["pipelinesHealthFilter"])
 		require.Equal(t, settings.DefaultPipelinesRepoSelector, got["pipelinesRepoSelector"])
 		require.Equal(t, settings.DefaultPipelinesSortOrder, got["pipelinesSortOrder"])
+		require.Equal(t, settings.DefaultTelemetryWindow, got["telemetryWindow"])
 	})
 
 	t.Run("rejects an unauthenticated request", func(t *testing.T) {
