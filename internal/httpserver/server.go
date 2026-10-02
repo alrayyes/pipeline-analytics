@@ -74,6 +74,9 @@ func New(deps Deps) http.Handler {
 	insights := &insightsHandler{repos: deps.IngestionStore, rateLimits: deps.GitHubRateLimits}
 	mux.HandleFunc("GET /api/insights/github-rate-limit", insights.githubRateLimit)
 
+	failureInsights := &failureInsightsHandler{service: deps.Metrics}
+	mux.HandleFunc("GET /api/insights/failures", failureInsights.get)
+
 	registerAuthRoutes(mux, &authHandler{service: deps.Auth})
 
 	settingsH := &settingsHandler{service: deps.Settings}
