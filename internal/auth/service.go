@@ -209,6 +209,12 @@ func (s *Service) ListCredentials(ctx context.Context, userID string) ([]Credent
 		return nil, fmt.Errorf("list credentials: %w", err)
 	}
 
+	// The same rule RevokeCredential enforces, reported so a client needn't
+	// reimplement it: only the last remaining credential is protected.
+	for i := range infos {
+		infos[i].Revocable = len(infos) > 1
+	}
+
 	return infos, nil
 }
 

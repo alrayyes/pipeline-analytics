@@ -323,13 +323,16 @@ func TestCredentialManagementHTTPFlow(t *testing.T) {
 		require.Equal(t, http.StatusOK, listRec.Code)
 
 		var listed []struct {
-			ID    string `json:"id"`
-			Label string `json:"label"`
+			ID        string `json:"id"`
+			Label     string `json:"label"`
+			Revocable bool   `json:"revocable"`
 		}
 		require.NoError(t, json.NewDecoder(listRec.Body).Decode(&listed))
 		require.Len(t, listed, 2)
 		require.Empty(t, listed[0].Label)
 		require.Equal(t, "MacBook", listed[1].Label)
+		require.True(t, listed[0].Revocable)
+		require.True(t, listed[1].Revocable)
 
 		// Checked while both credentials still exist -- once only one is
 		// left, any revoke (even of an unknown id) is rejected as the
@@ -352,6 +355,20 @@ func TestCredentialManagementHTTPFlow(t *testing.T) {
 		revokeFirstRec := httptest.NewRecorder()
 		srv.ServeHTTP(revokeFirstRec, revokeFirstReq)
 		require.Equal(t, http.StatusNoContent, revokeFirstRec.Code)
+
+		// With one left, the list itself says it can't be revoked, so the UI
+		// has no rule of its own to apply.
+		afterReq := httptest.NewRequest(http.MethodGet, "/api/auth/credentials", nil)
+		afterReq.AddCookie(sessionCookie)
+		afterRec := httptest.NewRecorder()
+		srv.ServeHTTP(afterRec, afterReq)
+
+		var after []struct {
+			Revocable bool `json:"revocable"`
+		}
+		require.NoError(t, json.NewDecoder(afterRec.Body).Decode(&after))
+		require.Len(t, after, 1)
+		require.False(t, after[0].Revocable)
 
 		// The account's last remaining credential can't be revoked.
 		revokeLastReq := httptest.NewRequest(http.MethodDelete, "/api/auth/credentials/"+listed[1].ID, nil)

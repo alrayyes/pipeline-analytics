@@ -51,6 +51,9 @@ type CredentialInfo struct {
 	ID        []byte
 	Label     string
 	CreatedAt time.Time
+	// Revocable is false only for the account's last remaining credential,
+	// the one RevokeCredential refuses (ErrLastCredential).
+	Revocable bool
 }
 
 // Store is the port the domain persists users, credentials, in-flight

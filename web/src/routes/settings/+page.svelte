@@ -52,6 +52,7 @@ interface Credential {
 	id: string;
 	label: string;
 	createdAt: string;
+	revocable: boolean;
 }
 
 let credentials = $state<Credential[]>([]);
@@ -235,8 +236,9 @@ async function handleRevoke(): Promise<void> {
 								</TableCell>
 								<TableCell>
 									<!--
-									Revoking the account's last remaining credential is
-									rejected server-side (support-multiple-passkeys/design.md's
+									The server reports whether a credential can be revoked
+									(`revocable`, false for the last one) and still rejects it
+									with a 409 (support-multiple-passkeys/design.md's
 									"last-credential guard") -- disabled here rather than
 									hidden, matching this app's existing convention for a
 									currently-inapplicable action (see "Reset filters" on the
@@ -245,7 +247,7 @@ async function handleRevoke(): Promise<void> {
 									<Button
 										variant="ghost"
 										size="sm"
-										disabled={credentials.length <= 1}
+										disabled={!credential.revocable}
 										onclick={() => (revokeTarget = credential)}
 									>
 										Revoke

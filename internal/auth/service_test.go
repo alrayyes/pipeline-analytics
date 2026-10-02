@@ -259,8 +259,15 @@ func TestService_AddCredential(t *testing.T) {
 		infos, err := service.ListCredentials(ctx, user.ID)
 		require.NoError(t, err)
 		require.Len(t, infos, 2)
+		require.True(t, infos[0].Revocable, "with two credentials either may go")
+		require.True(t, infos[1].Revocable)
 
 		require.NoError(t, service.RevokeCredential(ctx, user.ID, infos[0].ID))
+
+		remaining, err := service.ListCredentials(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, remaining, 1)
+		require.False(t, remaining[0].Revocable, "the last credential can't be revoked, and the list says so")
 
 		err = service.RevokeCredential(ctx, user.ID, infos[1].ID)
 		require.ErrorIs(t, err, auth.ErrLastCredential)
