@@ -34,6 +34,11 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		},
 	);
 
+	// A release build, so the footer's version is a link (a dev build's isn't).
+	await page.route('**/api/version', (route) =>
+		route.fulfill({ json: { version: '0.56.1' } }),
+	);
+
 	await page.goto('/');
 	await expect(page).toHaveURL(/\/login$/);
 
@@ -1266,8 +1271,19 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 		return route.abort();
 	});
-	await page.getByRole('link', { name: 'Release history' }).click();
+	// The footer's version opens the history; there is no second link to it.
+	await expect(page.getByRole('link', { name: 'Release history' })).toHaveCount(
+		0,
+	);
+	await page.getByRole('link', { name: '0.56.1', exact: true }).click();
 	await expect(page).toHaveURL('/releases');
+	// On the history page itself the version is plain text, not a self-link.
+	await expect(
+		page
+			.getByRole('contentinfo')
+			.getByRole('link', { name: '0.56.1', exact: true }),
+	).toHaveCount(0);
+	await expect(page.getByRole('contentinfo').getByText('0.56.1')).toBeVisible();
 	// v0.10.0 is real history: its changelog section has a "Features" list
 	// with a #61 link. The page lists every release, so locators that match
 	// once per release take the first.
