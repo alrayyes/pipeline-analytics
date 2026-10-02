@@ -205,6 +205,7 @@ describe('fetchFailureInsights', () => {
 		failedRuns: 2,
 		flakyStepRatio: 0.1,
 		stageDistribution: [],
+		categoryBreakdown: [],
 		topFailingPipelines: [],
 		failureGroups: [],
 	};
