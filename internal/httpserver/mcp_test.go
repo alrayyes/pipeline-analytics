@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	authsqlite "github.com/alrayyes/pipeline-analytics/internal/auth/sqlite"
@@ -175,7 +176,10 @@ func TestMCPToolsList(t *testing.T) {
 		"list_pipeline_flaky_runs",
 		"get_repo_usage",
 		"list_unhealthy_steps",
-	}, names, "tool list must be exactly the six read tools, no write tool")
+		"get_failure_insights",
+		"list_runs",
+		"get_run_steps",
+	}, names, "tool list must be exactly the read tools, no write tool")
 }
 
 func TestMCPListPipelines(t *testing.T) {
@@ -432,4 +436,95 @@ func TestMCPListPipelines_HealthFilterAndSort(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, res.IsError)
 	})
+}
+
+func TestMCPListRuns(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	repoID := seedRepo(t, srv)
+	failed := seedRunWith(t, srv, repoID, ingestion.Run{ForgeRunID: "1", Status: "completed", Conclusion: "failure", StartedAt: at(10), CompletedAt: at(15)})
+	seedRunWith(t, srv, repoID, ingestion.Run{ForgeRunID: "2", Status: "completed", Conclusion: "success", StartedAt: at(20), CompletedAt: at(25)})
+	seedJobStep(t, srv, failed.ID, "10", "deploy", "timed_out")
+
+	session := connectMCP(t, srv)
+
+	type runList struct {
+		Runs []struct {
+			ID      string `json:"id"`
+			Outcome string `json:"outcome"`
+			Steps   []struct {
+				Name    string `json:"name"`
+				Outcome string `json:"outcome"`
+			} `json:"steps"`
+		} `json:"runs"`
+		HasMore bool `json:"hasMore"`
+	}
+
+	all := callTool[runList](t, session, "list_runs", nil)
+	require.Len(t, all.Runs, 2)
+	require.Equal(t, "passed", all.Runs[0].Outcome, "newest first")
+
+	onlyFailed := callTool[runList](t, session, "list_runs", map[string]any{"status": "failed"})
+	require.Len(t, onlyFailed.Runs, 1)
+	require.Equal(t, failed.ID, onlyFailed.Runs[0].ID)
+	require.Equal(t, "failed", onlyFailed.Runs[0].Steps[0].Outcome, "a timed_out step is failed")
+
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "list_runs", Arguments: map[string]any{"status": "bogus"}})
+	require.NoError(t, err)
+	require.True(t, res.IsError, "an unknown status is a tool error, not an empty list")
+}
+
+func TestMCPGetRunSteps(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	run := seedRunWith(t, srv, seedRepo(t, srv), ingestion.Run{ForgeRunID: "1", Status: "completed", Conclusion: "failure", StartedAt: at(10), CompletedAt: at(15)})
+	seedJobStep(t, srv, run.ID, "10", "build", "success")
+	seedJobStep(t, srv, run.ID, "11", "deploy", "failure")
+
+	session := connectMCP(t, srv)
+
+	got := callTool[struct {
+		RunID string `json:"runId"`
+		Steps []struct {
+			Name    string `json:"name"`
+			Outcome string `json:"outcome"`
+		} `json:"steps"`
+	}](t, session, "get_run_steps", map[string]any{"runId": run.ID})
+
+	require.Equal(t, run.ID, got.RunID)
+	require.Len(t, got.Steps, 2)
+	require.Equal(t, "failed", got.Steps[1].Outcome)
+
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "get_run_steps", Arguments: map[string]any{"runId": "nope"}})
+	require.NoError(t, err)
+	require.True(t, res.IsError, "an unknown run is a tool error")
+}
+
+func TestMCPGetFailureInsights(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	repoID := seedRepo(t, srv)
+	failed := seedRecentRun(t, srv, repoID, seedRunPipelineName, "1", "failure", time.Hour)
+	seedRecentRun(t, srv, repoID, seedRunPipelineName, "2", "success", 2*time.Hour)
+	seedJobStep(t, srv, failed.ID, "10", "deploy", "timed_out")
+
+	session := connectMCP(t, srv)
+
+	got := callTool[struct {
+		Window     string `json:"window"`
+		TotalRuns  int    `json:"totalRuns"`
+		FailedRuns int    `json:"failedRuns"`
+	}](t, session, "get_failure_insights", map[string]any{"window": "30d"})
+
+	require.Equal(t, "30d", got.Window)
+	require.Equal(t, 2, got.TotalRuns)
+	require.Equal(t, 1, got.FailedRuns)
+
+	def := callTool[struct {
+		Window string `json:"window"`
+	}](t, session, "get_failure_insights", nil)
+	require.Equal(t, "7d", def.Window, "an omitted window reports the server's default")
 }
