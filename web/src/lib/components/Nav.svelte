@@ -32,6 +32,7 @@ const links = [
 	{ href: '/pipelines', label: 'Pipelines' },
 	{ href: '/runs', label: 'Runs' },
 	{ href: '/failures', label: 'Failures' },
+	{ href: '/flaky', label: 'Flaky' },
 	{ href: '/steps', label: 'Steps' },
 	{ href: '/repos', label: 'Repositories' },
 	{ href: '/insights', label: 'Insights' },
