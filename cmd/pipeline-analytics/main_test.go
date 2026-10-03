@@ -243,3 +243,54 @@ func TestLoadConfig_ShutdownDefaultsFitADockerStop(t *testing.T) {
 	// Docker sends SIGKILL ten seconds after SIGTERM by default.
 	require.Less(t, cfg.DrainPeriod+cfg.ShutdownTimeout, 10*time.Second)
 }
+
+func TestListenAndServe(t *testing.T) {
+	t.Run("serves on the address and returns nil once the context ends", func(t *testing.T) {
+		ln := listen(t)
+		addr := ln.Addr().String()
+		require.NoError(t, ln.Close()) // free the port for listenAndServe to take
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+
+		srv := &http.Server{
+			Addr:              addr,
+			ReadHeaderTimeout: time.Second,
+			Handler:           http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
+		}
+
+		go func() {
+			done <- listenAndServe(ctx, srv, shutdownPlan{draining: &atomic.Bool{}, timeout: time.Second})
+		}()
+
+		require.Eventually(t, func() bool {
+			code, err := fetch("http://" + addr + "/")
+
+			return err == nil && code == http.StatusOK
+		}, 2*time.Second, 20*time.Millisecond)
+
+		cancel()
+		require.NoError(t, <-done)
+	})
+
+	t.Run("reports an address it can't listen on", func(t *testing.T) {
+		ln := listen(t) // keeps the port busy
+
+		err := listenAndServe(context.Background(), &http.Server{Addr: ln.Addr().String(), ReadHeaderTimeout: time.Second},
+			shutdownPlan{draining: &atomic.Bool{}, timeout: time.Second})
+
+		require.ErrorContains(t, err, "listen on")
+	})
+}
+
+// A listener that fails under the server ends serveUntilDone with that error
+// instead of waiting for a signal that may never come.
+func TestServeUntilDone_ReturnsAServeError(t *testing.T) {
+	ln := listen(t)
+	require.NoError(t, ln.Close())
+
+	err := serveUntilDone(context.Background(), &http.Server{ReadHeaderTimeout: time.Second}, ln,
+		shutdownPlan{draining: &atomic.Bool{}, timeout: time.Second})
+
+	require.ErrorContains(t, err, "serve:")
+}
