@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.65.0...v0.66.0) (2026-10-03)
+
+
+### Features
+
+* **api:** specify the flaky steps list ([#400](https://github.com/alrayyes/pipeline-analytics/issues/400)) ([98685b7](https://github.com/alrayyes/pipeline-analytics/commit/98685b7265303fea0af62affd6a89ff8174ef3ec))
+
 ## [0.65.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.64.0...v0.65.0) (2026-10-03)
 
 
