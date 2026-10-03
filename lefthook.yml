@@ -49,20 +49,15 @@ pre-commit:
     vale:
       glob: "*.md"
       run: vale {staged_files} || true
-    # Glob-scoped to the Dockerfile plus what its COPY instructions pull
-    # in, so a commit touching neither skips it entirely -- containers.md.
-    # pre-push/CI run the same build unconditionally.
+    # Scoped by the CI `docker` group (hook-guard.sh), so a commit touching
+    # nothing the image reads skips it -- containers.md.
     docker-build:
-      glob:
-        - "Dockerfile"
-        - "**/*.go"
-        - "go.mod"
-        - "go.sum"
       run: >
-        go build -o pipeline-analytics ./cmd/pipeline-analytics &&
+        .github/scripts/hook-guard.sh docker --
+        sh -c 'go build -o pipeline-analytics ./cmd/pipeline-analytics &&
         docker build -t pipeline-analytics:pre-commit-check . &&
         docker rmi pipeline-analytics:pre-commit-check &&
-        rm -f pipeline-analytics
+        rm -f pipeline-analytics'
 
 commit-msg:
   commands:
@@ -70,90 +65,82 @@ commit-msg:
       run: bunx commitlint --edit {1}
 
 # Never writes. Whole-tree checks, same commands CI runs, so a mistake
-# costs a local run instead of a full CI round trip.
+# costs a local run instead of a full CI round trip. Each job runs through
+# hook-guard.sh, which asks .github/scripts/changes.sh whether the job's CI
+# group changed since origin/main, so a hook runs on exactly the files its
+# CI job does and a path added to changes.sh reaches both. The first
+# argument names the group; hook-guard.test.sh covers the lookup.
 pre-push:
   parallel: true
   commands:
     go-vet:
-      glob: "*.go"
       run: >
+        .github/scripts/hook-guard.sh --push go --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
         golang:1.27.1-bookworm go vet ./...
     go-test:
-      glob: "*.go"
       run: >
+        .github/scripts/hook-guard.sh --push go --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
         golang:1.27.1-bookworm go test -race -cover ./...
     go-mod-tidy:
-      glob: "go.mod"
       run: >
+        .github/scripts/hook-guard.sh --push go --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
         golang:1.27.1-bookworm go mod tidy -diff
     golangci-lint:
-      glob: "*.go"
       run: >
+        .github/scripts/hook-guard.sh --push lint --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
         golangci/golangci-lint:v2.13.2 golangci-lint run ./...
     sort-package-json-check:
-      glob:
-        - "package.json"
-        - "web/package.json"
-      run: bunx sort-package-json --check package.json web/package.json
+      run: .github/scripts/hook-guard.sh --push package -- bunx sort-package-json --check package.json web/package.json
     frontend-check:
       root: "web/"
-      glob: "web/**/*"
-      run: bun run check
+      run: ../.github/scripts/hook-guard.sh --push web -- bun run check
     frontend-lint:
       root: "web/"
-      glob: "web/**/*"
-      run: bun run lint
+      run: ../.github/scripts/hook-guard.sh --push web -- bun run lint
     frontend-lint-tailwind:
       root: "web/"
-      glob: "web/**/*"
-      run: bun run lint:tailwind
+      run: ../.github/scripts/hook-guard.sh --push web -- bun run lint:tailwind
     frontend-test:
       root: "web/"
-      glob: "web/**/*"
-      run: bun run test
+      run: ../.github/scripts/hook-guard.sh --push web -- bun run test
     # Reports, doesn't gate -- no mutation-score threshold decided yet
     # (same reasoning as ci.yml's mutation job).
     frontend-mutation:
       root: "web/"
-      glob: "web/**/*"
-      run: bun run test:mutation
-    # Unconditional, same as every other pre-push check -- containers.md:
-    # pre-commit's own copy above is the one that's glob-scoped. The
-    # Dockerfile only COPYs a prebuilt binary (go-releases.md), so this
+      run: ../.github/scripts/hook-guard.sh --push web -- bun run test:mutation
+    # The Dockerfile only COPYs a prebuilt binary (go-releases.md), so this
     # rebuilds that binary itself before building the image, same shape as
     # ci.yml's docker job.
     docker-build:
-      run: go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics
+      run: .github/scripts/hook-guard.sh --push docker -- sh -c 'go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics'
     # Whole tree, not just the prose files mechanics/style below check --
     # this is Prettier's own layout gate, and markdown.md wants YAML named
     # in the glob so lefthook.yml and every workflow file are covered too.
     markdown-format:
-      glob: "*.{md,yml,yaml}"
-      run: bunx prettier --check '**/*.{md,yml,yaml}'
+      run: .github/scripts/hook-guard.sh --push md -- bunx prettier --check '**/*.{md,yml,yaml}'
     markdown-lint:
-      glob: "*.md"
-      run: bunx markdownlint-cli2 "**/*.md"
+      run: .github/scripts/hook-guard.sh --push mdlint -- bunx markdownlint-cli2 "**/*.md"
     # LTeX in pre-push too, not just CI (markdown.md) -- same image CI
     # pulls, so nothing new to keep current on a contributor's machine.
     prose-mechanics:
-      glob: "*.md"
       run: >
+        .github/scripts/hook-guard.sh --push ltex --
         docker run --rm -v "$(pwd):/data" -w /data
         ghcr.io/alrayyes/ltex-cli-plus@sha256:00c30809802234d6c43b0ce0b295075bd0aff9c576aaba57433bc8baf314398c
         --client-configuration=/data/.ltex.json
@@ -162,5 +149,4 @@ pre-push:
     # matches CI's own style job (linting.md: hook and CI run the same
     # commands so they can't drift), same file list and all.
     prose-style:
-      glob: "*.md"
-      run: vale sync && vale README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md
+      run: .github/scripts/hook-guard.sh --push vale -- sh -c 'vale sync && vale README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md'
