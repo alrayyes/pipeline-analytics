@@ -53,6 +53,7 @@ expect "the web package.json" "binary package web" web/package.json
 expect "a workflow yaml other than ci.yml" "md" .github/workflows/release.yml
 expect "a vale style file" "md vale" styles/Google/Spelling.yml
 expect "the ltex config" "ltex" .ltex.json
+expect "the Vale entry point script" "vale" scripts/lint-prose.sh
 expect "an image under docs" "none" docs/screenshot-overview.png
 expect "the workflow file itself runs everything" "$ALL" .github/workflows/ci.yml
 expect "the filter script itself runs everything" "$ALL" .github/scripts/changes.sh

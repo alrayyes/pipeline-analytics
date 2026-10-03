@@ -331,15 +331,18 @@ jobs:
     if: needs.changes.outputs.vale == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The official image, as markdown.md's "Running Vale" says. Its
+    # entrypoint is vale itself, so it's cleared; the image ships node but
+    # neither git nor bash, which the checkout and the script need. The
+    # image reference lives in scripts/lint-prose.sh, the hooks' entry point
+    # too, so there is one place to bump it.
+    container:
+      image: jdkato/vale:v3.21.0@sha256:8a5a05b5c1751c6a6132ca459d67ffe3ad2cc338abc5795ee634470dd39de9c4
+      options: --entrypoint ""
     steps:
+      - run: apk add --no-cache bash git
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: install vale
-        run: |
-          curl -sSL "https://github.com/errata-ai/vale/releases/download/v3.21.0/vale_3.21.0_Linux_64-bit.tar.gz" -o vale.tar.gz
-          echo "96997d19a4ca6981673b0d4c5ca7f3ede4a9f97964a96edc29fba9e28a328336  vale.tar.gz" | sha256sum -c -
-          tar -xzf vale.tar.gz -C /usr/local/bin vale
-      - run: vale sync
-      - run: vale README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md
+      - run: scripts/lint-prose.sh
 
   docker:
     name: docker build

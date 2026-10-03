@@ -28,7 +28,7 @@ declare -A pattern=(
 	[md]='\.(md|ya?ml)$|^\.prettier|^package\.json$|^bun\.lock$'
 	[mdlint]='\.md$|^\.markdownlint|^package\.json$|^bun\.lock$'
 	[ltex]='^(README|CONTRIBUTING|SECURITY)\.md$|^\.github/PULL_REQUEST_TEMPLATE\.md$|^openspec/specs/|^\.ltex\.json$'
-	[vale]='^(README|CONTRIBUTING|SECURITY)\.md$|^\.github/PULL_REQUEST_TEMPLATE\.md$|^styles/|^\.vale\.ini$'
+	[vale]='^(README|CONTRIBUTING|SECURITY)\.md$|^\.github/PULL_REQUEST_TEMPLATE\.md$|^styles/|^\.vale\.ini$|^scripts/lint-prose\.sh$'
 )
 
 # The pipeline itself: editing it must run every job, or a broken filter

@@ -111,6 +111,11 @@ same files, and a path added to `changes.sh` reaches both. To add a hook,
 name its CI group as the guard's first argument; an unknown group fails the
 hook instead of skipping it.
 
+Vale runs through [`scripts/lint-prose.sh`](scripts/lint-prose.sh), which the
+hooks and CI both call. It uses a `vale` on your `PATH` and otherwise runs the
+official `jdkato/vale` image, pinned by tag and digest in the script, so
+bumping Vale is one edit.
+
 No hook reaches for a linter CI doesn't also run.
 
 ## Commit messages
