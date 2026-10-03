@@ -121,7 +121,7 @@ func TestBuildHandlerReadyzFollowsTheDatabase(t *testing.T) {
 	require.NoError(t, db.Migrate(context.Background(), conn))
 
 	cfg := config.Config{CallbackURL: "https://example.com", EncryptionKey: make([]byte, 32)}
-	handler, err := buildHandler(cfg, conn, ingestionsqlite.NewStore(conn, cfg.EncryptionKey), nil, nil)
+	handler, err := buildHandler(cfg, conn, ingestionsqlite.NewStore(conn, cfg.EncryptionKey), nil, nil, nil)
 	require.NoError(t, err)
 
 	probe := func() int {
@@ -134,7 +134,10 @@ func TestBuildHandlerReadyzFollowsTheDatabase(t *testing.T) {
 	require.Equal(t, http.StatusOK, probe(), "ready while the database answers")
 
 	require.NoError(t, conn.Close())
-	require.Equal(t, http.StatusServiceUnavailable, probe(), "not ready once it can't")
+	// The result is cached for a few seconds, so the outage shows once that
+	// window ends, not on the next request.
+	require.Eventually(t, func() bool { return probe() == http.StatusServiceUnavailable },
+		10*time.Second, 100*time.Millisecond, "not ready once it can't")
 }
 
 // TestDBReady covers what "ready" has to mean: the database can be read, not

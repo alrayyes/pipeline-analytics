@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/auth"
@@ -34,6 +36,14 @@ type Deps struct {
 	// in production, a database read. nil means always ready, so a Deps
 	// built without one (most tests) still answers.
 	Ready func(ctx context.Context) error
+	// ReadyCacheTTL is how long /readyz reuses the last probe result, so a
+	// router polling it can't hammer the dependency. Zero means
+	// defaultReadyCacheTTL.
+	ReadyCacheTTL time.Duration
+	// Draining, once true, makes /readyz answer 503 without probing, so a
+	// shutting-down instance leaves rotation while it keeps serving. nil
+	// means never draining.
+	Draining *atomic.Bool
 	// Version is reported by GET /api/version -- the build's tagged
 	// version, or "dev" for a local build.
 	Version string
@@ -50,7 +60,7 @@ func New(deps Deps) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("/readyz", readyzHandler(deps.Ready))
+	mux.HandleFunc("/readyz", readyzHandler(deps.Ready, deps.ReadyCacheTTL, deps.Draining))
 	mux.HandleFunc("GET /api/version", versionHandler(deps.Version))
 
 	repos := &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore}
@@ -122,16 +132,57 @@ func registerAuthRoutes(mux *http.ServeMux, authH *authHandler) {
 // back to the checker instead of the checker giving up first.
 const readyzTimeout = time.Second
 
+// defaultReadyCacheTTL is how long a readiness result is reused: long enough
+// that polling every second costs one probe per window, short enough that a
+// recovery or an outage shows within a probe interval or two.
+const defaultReadyCacheTTL = 3 * time.Second
+
 // readyzHandler answers whether the instance can serve: 200 when ready
-// reports nil, 503 otherwise. The cause goes to the log, never the response,
-// since the endpoint is unauthenticated.
-func readyzHandler(ready func(ctx context.Context) error) http.HandlerFunc {
+// reports nil and the instance isn't draining, 503 otherwise. The result is
+// cached for ttl. The cause goes to the log, never the response, since the
+// endpoint is unauthenticated.
+func readyzHandler(ready func(ctx context.Context) error, ttl time.Duration, draining *atomic.Bool) http.HandlerFunc {
+	if ttl <= 0 {
+		ttl = defaultReadyCacheTTL
+	}
+
+	var (
+		mu        sync.Mutex
+		checkedAt time.Time
+		lastErr   error
+	)
+
+	// probe runs ready at most once per ttl. The lock is held through the
+	// probe, so concurrent polls share one check instead of each running it.
+	probe := func(ctx context.Context) error {
+		mu.Lock()
+		defer mu.Unlock()
+
+		if !checkedAt.IsZero() && time.Since(checkedAt) < ttl {
+			return lastErr
+		}
+
+		lastErr = ready(ctx)
+		checkedAt = time.Now()
+
+		return lastErr
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
+		if draining != nil && draining.Load() {
+			writeError(w, http.StatusServiceUnavailable, "not_ready", "not ready")
+
+			return
+		}
+
 		if ready != nil {
-			ctx, cancel := context.WithTimeout(r.Context(), readyzTimeout)
+			// Detached from the request: the result is shared through the
+			// cache, so one client hanging up mustn't cache a cancellation
+			// as an outage for everyone else.
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), readyzTimeout)
 			defer cancel()
 
-			if err := ready(ctx); err != nil {
+			if err := probe(ctx); err != nil {
 				slog.ErrorContext(r.Context(), "readiness check failed", "error", err)
 				writeError(w, http.StatusServiceUnavailable, "not_ready", "not ready")
 
