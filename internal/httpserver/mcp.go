@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
@@ -73,6 +74,21 @@ func newMCPHandler(deps Deps) http.Handler {
 		Name:        "list_unhealthy_steps",
 		Description: "List pipelines with at least one flaky or failing step, grouped by pipeline. Matches GET /api/steps/unhealthy.",
 	}, h.listUnhealthySteps)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_failure_insights",
+		Description: "Get failure aggregates over a 24h, 7d or 30d window: pass rate and its change, MTTR, failures by step, failure categories, top failing pipelines and root-cause groups. Matches GET /api/insights/failures.",
+	}, h.getFailureInsights)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_runs",
+		Description: "List runs newest first, each with its steps and a normalized outcome. Matches GET /api/runs.",
+	}, h.listRuns)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_run_steps",
+		Description: "Get one run's steps, each with a normalized outcome and a link to its job on the forge. Matches GET /api/runs/{runId}/steps.",
+	}, h.getRunSteps)
 
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
@@ -266,4 +282,79 @@ func (h *mcpHandler) listUnhealthySteps(ctx context.Context, _ *mcp.CallToolRequ
 	}
 
 	return nil, pipelineStepsGroupListDTO{Groups: dtos, HasMore: hasMore}, nil
+}
+
+type failureInsightsInput struct {
+	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted covers every repo"`
+	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted covers every forge"`
+	Window string `json:"window,omitempty" jsonschema:"24h, 7d or 30d; anything else, or omitted, is 7d, and the result reports the window used"`
+}
+
+func (h *mcpHandler) getFailureInsights(ctx context.Context, _ *mcp.CallToolRequest, in failureInsightsInput) (*mcp.CallToolResult, failureInsightsDTO, error) {
+	insights, err := h.metrics.GetFailureInsights(
+		ctx,
+		time.Now(),
+		metrics.ParseInsightWindow(in.Window),
+		metrics.InsightFilter{RepoID: in.RepoID, Forge: in.Forge},
+	)
+	if err != nil {
+		return nil, failureInsightsDTO{}, fmt.Errorf("get failure insights: %w", err)
+	}
+
+	return nil, toFailureInsightsDTO(insights), nil
+}
+
+type listRunsInput struct {
+	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted returns every repo's runs"`
+	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted returns every forge"`
+	Status string `json:"status,omitempty" jsonschema:"all (default), failed, running or success; anything else is an error"`
+	Limit  int    `json:"limit,omitempty" jsonschema:"max runs to return; omitted returns every matching run"`
+	Offset int    `json:"offset,omitempty" jsonschema:"runs to skip before the returned page"`
+}
+
+func (h *mcpHandler) listRuns(ctx context.Context, _ *mcp.CallToolRequest, in listRunsInput) (*mcp.CallToolResult, runListDTO, error) {
+	status, err := metrics.ParseRunStatus(in.Status)
+	if err != nil {
+		return nil, runListDTO{}, fmt.Errorf("list runs: status must be one of all, failed, running, success: %w", err)
+	}
+
+	runs, hasMore, err := h.metrics.ListRuns(ctx, metrics.RunListFilter{
+		RepoID: in.RepoID,
+		Forge:  in.Forge,
+		Status: status,
+		Limit:  in.Limit,
+		Offset: in.Offset,
+	})
+	if err != nil {
+		return nil, runListDTO{}, fmt.Errorf("list runs: %w", err)
+	}
+
+	dtos := make([]runSummaryDTO, 0, len(runs))
+	for _, run := range runs {
+		dtos = append(dtos, toRunSummaryDTO(run))
+	}
+
+	return nil, runListDTO{Runs: dtos, HasMore: hasMore}, nil
+}
+
+type runStepsInput struct {
+	RunID string `json:"runId" jsonschema:"a run's id, as list_runs or list_pipeline_flaky_runs reports it"`
+}
+
+func (h *mcpHandler) getRunSteps(ctx context.Context, _ *mcp.CallToolRequest, in runStepsInput) (*mcp.CallToolResult, runDetailDTO, error) {
+	detail, err := h.metrics.GetRunSteps(ctx, in.RunID)
+	if err != nil {
+		if errors.Is(err, metrics.ErrRunNotFound) {
+			return nil, runDetailDTO{}, fmt.Errorf("%w: %s", metrics.ErrRunNotFound, in.RunID)
+		}
+
+		return nil, runDetailDTO{}, fmt.Errorf("get run steps: %w", err)
+	}
+
+	steps := make([]runStepDTO, 0, len(detail.Steps))
+	for _, s := range detail.Steps {
+		steps = append(steps, toRunStepDTO(s))
+	}
+
+	return nil, runDetailDTO{RunID: detail.RunID, StartedAt: detail.StartedAt, Steps: steps}, nil
 }

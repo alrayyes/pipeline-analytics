@@ -25,6 +25,59 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "list_pipeline_flaky_runs", path: "/api/pipelines/{pipelineId}/flaky-runs"},
 	{tool: "get_repo_usage", path: "/api/repos/{repoId}/usage"},
 	{tool: "list_unhealthy_steps", path: "/api/steps/unhealthy"},
+	{tool: "get_failure_insights", path: "/api/insights/failures"},
+	{tool: "list_runs", path: "/api/runs"},
+	{tool: "get_run_steps", path: "/api/runs/{runId}/steps"},
+}
+
+// notMCPTools lists every GET operation openapi.yaml declares that
+// deliberately has no MCP tool, with the reason. A GET operation in neither
+// this map nor mcpToolEndpoints fails TestEveryReadEndpointHasAnMCPTool, so
+// a new endpoint can't ship without its tool or a stated reason.
+var notMCPTools = map[string]string{
+	"/healthz":                        "liveness probe, not data",
+	"/readyz":                         "readiness probe, not data",
+	"/api/version":                    "build metadata, not pipeline data",
+	"/api/repos":                      "repo administration, a dashboard concern",
+	"/api/repos/identifiers":          "repo administration, a dashboard concern",
+	"/api/insights/github-rate-limit": "operational status of the server's own forge access, not pipeline data",
+	"/api/settings":                   "the signed-in user's dashboard preferences",
+	"/api/auth/credentials":           "passkey management, session-only",
+}
+
+// TestEveryReadEndpointHasAnMCPTool is the other half of
+// TestMCPToolSchemasMatchOpenAPI: that one checks the tools that exist, this
+// one notices a read endpoint nobody gave a tool.
+func TestEveryReadEndpointHasAnMCPTool(t *testing.T) {
+	t.Parallel()
+
+	doc, err := openapi3.NewLoader().LoadFromFile("../../openapi/openapi.yaml")
+	require.NoError(t, err)
+
+	covered := make(map[string]bool, len(mcpToolEndpoints))
+	for _, ep := range mcpToolEndpoints {
+		covered[ep.path] = true
+	}
+
+	for path, item := range doc.Paths.Map() {
+		if item.Get == nil {
+			continue
+		}
+
+		if _, excluded := notMCPTools[path]; excluded {
+			require.Falsef(t, covered[path], "%s is both an MCP tool and on the exclusion list", path)
+
+			continue
+		}
+
+		require.Truef(t, covered[path], "GET %s has no MCP tool: add one to mcp.go and mcpToolEndpoints, or list it in notMCPTools with a reason", path)
+	}
+
+	for path := range notMCPTools {
+		item := doc.Paths.Find(path)
+		require.NotNilf(t, item, "notMCPTools names %s, which openapi.yaml no longer declares", path)
+		require.NotNilf(t, item.Get, "notMCPTools names %s, which has no GET", path)
+	}
 }
 
 // TestMCPToolSchemasMatchOpenAPI catches a tool's input schema drifting
