@@ -14,7 +14,7 @@ link from every finding back to the run on the originating forge.
 Built for a solo developer running their own repos, not a team. One binary,
 one SQLite file, no external services.
 
-![Pipeline overview: each tracked pipeline's health status at a glance](docs/screenshot-overview.png)
+![Pipelines list: each tracked pipeline's health status at a glance](docs/screenshot-overview.png)
 
 <details>
 <summary>More screenshots</summary>
@@ -23,7 +23,7 @@ one SQLite file, no external services.
 
 ![Usage view: runner-minutes per workflow](docs/screenshot-usage.png)
 
-![Pipeline overview in dark mode](docs/screenshot-overview-dark.png)
+![Pipelines list in dark mode](docs/screenshot-overview-dark.png)
 
 ![Pipeline detail in dark mode](docs/screenshot-pipeline-detail-dark.png)
 

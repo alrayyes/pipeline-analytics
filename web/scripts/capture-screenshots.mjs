@@ -33,7 +33,7 @@ await page.goto(BASE_URL);
 await page.getByRole('button', { name: 'Register your passkey' }).click();
 await page.waitForURL(BASE_URL + '/');
 
-// -- Overview --
+// -- Pipelines overview --
 // The trailing `*` matters: the real fetch is `/api/pipelines?${params}`
 // (see +page.svelte), and a glob with no wildcard after the literal path
 // only matches a URL that ends exactly there -- a query string means it
@@ -69,7 +69,8 @@ await page.route('**/api/pipelines*', (route) =>
 		},
 	}),
 );
-await page.reload();
+// The Pipelines list lives at /pipelines; / is the failure overview.
+await page.goto(BASE_URL + '/pipelines');
 // #101 defaults the Pipelines list to unhealthy-only, which hides the
 // mocked healthy "CI"/"Nightly" pipelines below -- click through to the
 // full list the overview screenshot is meant to show. Scoped to the
@@ -164,7 +165,7 @@ await page.screenshot({ path: OUT_DIR + 'screenshot-usage.png' });
 // -- Dark mode (overview + pipeline detail: cards/badges and charts/table,
 // the two most visually distinct surfaces) --
 await page.evaluate(() => localStorage.setItem('theme', 'dark'));
-await page.goto(BASE_URL + '/');
+await page.goto(BASE_URL + '/pipelines');
 // Fresh navigation, so showAll (#101) is back to its unhealthy-only default.
 await page
 	.getByRole('radiogroup', { name: 'Filter by health status' })
