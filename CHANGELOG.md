@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.63.0...v0.64.0) (2026-10-03)
+
+
+### Features
+
+* **web:** add a bottom tab bar for phone widths ([#396](https://github.com/alrayyes/pipeline-analytics/issues/396)) ([af62ef1](https://github.com/alrayyes/pipeline-analytics/commit/af62ef167935c58619c929659538bf176e49e7e1))
+
 ## [0.63.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.62.0...v0.63.0) (2026-10-03)
 
 
