@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.67.0...v0.68.0) (2026-10-03)
+
+
+### Features
+
+* **web:** add the flaky tests view ([#407](https://github.com/alrayyes/pipeline-analytics/issues/407)) ([a84b388](https://github.com/alrayyes/pipeline-analytics/commit/a84b388d7e2167c5bfa45d07eb0f2476524382ab))
+
 ## [0.67.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.66.0...v0.67.0) (2026-10-03)
 
 
