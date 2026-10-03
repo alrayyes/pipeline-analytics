@@ -6,6 +6,8 @@
 			"goreleaser",
 			"release-please",
 			"Codecov",
+			"Redocly",
+			"Spectral",
 			"lefthook",
 			"commitlint",
 			"OpenSpec",

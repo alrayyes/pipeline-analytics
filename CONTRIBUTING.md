@@ -75,7 +75,12 @@ OpenAPI spec:
 
 ```sh
 bunx @redocly/cli lint
+bunx spectral lint openapi/openapi.yaml
 ```
+
+Redocly checks the spec is correct; Spectral adds the OWASP API security
+rules. Only its error-severity findings fail, and
+[`.spectral.yaml`](.spectral.yaml) gives the reason for every rule it disables.
 
 Run the same commands CI runs — [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 is the source of truth if anything here drifts from it.

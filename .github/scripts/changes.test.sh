@@ -46,6 +46,7 @@ expect "the frontend lockfile" "binary web" web/bun.lock
 expect "the changelog, which the release page is built from" "binary md mdlint web" CHANGELOG.md
 expect "the OpenAPI spec, which the MCP parity test reads, and Prettier checks as YAML" "api go md" openapi/openapi.yaml
 expect "the API docs page" "api" docs/api/index.html
+expect "the Spectral config" "api md" .spectral.yaml
 expect "the Dockerfile" "docker" Dockerfile
 expect "the goreleaser config, also YAML" "goreleaser md" .goreleaser.yml
 expect "root package.json" "api md mdlint package" package.json
