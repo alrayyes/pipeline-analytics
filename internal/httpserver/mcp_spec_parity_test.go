@@ -28,6 +28,7 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "get_failure_insights", path: "/api/insights/failures"},
 	{tool: "list_runs", path: "/api/runs"},
 	{tool: "get_run_steps", path: "/api/runs/{runId}/steps"},
+	{tool: "list_flaky_steps", path: "/api/steps/flaky"},
 }
 
 // notMCPTools lists every GET operation openapi.yaml declares that
@@ -43,7 +44,6 @@ var notMCPTools = map[string]string{
 	"/api/insights/github-rate-limit": "operational status of the server's own forge access, not pipeline data",
 	"/api/settings":                   "the signed-in user's dashboard preferences",
 	"/api/auth/credentials":           "passkey management, session-only",
-	"/api/steps/flaky":                "contract only so far; its handler and list_flaky_steps land together, then this line goes",
 }
 
 // TestEveryReadEndpointHasAnMCPTool is the other half of
