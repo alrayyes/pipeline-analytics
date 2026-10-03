@@ -32,7 +32,9 @@ let { data, children } = $props();
 // navigation -- reconciles once per navigation and no-ops on the rest.
 let reconciledData: typeof data | undefined;
 
-$effect(() => {
+// Pre-effect so the saved settings are in place before a page's own load
+// effect runs; otherwise its first request goes out without them.
+$effect.pre(() => {
 	if (data === reconciledData) return;
 	reconciledData = data;
 

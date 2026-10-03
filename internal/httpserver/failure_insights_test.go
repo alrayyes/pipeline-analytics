@@ -102,6 +102,22 @@ func TestFailureInsights(t *testing.T) {
 		require.InDelta(t, 2, week["totalRuns"], 0)
 	})
 
+	t.Run("reports the window it used: the requested one, or the default when none or an unknown one is given", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		for query, want := range map[string]string{
+			"window=30d":    "30d",
+			"window=24h":    "24h",
+			"":              "7d",
+			"window=banana": "7d",
+		} {
+			_, body := getFailureInsights(t, srv, query)
+			require.Equal(t, want, body["window"], query)
+		}
+	})
+
 	t.Run("an unrecognised window falls back to 7d, as the contract says", func(t *testing.T) {
 		t.Parallel()
 

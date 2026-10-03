@@ -491,3 +491,30 @@ func TestService_GetFailureInsights_Shares(t *testing.T) {
 		require.Empty(t, got.CategoryBreakdown)
 	})
 }
+
+func TestInsightWindow_Label(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{"24h", "7d", "30d"} {
+		require.Equal(t, raw, metrics.ParseInsightWindow(raw).Label(), "a recognised window labels as itself")
+	}
+
+	t.Run("an omitted or unrecognised window labels as the default, so a client can show what was used", func(t *testing.T) {
+		t.Parallel()
+
+		for _, raw := range []string{"", "banana", "12"} {
+			require.Equal(t, "7d", metrics.ParseInsightWindow(raw).Label(), raw)
+		}
+	})
+}
+
+func TestService_GetFailureInsights_ReportsItsWindow(t *testing.T) {
+	t.Parallel()
+
+	for _, window := range []string{"24h", "7d", "30d"} {
+		got, err := metrics.NewService(&fakeStore{}).GetFailureInsights(
+			context.Background(), insightsNow, metrics.ParseInsightWindow(window), metrics.InsightFilter{})
+		require.NoError(t, err)
+		require.Equal(t, window, got.Window.Label(), window)
+	}
+}

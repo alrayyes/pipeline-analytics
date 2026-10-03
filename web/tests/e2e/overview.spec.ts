@@ -26,6 +26,7 @@ async function signIn(page: Page, context: BrowserContext): Promise<void> {
 }
 
 const insights = {
+	window: '7d',
 	totalRuns: 658,
 	failedRuns: 142,
 	passRate: 0.784,
