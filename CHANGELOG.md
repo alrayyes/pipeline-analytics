@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.69.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.68.0...v0.69.0) (2026-10-03)
+
+
+### Features
+
+* **web:** redirect the Steps page to the flaky view ([#409](https://github.com/alrayyes/pipeline-analytics/issues/409)) ([ac1193a](https://github.com/alrayyes/pipeline-analytics/commit/ac1193ab70be6b83ced33fb9bd5fd1180d4a1824))
+
 ## [0.68.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.67.0...v0.68.0) (2026-10-03)
 
 
