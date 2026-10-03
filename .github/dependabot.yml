@@ -10,12 +10,22 @@ updates:
       # any other fix does (rules/releases.md). github-actions below stays
       # ci: - it changes the pipeline, not the artifact.
       prefix: fix
+    groups:
+      go-minor-and-patch:
+        update-types: [minor, patch]
+      go-major:
+        update-types: [major]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     commit-message:
       prefix: ci
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+      actions-major:
+        update-types: [major]
   - package-ecosystem: bun
     directory: /
     schedule:
@@ -24,6 +34,11 @@ updates:
       # The redocly-only root package.json - spec-linting tooling, nothing
       # shipped.
       prefix: chore
+    groups:
+      root-bun-minor-and-patch:
+        update-types: [minor, patch]
+      root-bun-major:
+        update-types: [major]
   # The redocly-only root package.json has its own entry above; the real
   # frontend (SvelteKit, shadcn-svelte, LayerChart, Playwright, ...) lives
   # in web/ and was otherwise invisible to Dependabot.
@@ -38,6 +53,22 @@ updates:
       # prefix-development splits them the same way washy-washy-cli/web do.
       prefix: fix
       prefix-development: chore
+    # Split by dependency type as well, so a group of dev-only bumps takes
+    # prefix-development (chore) and a group that ships takes fix; one mixed
+    # group would release or not for the wrong reason.
+    groups:
+      web-bun-prod-minor-and-patch:
+        dependency-type: production
+        update-types: [minor, patch]
+      web-bun-prod-major:
+        dependency-type: production
+        update-types: [major]
+      web-bun-dev-minor-and-patch:
+        dependency-type: development
+        update-types: [minor, patch]
+      web-bun-dev-major:
+        dependency-type: development
+        update-types: [major]
   # The Dockerfile's pinned alpine base image otherwise has no bot watching
   # it -- dependencies.md.
   - package-ecosystem: docker
@@ -47,3 +78,8 @@ updates:
     commit-message:
       # Ships in the published container.
       prefix: fix
+    groups:
+      docker-minor-and-patch:
+        update-types: [minor, patch]
+      docker-major:
+        update-types: [major]
