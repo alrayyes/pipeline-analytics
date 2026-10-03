@@ -43,6 +43,7 @@ var notMCPTools = map[string]string{
 	"/api/insights/github-rate-limit": "operational status of the server's own forge access, not pipeline data",
 	"/api/settings":                   "the signed-in user's dashboard preferences",
 	"/api/auth/credentials":           "passkey management, session-only",
+	"/api/steps/flaky":                "contract only so far; its handler and list_flaky_steps land together, then this line goes",
 }
 
 // TestEveryReadEndpointHasAnMCPTool is the other half of
