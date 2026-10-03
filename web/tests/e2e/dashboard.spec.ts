@@ -163,7 +163,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	);
 
 	const mobileNav = page.locator('#mobile-nav');
-	await expect(mobileNav.getByText('Steps', { exact: true })).toBeVisible();
+	await expect(mobileNav.getByText('Flaky', { exact: true })).toBeVisible();
 	await expect(
 		mobileNav.getByRole('link', { name: 'Register a repository' }),
 	).toBeVisible();
@@ -1124,169 +1124,47 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
 	await expect(page).toHaveURL('/pipelines');
 
-	// Cross-pipeline unhealthy-steps overview (#150) -- the same per-step
-	// health the pipeline detail page's own Steps table shows, aggregated
-	// across every tracked pipeline instead of scoped to one.
-	await page.route('**/api/steps/unhealthy*', (route) =>
+	// The Steps page is gone: /steps lands on the flaky view, which lists each
+	// flaky step across every pipeline (#150) with a drill-down into the runs
+	// it failed on (#216), not a raw forge link.
+	await page.route('**/api/steps/flaky*', (route) =>
 		route.fulfill({
 			json: {
-				groups: [
+				window: '7d',
+				steps: [
 					{
 						pipelineId: 'unhealthy-1',
 						pipelineName: 'Deploy',
 						repoId: 'repo-1',
-						steps: [
-							{
-								id: 'step-2',
-								name: 'flaky integration test',
-								durationContributionSeconds: 120,
-								failureRate: 0.3,
-								failureCount: 3,
-								flaky: true,
-								forgeUrl:
-									'https://forge.example/owner/repo/actions/runs/1/job/2',
-							},
-						],
+						name: 'flaky integration test',
+						flakeRate: 0.3,
+						runCount: 10,
+						recentOutcomes: ['passed', 'failed', 'passed', 'failed', 'passed'],
 					},
 				],
 				hasMore: false,
 			},
 		}),
 	);
-	await page.getByRole('link', { name: 'Steps' }).click();
-	await expect(page).toHaveURL('/steps');
-	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
+	await page.goto('/steps');
+	await expect(page).toHaveURL('/flaky');
 	await expect(
-		page.getByRole('cell', { name: 'flaky integration test' }),
+		page.getByRole('heading', { name: 'Flaky tests', level: 1 }),
 	).toBeVisible();
-	await expect(page.getByText('flaky', { exact: true })).toBeVisible();
+	await expect(page.getByText('flaky integration test')).toBeVisible();
+	await expect(page.getByText('Deploy')).toBeVisible();
 
-	const stepsOverviewScan = await new AxeBuilder({ page })
+	const flakyOverviewScan = await new AxeBuilder({ page })
 		.withTags(a11yTags)
 		.analyze();
-	expect(stepsOverviewScan.violations).toEqual([]);
+	expect(flakyOverviewScan.violations).toEqual([]);
 
-	// Pagination (#244): a mocked page-and-a-bit of unhealthy pipeline
-	// groups so Previous/Next have two real pages to move between, without
-	// ingesting 21 pipelines' worth of real failing runs to get there for
-	// real. All on repo-1, same as the Pipelines page's own pagination
-	// fixture -- this only exercises Previous/Next and the forge-filter
-	// reset, not filtered output.
-	//
-	// The Steps page's forge filter is client-side (design.md's scoping
-	// decision), so it needs real repos data to resolve repo-1's forge --
-	// unlike the mocks elsewhere in this journey that lean on repo-1 still
-	// meaning something to the real backend, this needs its own **/api/repos*
-	// mock since that route was unrouted back at the grouping section above.
-	await page.route('**/api/repos*', (route) =>
-		route.fulfill({
-			json: {
-				repos: [
-					{ id: 'repo-1', forge: 'github', identifier: 'alrayyes/demo-repo' },
-				],
-				hasMore: false,
-			},
-		}),
-	);
-	const paginatedGroups = Array.from({ length: 21 }, (_, i) => ({
-		pipelineId: `page-pipeline-${i}`,
-		pipelineName: `pipeline-${i}`,
-		repoId: 'repo-1',
-		steps: [
-			{
-				id: `step-${i}`,
-				name: 'flaky integration test',
-				durationContributionSeconds: 120,
-				failureRate: 0.3,
-				failureCount: 3,
-				flaky: true,
-			},
-		],
-	}));
-	await page.route('**/api/steps/unhealthy*', (route) => {
-		const url = new URL(route.request().url());
-		const limit = Number(url.searchParams.get('limit') ?? '20');
-		const offset = Number(url.searchParams.get('offset') ?? '0');
-		const pageGroups = paginatedGroups.slice(offset, offset + limit);
-
-		return route.fulfill({
-			json: {
-				groups: pageGroups,
-				hasMore: offset + limit < paginatedGroups.length,
-			},
-		});
-	});
-	await page.reload();
-
-	await expect(page.getByRole('heading', { name: 'pipeline-0' })).toBeVisible();
-	await expect(previousPageButton).toBeDisabled();
-	await expect(nextPageButton).toBeEnabled();
-
-	await nextPageButton.click();
-	await expect(
-		page.getByRole('heading', { name: 'pipeline-20' }),
-	).toBeVisible();
-	await expect(
-		page.getByRole('heading', { name: 'pipeline-0' }),
-	).not.toBeVisible();
-	await expect(previousPageButton).toBeEnabled();
-	await expect(nextPageButton).toBeDisabled();
-
-	// Changing the forge filter resets the page back to 1, rather than
-	// re-requesting page 2 of a now-different filtered result set. The
-	// filter itself stays client-side here (design.md's scoping decision),
-	// so the reset is what this actually proves, not a re-filtered fetch.
-	const stepsForgeFilter = page.getByRole('radiogroup', {
-		name: 'Filter by forge',
-	});
-	await stepsForgeFilter.getByRole('radio', { name: 'GitHub' }).click();
-	await expect(page.getByRole('heading', { name: 'pipeline-0' })).toBeVisible();
-	await expect(previousPageButton).toBeDisabled();
-	await stepsForgeFilter.getByRole('radio', { name: 'All' }).click();
-
-	// Restore the single-group fixture the flaky-runs drill-down below
-	// expects, and drop the repos mock this section added so the rest of
-	// the journey stays on the real, unmocked backend data the grouping
-	// section above switched to.
-	await page.unroute('**/api/repos*');
-	await page.unroute('**/api/steps/unhealthy*');
-	await page.route('**/api/steps/unhealthy*', (route) =>
-		route.fulfill({
-			json: {
-				groups: [
-					{
-						pipelineId: 'unhealthy-1',
-						pipelineName: 'Deploy',
-						repoId: 'repo-1',
-						steps: [
-							{
-								id: 'step-2',
-								name: 'flaky integration test',
-								durationContributionSeconds: 120,
-								failureRate: 0.3,
-								failureCount: 3,
-								flaky: true,
-								forgeUrl:
-									'https://forge.example/owner/repo/actions/runs/1/job/2',
-							},
-						],
-					},
-				],
-				hasMore: false,
-			},
-		}),
-	);
-	await page.reload();
-	await expect(page.getByRole('heading', { name: 'Deploy' })).toBeVisible();
-
-	// Same fix as the pipeline detail page's own Steps table (#216): a
-	// flaky step here drills into its failed runs too, not a raw forge link.
 	await page.route('**/api/pipelines/unhealthy-1/flaky-runs**', (route) =>
 		route.fulfill({
 			json: [{ runId: 'run-456', startedAt: '2026-09-11T09:00:00Z' }],
 		}),
 	);
-	await page.getByRole('link', { name: 'View flaky runs' }).click();
+	await page.getByRole('link', { name: 'View failed runs' }).click();
 	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1\/flaky-runs\?step=/);
 	await expect(page.getByText('flaky integration test')).toBeVisible();
 	await page.unroute('**/api/pipelines/unhealthy-1/flaky-runs**');
@@ -1295,9 +1173,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page).toHaveURL(/\/pipelines\/unhealthy-1$/);
 	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
 	await expect(page).toHaveURL('/pipelines');
-	await page.unroute('**/api/steps/unhealthy*');
-	await page.getByRole('link', { name: 'Pipelines', exact: true }).click();
-	await expect(page).toHaveURL('/pipelines');
+	await page.unroute('**/api/steps/flaky*');
 
 	// Release history (#368): the page loads releases.json, generated from
 	// CHANGELOG.md at build time and served by the app itself. Any request to
