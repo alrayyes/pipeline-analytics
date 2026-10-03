@@ -44,6 +44,7 @@ jobs:
         run: |
           .github/scripts/changes.test.sh
           .github/scripts/hook-guard.test.sh
+          .github/scripts/ci-needs.test.sh
       - id: filter
         env:
           EVENT: ${{ github.event_name }}
@@ -397,8 +398,35 @@ jobs:
   # github.io#26.
   pages-deploy:
     name: deploy API docs
-    needs: [changes, api-spec]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.api == 'true'
+    # Every other job, so a red one can't finish after the docs already
+    # shipped (rules/ci.md). .github/scripts/ci-needs.test.sh fails the pull
+    # request that adds a job without listing it here. Most of these are
+    # skipped when their files didn't change, and a skipped need would skip
+    # this job too, so the condition names what must not have happened
+    # instead of requiring every need to succeed.
+    needs:
+      [
+        changes,
+        test,
+        lint,
+        api-spec,
+        spectral,
+        package-json,
+        frontend,
+        mutation,
+        e2e,
+        lighthouse,
+        goreleaser-check,
+        markdown-format,
+        markdown-lint,
+        mechanics,
+        style,
+        docker,
+      ]
+    if: >-
+      !failure() && !cancelled() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
