@@ -1,0 +1,34 @@
+# OWASP API Security Top 10 over openapi/openapi.yaml, and nothing else:
+# Redocly lints the spec's correctness (redocly.yaml), this only adds the
+# security rules it doesn't ship (rules/api.md, "Spectral"). Only `error`
+# severity fails the job; warnings are advisory.
+#
+# Each rule turned off below carries the reason, and the ticket that revisits
+# it where one exists. Don't turn one off without saying why.
+extends: ["@stoplight/spectral-owasp-ruleset"]
+rules:
+  # Request bodies and request fields are unbounded today: that is real, and
+  # #429 fixes it. These five rules can't tell a request schema from a
+  # response one, and the server builds every response itself, so until #429
+  # lands they only list response shapes (about 130 findings) and bury the
+  # ones that matter. Turn them back on once the request schemas carry limits.
+  owasp:api4:2023-string-limit: off
+  owasp:api4:2023-string-restricted: off
+  owasp:api4:2023-array-limit: off
+  owasp:api4:2023-integer-limit: off
+  owasp:api4:2023-integer-format: off
+  # The service doesn't rate-limit itself and sets no RateLimit headers; the
+  # decision on whether it should is #430.
+  owasp:api4:2023-rate-limit: off
+  owasp:api4:2023-rate-limit-responses-429: off
+  # The dashboard is served by this same binary, so every browser call is
+  # same-origin and no CORS header is defined or wanted.
+  owasp:api8:2023-define-cors-origin: off
+  # The six unauthenticated writes are the WebAuthn ceremony (the assertion
+  # or attestation is the credential) and the two webhook receivers (an HMAC
+  # signature over the body is). Neither has a session to present.
+  owasp:api2:2023-write-restricted: off
+  # `tokenId` is the identifier of an API token in DELETE
+  # /api/auth/tokens/{tokenId}, not the token's secret; the rule matches on
+  # the parameter's name.
+  owasp:api2:2023-no-credentials-in-url: off

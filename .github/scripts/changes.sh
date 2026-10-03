@@ -22,7 +22,7 @@ declare -A pattern=(
 	# e2e and lighthouse build the real binary, so they cover the frontend and Go.
 	[binary]="$GO_SOURCES|^web/|^CHANGELOG\.md$|^internal/webassets/"
 	[docker]="$GO_SOURCES|^Dockerfile$|^\.dockerignore$|^\.hadolint"
-	[api]='^openapi/|^docs/api/|^redocly\.ya?ml$|^package\.json$|^bun\.lock$'
+	[api]='^openapi/|^docs/api/|^redocly\.ya?ml$|^\.spectral\.ya?ml$|^package\.json$|^bun\.lock$'
 	[package]='^package\.json$|^web/package\.json$|^bun\.lock$'
 	[goreleaser]='^\.goreleaser\.ya?ml$'
 	[md]='\.(md|ya?ml)$|^\.prettier|^package\.json$|^bun\.lock$'

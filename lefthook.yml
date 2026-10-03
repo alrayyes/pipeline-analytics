@@ -105,6 +105,8 @@ pre-push:
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOLANGCI_LINT_CACHE=/cache -v "$HOME/.cache/golangci-lint-docker:/cache"
         golangci/golangci-lint:v2.13.2 golangci-lint run ./...
+    spectral:
+      run: .github/scripts/hook-guard.sh --push api -- bunx spectral lint --display-only-failures openapi/openapi.yaml
     sort-package-json-check:
       run: .github/scripts/hook-guard.sh --push package -- bunx sort-package-json --check package.json web/package.json
     frontend-check:

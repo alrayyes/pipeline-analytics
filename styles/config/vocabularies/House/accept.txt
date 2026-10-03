@@ -44,3 +44,7 @@ browsable
 Streamable
 mcp-remote
 WebMCP
+Redocly
+Spectral
+ruleset
+ruleset's
