@@ -162,6 +162,183 @@ await page.goto(BASE_URL + '/repos/repo-1/usage');
 await page.waitForSelector('table');
 await page.screenshot({ path: OUT_DIR + 'screenshot-usage.png' });
 
+// -- Telemetry views (failure overview, runs, root cause, flaky) --
+// A registered repo, so the views show data rather than the "register a
+// repository" empty state.
+await page.route('**/api/repos*', (route) =>
+	route.fulfill({
+		json: {
+			repos: [
+				{ id: 'repo-1', forge: 'github', identifier: 'alrayyes/payments' },
+			],
+			hasMore: false,
+		},
+	}),
+);
+await page.route('**/api/insights/failures*', (route) =>
+	route.fulfill({
+		json: {
+			window: '7d',
+			totalRuns: 658,
+			failedRuns: 142,
+			passRate: 0.784,
+			passRateDelta: -4.2,
+			flakyStepRatio: 0.068,
+			mttrSeconds: 2280,
+			stageDistribution: [
+				{ step: 'Run unit tests', failures: 65, share: 0.46 },
+				{ step: 'Docker build', failures: 34, share: 0.24 },
+				{ step: 'Publish release', failures: 43, share: 0.3 },
+			],
+			categoryBreakdown: [
+				{ category: 'code_tests', occurrences: 65, share: 0.46 },
+				{ category: 'config_secrets', occurrences: 34, share: 0.24 },
+				{ category: 'network_timeouts', occurrences: 43, share: 0.3 },
+			],
+			topFailingPipelines: [
+				{
+					pipelineId: 'deploy',
+					pipelineName: 'Deploy',
+					repoId: 'repo-1',
+					runs: 100,
+					failedRuns: 34,
+				},
+				{
+					pipelineId: 'ci',
+					pipelineName: 'CI',
+					repoId: 'repo-1',
+					runs: 400,
+					failedRuns: 65,
+				},
+			],
+			failureGroups: [
+				{
+					step: 'Run unit tests',
+					category: 'code_tests',
+					conclusion: 'failure',
+					occurrences: 65,
+					pipelines: [{ pipelineId: 'ci', pipelineName: 'CI' }],
+				},
+				{
+					step: 'Publish release',
+					category: 'network_timeouts',
+					conclusion: 'timed_out',
+					occurrences: 43,
+					pipelines: [{ pipelineId: 'deploy', pipelineName: 'Deploy' }],
+				},
+			],
+		},
+	}),
+);
+await page.goto(BASE_URL + '/');
+await page.waitForSelector('text=Run unit tests');
+await page.screenshot({ path: OUT_DIR + 'screenshot-failure-overview.png' });
+
+await page.goto(BASE_URL + '/failures');
+await page.waitForSelector('text=Failing steps');
+await page.screenshot({
+	path: OUT_DIR + 'screenshot-root-cause.png',
+	fullPage: true,
+});
+
+const runSteps = (outcomes) =>
+	outcomes.map(([name, outcome]) => ({
+		name,
+		status: outcome === 'queued' ? 'queued' : 'completed',
+		outcome,
+	}));
+await page.route('**/api/runs*', (route) =>
+	route.fulfill({
+		json: {
+			hasMore: false,
+			runs: [
+				{
+					id: 'run-1',
+					pipelineId: 'deploy',
+					pipelineName: 'Deploy',
+					repoId: 'repo-1',
+					status: 'completed',
+					conclusion: 'failure',
+					outcome: 'failed',
+					startedAt: '2026-10-02T12:00:00Z',
+					durationSeconds: 402,
+					branch: 'main',
+					sha: 'c4d291a0e2b34f56a7c8d9e0f1a2b3c4d5e6f7a8',
+					message: 'fix(stripe): webhook retry',
+					actor: 'marcus-v',
+					forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/1',
+					steps: runSteps([
+						['checkout', 'passed'],
+						['build', 'passed'],
+						['canary', 'failed'],
+						['promote', 'queued'],
+					]),
+				},
+				{
+					id: 'run-2',
+					pipelineId: 'ci',
+					pipelineName: 'CI',
+					repoId: 'repo-1',
+					status: 'completed',
+					conclusion: 'success',
+					outcome: 'passed',
+					startedAt: '2026-10-02T11:00:00Z',
+					durationSeconds: 115,
+					branch: 'main',
+					sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+					message: 'chore: bump dependencies',
+					actor: 'renovate',
+					forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/2',
+					steps: runSteps([
+						['checkout', 'passed'],
+						['test', 'passed'],
+						['lint', 'passed'],
+					]),
+				},
+			],
+		},
+	}),
+);
+await page.goto(BASE_URL + '/runs');
+await page.waitForSelector('text=Deploy');
+await page.screenshot({ path: OUT_DIR + 'screenshot-runs.png' });
+
+const flakyHistory = (failedAt, length) =>
+	Array.from({ length }, (_, i) =>
+		failedAt.includes(i) ? 'failed' : 'passed',
+	);
+await page.route('**/api/steps/flaky*', (route) =>
+	route.fulfill({
+		json: {
+			window: '7d',
+			hasMore: false,
+			steps: [
+				{
+					pipelineId: 'ci',
+					pipelineName: 'CI',
+					repoId: 'repo-1',
+					name: 'Run unit tests',
+					flakeRate: 0.25,
+					runCount: 120,
+					recentOutcomes: flakyHistory([3, 17, 30, 39], 40),
+				},
+				{
+					pipelineId: 'deploy',
+					pipelineName: 'Deploy',
+					repoId: 'repo-1',
+					name: 'Browser tests',
+					flakeRate: 0.1,
+					runCount: 40,
+					recentOutcomes: flakyHistory([8, 22], 40),
+				},
+			],
+		},
+	}),
+);
+await page.goto(BASE_URL + '/flaky');
+await page.waitForSelector('text=Browser tests');
+await page.screenshot({ path: OUT_DIR + 'screenshot-flaky.png' });
+
 // -- Dark mode (overview + pipeline detail: cards/badges and charts/table,
 // the two most visually distinct surfaces) --
 await page.evaluate(() => localStorage.setItem('theme', 'dark'));
