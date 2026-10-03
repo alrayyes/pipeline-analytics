@@ -5,6 +5,7 @@ import { page } from '$app/state';
 import favicon from '$lib/assets/favicon.svg';
 import Footer from '$lib/components/Footer.svelte';
 import Nav from '$lib/components/Nav.svelte';
+import TabBar from '$lib/components/TabBar.svelte';
 import { initForgeFilter } from '$lib/forgeFilter.svelte.js';
 import { initPipelinesFilters } from '$lib/pipelinesFilters.svelte.js';
 import { registerServiceWorker } from '$lib/serviceWorker.js';
@@ -45,6 +46,8 @@ $effect.pre(() => {
 	return cleanup;
 });
 
+const showChrome = $derived(page.url.pathname !== '/login');
+
 onMount(registerServiceWorker);
 onMount(registerWebMCPTools);
 </script>
@@ -53,10 +56,17 @@ onMount(registerWebMCPTools);
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-{#if page.url.pathname !== '/login'}
+{#if showChrome}
 	<Nav hasRepos={data.hasRepos} />
 {/if}
 
-{@render children()}
+<!-- Keeps the fixed tab bar (h-12 tab + 2px border + 1px top border) off the content and footer. -->
+<div class={showChrome ? 'max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom))]' : undefined}>
+	{@render children()}
 
-<Footer />
+	<Footer />
+</div>
+
+{#if showChrome}
+	<TabBar hasRepos={data.hasRepos} />
+{/if}
