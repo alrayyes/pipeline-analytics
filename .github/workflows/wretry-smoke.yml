@@ -1,0 +1,35 @@
+name: wretry smoke (temporary)
+on:
+  pull_request:
+    paths: [".github/workflows/wretry-smoke.yml"]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      release_created: ${{ fromJSON(steps.release.outputs.outputs).release_created }}
+      tag_name: ${{ fromJSON(steps.release.outputs.outputs).tag_name }}
+    steps:
+      - uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea # v3.8.0
+        id: release
+        with:
+          attempt_limit: 3
+          attempt_delay: 1000
+          action: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+          with: |
+            script: |
+              core.setOutput('release_created', 'true')
+              core.setOutput('tag_name', 'v9.9.9')
+      - env:
+          CREATED: ${{ fromJSON(steps.release.outputs.outputs).release_created }}
+          TAG: ${{ fromJSON(steps.release.outputs.outputs).tag_name }}
+        run: |
+          echo "created=$CREATED tag=$TAG"
+          [ "$CREATED" = true ] && [ "$TAG" = v9.9.9 ]
+  consumer:
+    needs: smoke
+    if: needs.smoke.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: echo "the job-level condition saw release_created==true, tag ${{ needs.smoke.outputs.tag_name }}"
