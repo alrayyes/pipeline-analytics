@@ -10,7 +10,7 @@ Existing state this builds on (verified against the tree):
 - `GET /api/runs/{runId}/steps` returns one run's steps;
   `GET /api/pipelines/{id}/flaky-runs` returns failed runs for one
   named step. There is no run *list* and no cross-pipeline aggregate.
-- `GET /api/steps/unhealthy` already groups flaky/failing steps by
+- `GET /api/steps/unhealthy` groups flaky/failing steps by
   pipeline (`/steps` page).
 - Web: SvelteKit static adapter, shadcn-svelte + Tailwind 4, layerchart
   for charts, `$lib/dashboardApi.ts` as the shared fetch layer,
@@ -24,7 +24,7 @@ Existing state this builds on (verified against the tree):
 | CI/CD Failure Overview | `/` (replaces the repo overview) | `GET /api/insights/failures` | Window toggle, repo scope |
 | Pipelines & Runs | `/runs` | `GET /api/runs` | Existing `/runs/[id]` stays as the run detail |
 | Root Cause Diagnostics | `/failures` | `GET /api/insights/failures` (`failureGroups`) | Links into `/pipelines/[id]/flaky-runs` |
-| Flaky Tests & Telemetry | `/flaky` | `GET /api/steps/unhealthy` plus per-step history | Supersedes `/steps`, which redirects here |
+| Flaky Tests & Telemetry | `/flaky` | `GET /api/steps/flaky` | Supersedes `/steps`, which redirects here |
 
 ## Components (`web/src/lib/components/telemetry/`)
 

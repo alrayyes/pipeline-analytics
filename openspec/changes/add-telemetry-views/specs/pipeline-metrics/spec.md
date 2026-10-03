@@ -38,3 +38,20 @@ timeouts, config/secrets) from the step's conclusion and name, or
 
 - **WHEN** a failed step matches no category rule
 - **THEN** the system assigns it to uncategorised
+
+### Requirement: Flaky steps ranked with their recent results
+
+The system SHALL list flaky steps across every pipeline for a window, ranked
+by flake rate, each with its run count and its result in up to its 40 most
+recent runs, oldest first.
+
+#### Scenario: Flakiest first
+
+- **WHEN** two steps are flagged flaky and one failed in a larger share of
+  its runs in the window
+- **THEN** that step is listed first
+
+#### Scenario: A step with fewer than 40 runs
+
+- **WHEN** a flaky step has run 12 times
+- **THEN** its recent results hold those 12 outcomes, not 40
