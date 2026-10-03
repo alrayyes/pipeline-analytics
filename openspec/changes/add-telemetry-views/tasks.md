@@ -55,9 +55,12 @@
   - [x] 5.4c The `/flaky` view and `FlakeMatrix`
   - [x] 5.4d `/steps` redirects to `/flaky`; the old Steps page and its
         journey go
-- [ ] 5.5 Playwright journey and axe scan per view at 390px
+- [x] 5.5 Playwright journey and axe scan per view at 390px (the
+      `overview`, `runs`, `failures` and `flaky` specs each carry theirs,
+      light and dark)
 
 ## 6. Docs
 
-- [ ] 6.1 README, screenshots (`docs/`) and `ARCHITECTURE.md` true
-      again; archive this change
+- [x] 6.1 README and screenshots (`docs/`) true again; `ARCHITECTURE.md`
+      checked and unchanged, it names no view
+- [ ] 6.2 Archive this change

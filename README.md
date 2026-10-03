@@ -8,16 +8,25 @@
 
 Self-hosted pipeline analytics for GitHub Actions and Forgejo Actions. Track
 a repo and see which pipelines and steps take how long, how often they fail,
-which steps are flaky, and a health status for each pipeline — with a deep
+which steps are flaky, where failures cluster, and a health status for each
+pipeline — with a deep
 link from every finding back to the run on the originating forge.
 
 Built for a solo developer running their own repos, not a team. One binary,
 one SQLite file, no external services.
 
-![Pipelines list: each tracked pipeline's health status at a glance](docs/screenshot-overview.png)
+![Overview: pass rate, mean time to recovery, failed runs and where they fail, over a window you pick: 24 hours, 7 days or 30 days](docs/screenshot-failure-overview.png)
 
 <details>
 <summary>More screenshots</summary>
+
+![Pipelines list: each tracked pipeline's health status at a glance](docs/screenshot-overview.png)
+
+![Runs: each run's steps as a progress bar, with its commit, status and a link to the forge](docs/screenshot-runs.png)
+
+![Root cause diagnostics: failure categories and the failing steps behind them](docs/screenshot-root-cause.png)
+
+![Flaky tests: each flaky step's last 40 results, failure rate and run count](docs/screenshot-flaky.png)
 
 ![Pipeline detail: duration/failure-rate trend charts, step breakdown, and forge deep links](docs/screenshot-pipeline-detail.png)
 
