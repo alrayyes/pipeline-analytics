@@ -90,6 +90,11 @@ func newMCPHandler(deps Deps) http.Handler {
 		Description: "Get one run's steps, each with a normalized outcome and a link to its job on the forge. Matches GET /api/runs/{runId}/steps.",
 	}, h.getRunSteps)
 
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_flaky_steps",
+		Description: "List flaky steps across every pipeline, ranked by flake rate, each with its run count and up to 40 recent outcomes, oldest first. Matches GET /api/steps/flaky.",
+	}, h.listFlakySteps)
+
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
 	}, &mcp.StreamableHTTPOptions{Stateless: true})
@@ -357,4 +362,30 @@ func (h *mcpHandler) getRunSteps(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	return nil, runDetailDTO{RunID: detail.RunID, StartedAt: detail.StartedAt, Steps: steps}, nil
+}
+
+type listFlakyStepsInput struct {
+	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted covers every repo"`
+	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted covers every forge"`
+	Window string `json:"window,omitempty" jsonschema:"24h, 7d or 30d; anything else, or omitted, is 7d, and the result reports the window used"`
+	Limit  int    `json:"limit,omitempty" jsonschema:"max steps to return; omitted returns every flaky step"`
+	Offset int    `json:"offset,omitempty" jsonschema:"steps to skip before the returned page"`
+}
+
+func (h *mcpHandler) listFlakySteps(ctx context.Context, _ *mcp.CallToolRequest, in listFlakyStepsInput) (*mcp.CallToolResult, flakyStepListDTO, error) {
+	window := metrics.ParseInsightWindow(in.Window)
+
+	steps, hasMore, err := h.metrics.ListFlakySteps(
+		ctx,
+		time.Now(),
+		window,
+		metrics.InsightFilter{RepoID: in.RepoID, Forge: in.Forge},
+		in.Limit,
+		in.Offset,
+	)
+	if err != nil {
+		return nil, flakyStepListDTO{}, fmt.Errorf("list flaky steps: %w", err)
+	}
+
+	return nil, toFlakyStepListDTO(window, steps, hasMore), nil
 }

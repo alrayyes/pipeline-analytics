@@ -77,6 +77,9 @@ func New(deps Deps) http.Handler {
 	failureInsights := &failureInsightsHandler{service: deps.Metrics}
 	mux.HandleFunc("GET /api/insights/failures", failureInsights.get)
 
+	flakySteps := &flakyStepsHandler{service: deps.Metrics}
+	mux.HandleFunc("GET /api/steps/flaky", flakySteps.list)
+
 	runList := &runListHandler{service: deps.Metrics}
 	mux.HandleFunc("GET /api/runs", runList.list)
 

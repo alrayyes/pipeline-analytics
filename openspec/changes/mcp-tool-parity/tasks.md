@@ -9,6 +9,6 @@
 
 ## 2. Follow-ups
 
-- [ ] 2.1 `list_flaky_steps` lands with the `GET /api/steps/flaky` handler
+- [x] 2.1 `list_flaky_steps` lands with the `GET /api/steps/flaky` handler
       (#401, criterion 3)
 - [ ] 2.2 Archive this change once merged

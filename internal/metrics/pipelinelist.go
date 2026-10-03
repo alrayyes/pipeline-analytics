@@ -110,7 +110,7 @@ func compareLastRunDesc(a, b *time.Time) int {
 
 // paginate cuts a page out of list. A zero limit means everything from
 // offset, and hasMore is true only when matches remain beyond the page.
-func paginate(list []Pipeline, limit, offset int) ([]Pipeline, bool) {
+func paginate[T any](list []T, limit, offset int) ([]T, bool) {
 	offset = min(max(offset, 0), len(list))
 
 	if limit <= 0 {

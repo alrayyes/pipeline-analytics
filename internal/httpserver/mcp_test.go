@@ -179,6 +179,7 @@ func TestMCPToolsList(t *testing.T) {
 		"get_failure_insights",
 		"list_runs",
 		"get_run_steps",
+		"list_flaky_steps",
 	}, names, "tool list must be exactly the read tools, no write tool")
 }
 
@@ -527,4 +528,21 @@ func TestMCPGetFailureInsights(t *testing.T) {
 		Window string `json:"window"`
 	}](t, session, "get_failure_insights", nil)
 	require.Equal(t, "7d", def.Window, "an omitted window reports the server's default")
+}
+
+func TestMCPListFlakySteps(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	seedFlakyHistory(t, srv, seedRepo(t, srv), "success", "failure", "success")
+
+	session := connectMCP(t, srv)
+
+	got := callTool[flakyStepsBody](t, session, "list_flaky_steps", map[string]any{"window": "24h"})
+
+	require.Equal(t, "24h", got.Window)
+	require.Len(t, got.Steps, 1)
+	require.Equal(t, "test", got.Steps[0].Name)
+	require.Equal(t, 3, got.Steps[0].RunCount)
+	require.Equal(t, []string{"passed", "failed", "passed"}, got.Steps[0].RecentOutcomes)
 }
