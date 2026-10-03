@@ -31,6 +31,11 @@ permissions:
   contents: write
   pull-requests: write
 
+# Hooks never fire in a pipeline: the screenshot job commits, and the root
+# package.json's `prepare` script is `lefthook install` (rules/tooling.md).
+env:
+  LEFTHOOK: "0"
+
 # Every step below that calls the GitHub API is wrapped in
 # Wandalen/wretry.action: a secondary rate limit or an abuse-detection response
 # clears in seconds, and nothing is watching a release run to rerun it by hand
@@ -230,11 +235,6 @@ jobs:
       - if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # This job's own git commit/push, not an interactive one -- cheap
-          # insurance against a later change adding a root `bun install`
-          # here and silently starting to fire lefthook's hooks in a
-          # container with no docker/browser (linting.md).
-          LEFTHOOK: 0
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
