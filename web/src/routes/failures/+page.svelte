@@ -5,6 +5,7 @@ import WindowToggle from '$lib/components/telemetry/WindowToggle.svelte';
 import {
 	type FailureInsights,
 	fetchFailureInsights,
+	type InsightsWindow,
 } from '$lib/dashboardApi.js';
 import {
 	getTelemetryWindow,
@@ -21,7 +22,7 @@ let generation = 0;
 
 async function load(
 	gen: number,
-	window: ReturnType<typeof getTelemetryWindow>,
+	window: InsightsWindow | undefined,
 ): Promise<void> {
 	try {
 		const body = await fetchFailureInsights({ window });
@@ -40,7 +41,7 @@ async function load(
 }
 
 $effect(() => {
-	const window = getTelemetryWindow();
+	const window = getTelemetryWindow() ?? undefined;
 	const gen = ++generation;
 
 	loading = true;
@@ -59,7 +60,7 @@ $effect(() => {
 <main class="mx-auto max-w-4xl px-4 py-8">
 	<div class="flex flex-wrap items-center gap-4">
 		<h1 class="text-2xl font-semibold">Root cause diagnostics</h1>
-		<WindowToggle value={getTelemetryWindow()} onChange={setTelemetryWindow} />
+		<WindowToggle value={getTelemetryWindow() ?? insights?.window ?? null} onChange={setTelemetryWindow} />
 	</div>
 
 	{#if loading}

@@ -26,6 +26,7 @@ async function signIn(page: Page, context: BrowserContext): Promise<void> {
 }
 
 const insights = {
+	window: '7d',
 	totalRuns: 120,
 	failedRuns: 30,
 	flakyStepRatio: 0.1,
@@ -69,6 +70,7 @@ const insights = {
 };
 
 const empty = {
+	window: '7d',
 	totalRuns: 10,
 	failedRuns: 0,
 	flakyStepRatio: 0,
@@ -195,6 +197,29 @@ test('says so when nothing failed, and when the figures cannot load', async ({
 	respond = 500;
 	await page.getByRole('radio', { name: '24 hours' }).click();
 	await expect(page.getByRole('alert')).toContainText("Couldn't load failures");
+});
+
+test('with no saved window it asks for none, and shows the one the server used', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	// Settings can't load and nothing is cached (signing in cached the real
+	// server's window, so clear it), so the page has no window of its own: it
+	// sends none and the server chooses; the toggle then shows what it reports.
+	await page.evaluate(() => localStorage.clear());
+	await page.route('**/api/settings', (route) =>
+		route.fulfill({ status: 500 }),
+	);
+	const requested = await mockInsights(page, () => ({
+		...insights,
+		window: '24h',
+	}));
+
+	await page.goto('/failures');
+
+	await expect(page.getByRole('radio', { name: '24 hours' })).toBeChecked();
+	expect(requested[0].searchParams.has('window')).toBe(false);
 });
 
 for (const scheme of ['light', 'dark'] as const) {

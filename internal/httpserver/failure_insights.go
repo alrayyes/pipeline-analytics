@@ -44,6 +44,7 @@ type failureGroupDTO struct {
 // figures are pointers so an absent value is omitted instead of reading as
 // zero, and every list is built non-nil so it encodes as [] rather than null.
 type failureInsightsDTO struct {
+	Window              string               `json:"window"`
 	TotalRuns           int                  `json:"totalRuns"`
 	FailedRuns          int                  `json:"failedRuns"`
 	PassRate            *float64             `json:"passRate,omitempty"`
@@ -58,6 +59,7 @@ type failureInsightsDTO struct {
 
 func toFailureInsightsDTO(in metrics.FailureInsights) failureInsightsDTO {
 	dto := failureInsightsDTO{
+		Window:              in.Window.Label(),
 		TotalRuns:           in.TotalRuns,
 		FailedRuns:          in.FailedRuns,
 		PassRate:            in.PassRate,

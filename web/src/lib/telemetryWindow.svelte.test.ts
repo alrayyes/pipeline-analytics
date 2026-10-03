@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
-	DEFAULT_TELEMETRY_WINDOW,
 	getTelemetryWindow,
 	initTelemetryWindow,
 	setTelemetryWindow,
@@ -42,10 +41,9 @@ afterEach(() => {
 	}
 });
 
-describe('default', () => {
-	test('is 7d, matching the server-side default', () => {
-		expect(DEFAULT_TELEMETRY_WINDOW).toBe('7d');
-		expect(getTelemetryWindow()).toBe('7d');
+describe('with nothing saved', () => {
+	test('there is no window: the server chooses, and the page shows what it used', () => {
+		expect(getTelemetryWindow()).toBeNull();
 	});
 });
 
@@ -88,10 +86,10 @@ describe('initTelemetryWindow', () => {
 		expect(getTelemetryWindow()).toBe('24h');
 	});
 
-	test('falls back to the default when nothing is cached either', () => {
+	test('is empty when nothing is cached either: the frontend holds no default', () => {
 		initTelemetryWindow(undefined);
 
-		expect(getTelemetryWindow()).toBe('7d');
+		expect(getTelemetryWindow()).toBeNull();
 	});
 
 	test('ignores a cached value outside the documented set', () => {
@@ -99,7 +97,13 @@ describe('initTelemetryWindow', () => {
 
 		initTelemetryWindow(undefined);
 
-		expect(getTelemetryWindow()).toBe('7d');
+		expect(getTelemetryWindow()).toBeNull();
+	});
+
+	test('caches nothing when there is nothing to cache', () => {
+		initTelemetryWindow(undefined);
+
+		expect(store.has('telemetryWindow')).toBe(false);
 	});
 
 	test('does not send a patch: it only reconciles with what the server already has', () => {

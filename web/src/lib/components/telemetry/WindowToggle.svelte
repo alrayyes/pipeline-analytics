@@ -8,7 +8,7 @@ import type { InsightsWindow } from '$lib/dashboardApi.js';
 let {
 	value,
 	onChange,
-}: { value: InsightsWindow; onChange: (next: InsightsWindow) => void } =
+}: { value: InsightsWindow | null; onChange: (next: InsightsWindow) => void } =
 	$props();
 
 const OPTIONS: { value: InsightsWindow; short: string; label: string }[] = [
@@ -23,7 +23,7 @@ const OPTIONS: { value: InsightsWindow; short: string; label: string }[] = [
 	<ToggleGroup
 		type="single"
 		variant="outline"
-		{value}
+		value={value ?? ''}
 		onValueChange={(next) => {
 			if (next) onChange(next as InsightsWindow);
 		}}
