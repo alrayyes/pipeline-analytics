@@ -89,8 +89,9 @@ runs, straight from [`lefthook.yml`](lefthook.yml):
 
 - **`pre-commit`** (staged files only, fixes and restages): `gofmt`,
   `go mod edit -fmt go.mod`, `biome check --write` for `web/`,
-  `sort-package-json`, Prettier/`markdownlint` for Markdown, and a scoped
-  `docker build` when the Dockerfile or Go sources changed.
+  `sort-package-json`, Prettier/`markdownlint` for Markdown, and a
+  `docker build` when the CI `docker` group changed. The fixers take a
+  file-type glob, since they act on the staged files themselves.
 - **`commit-msg`**: [commitlint](https://commitlint.js.org) against
   `@commitlint/config-conventional`.
 - **`pre-push`** (whole tree, never writes): `go vet`, `go test -race -cover`,
@@ -99,8 +100,16 @@ runs, straight from [`lefthook.yml`](lefthook.yml):
   `golangci/golangci-lint:<CI's pin>`) so the version checking your push
   is always the one the repo declares, not whatever your package manager
   last updated -- plus `sort-package-json --check`, `bun run check`,
-  `bun run lint`, `bun run test`, `bun run test:mutation`, an
-  unconditional `docker build`, and the Markdown/prose checks.
+  `bun run lint`, `bun run test`, `bun run test:mutation`, `docker build`,
+  and the Markdown/prose checks.
+
+Each `pre-push` job runs through
+[`hook-guard.sh`](.github/scripts/hook-guard.sh), which asks
+[`changes.sh`](.github/scripts/changes.sh) whether that job's CI group
+changed since `origin/main`. A hook and its CI job therefore run on the
+same files, and a path added to `changes.sh` reaches both. To add a hook,
+name its CI group as the guard's first argument; an unknown group fails the
+hook instead of skipping it.
 
 No hook reaches for a linter CI doesn't also run.
 

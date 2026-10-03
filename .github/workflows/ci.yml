@@ -41,7 +41,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: test the filter
-        run: .github/scripts/changes.test.sh
+        run: |
+          .github/scripts/changes.test.sh
+          .github/scripts/hook-guard.test.sh
       - id: filter
         env:
           EVENT: ${{ github.event_name }}
