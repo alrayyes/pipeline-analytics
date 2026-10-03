@@ -2,7 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import {
 	ApiError,
 	type FailureInsights,
+	type FlakyStepList,
 	fetchFailureInsights,
+	fetchFlakySteps,
 	fetchPipeline,
 	fetchPipelineSteps,
 	fetchPipelines,
@@ -411,5 +413,78 @@ describe('fetchRuns', () => {
 
 		expect(error).toBeInstanceOf(ApiError);
 		expect((error as ApiError).status).toBe(400);
+	});
+});
+
+describe('fetchFlakySteps', () => {
+	const list: FlakyStepList = {
+		window: '7d',
+		steps: [
+			{
+				pipelineId: 'p1',
+				pipelineName: 'CI',
+				repoId: 'r1',
+				name: 'test',
+				flakeRate: 0.25,
+				runCount: 4,
+				recentOutcomes: ['passed', 'failed', 'passed', 'passed'],
+			},
+		],
+		hasMore: false,
+	};
+
+	test('calls GET /api/steps/flaky with the window', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse(list));
+		};
+
+		const result = await fetchFlakySteps(
+			{ window: '24h' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe('/api/steps/flaky?window=24h');
+		expect(result).toEqual(list);
+	});
+
+	test('leaves the window off when there is none, so the server uses its own default', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse(list));
+		};
+
+		await fetchFlakySteps({}, fetchFn as typeof fetch);
+
+		expect(requestedUrl).toBe('/api/steps/flaky');
+	});
+
+	test('sends the repo, forge and page it was given', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse(list));
+		};
+
+		await fetchFlakySteps(
+			{ forge: 'github', repoId: 'r1', limit: 20, offset: 40 },
+			fetchFn as typeof fetch,
+		);
+
+		const params = new URL(requestedUrl ?? '', 'http://x').searchParams;
+		expect(params.get('forge')).toBe('github');
+		expect(params.get('repoId')).toBe('r1');
+		expect(params.get('limit')).toBe('20');
+		expect(params.get('offset')).toBe('40');
+	});
+
+	test('throws an ApiError carrying the status on a failed response', async () => {
+		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 500));
+
+		await expect(
+			fetchFlakySteps({}, fetchFn as typeof fetch),
+		).rejects.toMatchObject({ status: 500 });
 	});
 });

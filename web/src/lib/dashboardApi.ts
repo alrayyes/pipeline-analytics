@@ -162,6 +162,26 @@ export interface FailureInsights {
 	failureGroups: FailureGroup[];
 }
 
+export interface FlakyStep {
+	pipelineId: string;
+	pipelineName: string;
+	repoId: string;
+	name: string;
+	// Fraction of the step's runs in the window that failed, from the server.
+	flakeRate: number;
+	// Every run of the step in the window, not just the ones in the matrix.
+	runCount: number;
+	// The step's most recent results (at most 40), oldest first.
+	recentOutcomes: Outcome[];
+}
+
+export interface FlakyStepList {
+	// The window these figures cover; show this, don't assume a default.
+	window: InsightsWindow;
+	steps: FlakyStep[];
+	hasMore: boolean;
+}
+
 export interface UsageEntry {
 	workflow: string;
 	runnerMinutes: number;
@@ -305,4 +325,35 @@ export async function fetchRuns(
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as RunListResponse;
+}
+
+export interface FlakyStepsParams {
+	// Omit to let the server use its default window.
+	window?: InsightsWindow;
+	forge?: 'github' | 'forgejo';
+	repoId?: string;
+	limit?: number;
+	offset?: number;
+}
+
+export async function fetchFlakySteps(
+	params: FlakyStepsParams,
+	fetchFn: typeof fetch = fetch,
+): Promise<FlakyStepList> {
+	const searchParams = new URLSearchParams();
+	if (params.window) searchParams.set('window', params.window);
+	if (params.repoId) searchParams.set('repoId', params.repoId);
+	if (params.forge) searchParams.set('forge', params.forge);
+	if (params.limit !== undefined) {
+		searchParams.set('limit', String(params.limit));
+	}
+	if (params.offset !== undefined) {
+		searchParams.set('offset', String(params.offset));
+	}
+
+	const query = searchParams.size > 0 ? `?${searchParams}` : '';
+	const res = await fetchFn(`/api/steps/flaky${query}`);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as FlakyStepList;
 }
