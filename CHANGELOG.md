@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.64.0...v0.65.0) (2026-10-03)
+
+
+### Features
+
+* **mcp:** add tools for run and failure data ([#402](https://github.com/alrayyes/pipeline-analytics/issues/402)) ([cce3e30](https://github.com/alrayyes/pipeline-analytics/commit/cce3e306de92eef7f4dc5e675fb42a29f8076504))
+
 ## [0.64.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.63.0...v0.64.0) (2026-10-03)
 
 
