@@ -294,3 +294,40 @@ func TestServeUntilDone_ReturnsAServeError(t *testing.T) {
 
 	require.ErrorContains(t, err, "serve:")
 }
+
+// TestRunServe_StartsServesAndStopsOnContext runs the real server wiring: it
+// comes up on a configured address, answers its probes, and a cancelled
+// context takes it down cleanly through the drain.
+func TestRunServe_StartsServesAndStopsOnContext(t *testing.T) {
+	newServeCmd()
+
+	ln := listen(t)
+	addr := ln.Addr().String()
+	require.NoError(t, ln.Close()) // free the port for runServe to take
+
+	t.Setenv("PIPELINE_ANALYTICS_ADDR", addr)
+	t.Setenv("PIPELINE_ANALYTICS_DB", t.TempDir()+"/runserve.db")
+	t.Setenv("PIPELINE_ANALYTICS_CALLBACK_URL", "https://example.com")
+	t.Setenv("PIPELINE_ANALYTICS_ENCRYPTION_KEY", strings.Repeat("00", 32))
+	t.Setenv("PIPELINE_ANALYTICS_DRAIN_PERIOD", "0s")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+
+	go func() { done <- runServe(ctx) }()
+
+	require.Eventually(t, func() bool {
+		code, err := fetch("http://" + addr + "/readyz")
+
+		return err == nil && code == http.StatusOK
+	}, 10*time.Second, 50*time.Millisecond, "the server comes up and reports ready")
+
+	cancel()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("the server did not stop after its context was cancelled")
+	}
+}
