@@ -15,6 +15,7 @@ func validConfig() config.Config {
 		CallbackURL:       "https://example.com",
 		EncryptionKey:     make([]byte, 32),
 		ReconcileInterval: time.Hour,
+		ShutdownTimeout:   5 * time.Second,
 	}
 }
 
@@ -25,6 +26,25 @@ func TestValidate(t *testing.T) {
 		t.Parallel()
 
 		require.NoError(t, validConfig().Validate())
+	})
+
+	t.Run("a zero drain period is allowed, a negative one is not", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := validConfig()
+		cfg.DrainPeriod = 0
+		require.NoError(t, cfg.Validate())
+
+		cfg.DrainPeriod = -time.Second
+		require.ErrorIs(t, cfg.Validate(), config.ErrDrainPeriodNegative)
+	})
+
+	t.Run("the shutdown timeout must be positive, or shutdown can wait forever", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := validConfig()
+		cfg.ShutdownTimeout = 0
+		require.ErrorIs(t, cfg.Validate(), config.ErrShutdownTimeoutNonPositive)
 	})
 
 	t.Run("missing addr", func(t *testing.T) {

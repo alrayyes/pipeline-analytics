@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -126,9 +127,11 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().String("callback-url", "", "this server's own public base URL, used for forge webhook callbacks")
 	cmd.Flags().String("encryption-key", "", "hex-encoded 32-byte key repo tokens are encrypted under at rest")
 	cmd.Flags().Duration("reconcile-interval", time.Hour, "how often to poll tracked repos for reconciliation (forge-ingestion/spec.md requires at least hourly)")
+	cmd.Flags().Duration("drain-period", 4*time.Second, "how long to keep serving after SIGTERM with /readyz answering 503, so a router notices before the listener closes")
+	cmd.Flags().Duration("shutdown-timeout", 5*time.Second, "how long in-flight requests get to finish after the drain before shutdown gives up (drain plus this stays under Docker's 10s stop grace)")
 	cmd.Flags().String("log-level", "info", "log verbosity: debug, info, warn, or error")
 
-	for _, name := range []string{"addr", "db", "callback-url", "encryption-key", "reconcile-interval", "log-level"} {
+	for _, name := range []string{"addr", "db", "callback-url", "encryption-key", "reconcile-interval", "drain-period", "shutdown-timeout", "log-level"} {
 		if err := viper.BindPFlag(name, cmd.Flags().Lookup(name)); err != nil {
 			panic(err)
 		}
@@ -180,7 +183,9 @@ func runServe(ctx context.Context) error {
 
 	reconciler := ingestion.NewReconciler(ingestionStore, ingestionStore, forgeClients)
 
-	handler, err := buildHandler(cfg, conn, ingestionStore, forgeClients, reconciler)
+	var draining atomic.Bool
+
+	handler, err := buildHandler(cfg, conn, ingestionStore, forgeClients, reconciler, &draining)
 	if err != nil {
 		return err
 	}
@@ -196,7 +201,20 @@ func runServe(ctx context.Context) error {
 
 	go reconciler.Run(ctx, cfg.ReconcileInterval)
 
-	return serveUntilDone(ctx, srv)
+	return listenAndServe(ctx, srv, shutdownPlan{
+		draining:    &draining,
+		drainPeriod: cfg.DrainPeriod,
+		timeout:     cfg.ShutdownTimeout,
+	})
+}
+
+func listenAndServe(ctx context.Context, srv *http.Server, plan shutdownPlan) error {
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", srv.Addr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", srv.Addr, err)
+	}
+
+	return serveUntilDone(ctx, srv, ln, plan)
 }
 
 // newForgeClients returns the real GitHub and Forgejo ForgeClient adapters,
@@ -236,6 +254,8 @@ func loadConfig() (config.Config, error) {
 		CallbackURL:       viper.GetString("callback-url"),
 		EncryptionKey:     encryptionKey,
 		ReconcileInterval: viper.GetDuration("reconcile-interval"),
+		DrainPeriod:       viper.GetDuration("drain-period"),
+		ShutdownTimeout:   viper.GetDuration("shutdown-timeout"),
 		LogLevel:          logLevel,
 	}
 	if err := cfg.Validate(); err != nil {
@@ -274,7 +294,7 @@ func dbReady(conn *sql.DB) func(ctx context.Context) error {
 	}
 }
 
-func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqlite.Store, forgeClients map[ingestion.Forge]ingestion.ForgeClient, reconciler ingestion.RepoReconciler) (http.Handler, error) {
+func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqlite.Store, forgeClients map[ingestion.Forge]ingestion.ForgeClient, reconciler ingestion.RepoReconciler, draining *atomic.Bool) (http.Handler, error) {
 	registrar := ingestion.NewRegistrar(ingestionStore, forgeClients, cfg.CallbackURL)
 
 	authStore := authsqlite.NewStore(conn)
@@ -305,6 +325,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		AuthStore:        authStore,
 		Settings:         settings.NewService(settingssqlite.NewStore(conn)),
 		Ready:            dbReady(conn),
+		Draining:         draining,
 		Version:          version,
 		Assets:           assets,
 	}), nil
@@ -332,17 +353,27 @@ func newWebAuthn(callbackURL string) (*webauthn.WebAuthn, error) {
 	return web, nil
 }
 
-// serveUntilDone runs srv until ctx is done, then shuts it down gracefully.
-// ctx is expected to already carry signal-driven cancellation (runServe
-// arms it once, shared with the reconciliation scheduler).
-func serveUntilDone(ctx context.Context, srv *http.Server) error {
+// shutdownPlan is how serveUntilDone leaves: flip draining so /readyz answers
+// 503, keep serving for drainPeriod so a router polling it notices, then give
+// in-flight requests timeout to finish.
+type shutdownPlan struct {
+	draining    *atomic.Bool
+	drainPeriod time.Duration
+	timeout     time.Duration
+}
+
+// serveUntilDone serves srv on ln until ctx is done, then shuts it down in the
+// order api.md asks for: readiness first, the listener last. ctx is expected
+// to already carry signal-driven cancellation (runServe arms it once, shared
+// with the reconciliation scheduler).
+func serveUntilDone(ctx context.Context, srv *http.Server, ln net.Listener, plan shutdownPlan) error {
 	errCh := make(chan error, 1)
 
 	go func() {
-		slog.Info("listening", "addr", srv.Addr)
+		slog.Info("listening", "addr", ln.Addr().String())
 
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- fmt.Errorf("listen and serve: %w", err)
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("serve: %w", err)
 
 			return
 		}
@@ -352,7 +383,16 @@ func serveUntilDone(ctx context.Context, srv *http.Server) error {
 
 	select {
 	case <-ctx.Done():
-		if err := srv.Shutdown(context.Background()); err != nil {
+		plan.draining.Store(true)
+		slog.Info("draining", "period", plan.drainPeriod.String())
+
+		// The signal context is already done, so the wait runs on a timer.
+		time.Sleep(plan.drainPeriod)
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), plan.timeout)
+		defer cancel()
+
+		if err := srv.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown: %w", err)
 		}
 
