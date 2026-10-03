@@ -68,6 +68,11 @@ var enumValues = map[string][]string{
 	KeyTelemetryWindow:       {"24h", "7d", "30d"},
 }
 
+// MaxRepoSelectorLength bounds the one free-text setting, a repo id or "all",
+// so a caller can't store an arbitrarily large value (the OpenAPI spec's
+// SettingsUpdate.pipelinesRepoSelector maxLength).
+const MaxRepoSelectorLength = 128
+
 // ErrInvalidKey is returned by Update for a key outside Keys.
 var ErrInvalidKey = errors.New("unrecognized setting key")
 

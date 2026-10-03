@@ -3,6 +3,7 @@ package settings_test
 import (
 	"context"
 	"maps"
+	"strings"
 	"sync"
 	"testing"
 
@@ -252,4 +253,31 @@ func TestService_ResetPipelinesFilters(t *testing.T) {
 	require.Equal(t, settings.DefaultPipelinesSortOrder, got.PipelinesSortOrder)
 	require.Equal(t, "dark", got.Theme, "not a Pipelines filter -- untouched by reset")
 	require.Equal(t, "30d", got.TelemetryWindow, "not a Pipelines filter -- untouched by reset")
+}
+
+func TestUpdate_RepoSelectorLength(t *testing.T) {
+	t.Parallel()
+
+	svc := settings.NewService(newFakeStore())
+
+	t.Run("a selector at the limit is accepted", func(t *testing.T) {
+		t.Parallel()
+
+		long := strings.Repeat("r", settings.MaxRepoSelectorLength)
+		got, err := svc.Update(context.Background(), "user-1", map[string]*string{settings.KeyPipelinesRepoSelector: &long})
+		require.NoError(t, err)
+		require.Equal(t, long, got.PipelinesRepoSelector)
+	})
+
+	t.Run("one past it is rejected, and nothing changes", func(t *testing.T) {
+		t.Parallel()
+
+		tooLong := strings.Repeat("r", settings.MaxRepoSelectorLength+1)
+		_, err := svc.Update(context.Background(), "user-2", map[string]*string{settings.KeyPipelinesRepoSelector: &tooLong})
+		require.ErrorIs(t, err, settings.ErrInvalidValue)
+
+		got, err := svc.Get(context.Background(), "user-2")
+		require.NoError(t, err)
+		require.Equal(t, settings.DefaultPipelinesRepoSelector, got.PipelinesRepoSelector)
+	})
 }

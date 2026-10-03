@@ -45,6 +45,10 @@ func (s *Service) Update(ctx context.Context, userID string, updates map[string]
 		if allowed, hasEnum := enumValues[key]; hasEnum && !slices.Contains(allowed, *value) {
 			return Settings{}, fmt.Errorf("%w: %q for %q", ErrInvalidValue, *value, key)
 		}
+
+		if key == KeyPipelinesRepoSelector && len(*value) > MaxRepoSelectorLength {
+			return Settings{}, fmt.Errorf("%w: %s is longer than %d", ErrInvalidValue, key, MaxRepoSelectorLength)
+		}
 	}
 
 	raw, err := s.store.Patch(ctx, userID, updates)
