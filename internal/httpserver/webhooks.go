@@ -44,6 +44,13 @@ func (h *webhooksHandler) receive(w http.ResponseWriter, r *http.Request, forge 
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		if isBodyTooLarge(err) {
+			slog.DebugContext(ctx, "webhook rejected", "forge", forge, "reason", "payload_too_large")
+			writePayloadTooLarge(w)
+
+			return
+		}
+
 		slog.DebugContext(ctx, "webhook rejected", "forge", forge, "reason", "invalid_body")
 		writeError(w, http.StatusBadRequest, "invalid_body", "could not read request body")
 

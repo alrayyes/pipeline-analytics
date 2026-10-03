@@ -85,14 +85,18 @@ func (h *reposHandler) list(w http.ResponseWriter, r *http.Request) {
 
 func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 	var in repoRegistrationDTO
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
-
+	if !readJSON(w, r, &in) {
 		return
 	}
 
 	if in.Identifier == "" || in.Token == "" || (in.Forge != string(ingestion.ForgeGitHub) && in.Forge != string(ingestion.ForgeForgejo)) {
 		writeError(w, http.StatusBadRequest, "invalid_body", "forge, identifier, and token are required")
+
+		return
+	}
+
+	if len(in.Identifier) > maxIdentifierLength || len(in.Token) > maxTokenLength || len(in.ForgejoInstanceURL) > maxInstanceURLLength {
+		writeError(w, http.StatusBadRequest, "invalid_body", "identifier, token or instance URL is too long")
 
 		return
 	}
@@ -166,14 +170,18 @@ func (h *reposHandler) identifiers(w http.ResponseWriter, r *http.Request) {
 
 func (h *reposHandler) discover(w http.ResponseWriter, r *http.Request) {
 	var in repoDiscoveryDTO
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
-
+	if !readJSON(w, r, &in) {
 		return
 	}
 
 	if in.Token == "" || (in.Forge != string(ingestion.ForgeGitHub) && in.Forge != string(ingestion.ForgeForgejo)) {
 		writeError(w, http.StatusBadRequest, "invalid_body", "forge and token are required")
+
+		return
+	}
+
+	if len(in.Token) > maxTokenLength || len(in.ForgejoInstanceURL) > maxInstanceURLLength {
+		writeError(w, http.StatusBadRequest, "invalid_body", "token or instance URL is too long")
 
 		return
 	}

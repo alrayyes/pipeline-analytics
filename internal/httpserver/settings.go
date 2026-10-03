@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -66,9 +65,7 @@ func (h *settingsHandler) patch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var updates map[string]*string
-	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
-
+	if !readJSON(w, r, &updates) {
 		return
 	}
 

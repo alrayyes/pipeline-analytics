@@ -7,11 +7,11 @@
 # it where one exists. Don't turn one off without saying why.
 extends: ["@stoplight/spectral-owasp-ruleset"]
 rules:
-  # Request bodies and request fields are unbounded today: that is real, and
-  # #429 fixes it. These five rules can't tell a request schema from a
-  # response one, and the server builds every response itself, so until #429
-  # lands they only list response shapes (about 130 findings) and bury the
-  # ones that matter. Turn them back on once the request schemas carry limits.
+  # The server builds every response itself, so the limit rules only matter
+  # on what a caller sends. They can't tell a request schema from a response
+  # one, so they are off here and switched back on for the request schemas
+  # under `overrides` below. A new request schema needs its own entry there.
+  # (Bodies are capped by a middleware too: #429.)
   owasp:api4:2023-string-limit: off
   owasp:api4:2023-string-restricted: off
   owasp:api4:2023-array-limit: off
@@ -32,3 +32,12 @@ rules:
   # /api/auth/tokens/{tokenId}, not the token's secret; the rule matches on
   # the parameter's name.
   owasp:api2:2023-no-credentials-in-url: off
+
+# The request schemas, where an unbounded string is a real risk (#429).
+overrides:
+  - files:
+      - "openapi/openapi.yaml#/components/schemas/RepoRegistration"
+      - "openapi/openapi.yaml#/components/schemas/RepoDiscoveryRequest"
+      - "openapi/openapi.yaml#/components/schemas/SettingsUpdate"
+    rules:
+      owasp:api4:2023-string-limit: error
