@@ -27,9 +27,11 @@ on:
         required: false
         type: string
 
+# Read-only by default. Each job that writes asks for it below, so a step
+# added to a job that doesn't need to write can't (rules/ci.md, least
+# privilege).
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 # Hooks never fire in a pipeline: the screenshot job commits, and the root
 # package.json's `prepare` script is `lefthook install` (rules/tooling.md).
@@ -48,6 +50,10 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Every call it makes goes through RELEASE_TOKEN (so the pull request it
+    # opens triggers CI), not GITHUB_TOKEN.
+    permissions:
+      contents: read
     outputs:
       release_created: ${{ fromJSON(steps.release.outputs.outputs).release_created }}
       tag_name: ${{ fromJSON(steps.release.outputs.outputs).tag_name }}
@@ -170,6 +176,9 @@ jobs:
       needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Reads the last release and a git diff; writes nothing.
+    permissions:
+      contents: read
     outputs:
       changed: ${{ steps.check.outputs.changed }}
     steps:
