@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.62.0...v0.63.0) (2026-10-03)
+
+
+### Features
+
+* **api:** report the window the failure insights cover ([#395](https://github.com/alrayyes/pipeline-analytics/issues/395)) ([5552bf0](https://github.com/alrayyes/pipeline-analytics/commit/5552bf0b94ba21001a85f68a2b01c3ac4877e069))
+
 ## [0.62.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.61.0...v0.62.0) (2026-10-02)
 
 
