@@ -47,6 +47,12 @@
 - [x] 5.2 Runs list with polling
 - [x] 5.3 Root cause diagnostics
 - [ ] 5.4 Flaky telemetry; `/steps` redirects to `/flaky`
+  - [x] 5.4a `GET /api/steps/flaky` in `openapi/openapi.yaml`: flaky steps
+        across pipelines ranked by flake rate, each with its run count and
+        up to 40 recent outcomes (the unhealthy list has neither)
+  - [ ] 5.4b Metrics, handler and the `list_flaky_steps` MCP tool, tests
+        first; drop the `notMCPTools` entry for it
+  - [ ] 5.4c The `/flaky` view and `FlakeMatrix`, `/steps` redirecting
 - [ ] 5.5 Playwright journey and axe scan per view at 390px
 
 ## 6. Docs
