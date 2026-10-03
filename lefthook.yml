@@ -48,7 +48,7 @@ pre-commit:
     # Style advice, not a gate -- reports, doesn't block a commit.
     vale:
       glob: "*.md"
-      run: vale {staged_files} || true
+      run: scripts/lint-prose.sh {staged_files} || true
     # Scoped by the CI `docker` group (hook-guard.sh), so a commit touching
     # nothing the image reads skips it -- containers.md.
     docker-build:
@@ -149,4 +149,4 @@ pre-push:
     # matches CI's own style job (linting.md: hook and CI run the same
     # commands so they can't drift), same file list and all.
     prose-style:
-      run: .github/scripts/hook-guard.sh --push vale -- sh -c 'vale sync && vale README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md'
+      run: .github/scripts/hook-guard.sh --push vale -- scripts/lint-prose.sh
