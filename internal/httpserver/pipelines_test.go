@@ -421,6 +421,7 @@ func TestRunSteps(t *testing.T) {
 		step, _ := steps[0].(map[string]any)
 		require.Equal(t, "checkout", step["name"])
 		require.Contains(t, step["forgeUrl"], "/job/100")
+		require.NotEmpty(t, step["jobId"], "the UI needs the job's id to ask for its log")
 	})
 
 	t.Run("an unknown run is not found", func(t *testing.T) {

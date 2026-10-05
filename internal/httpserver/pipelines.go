@@ -99,6 +99,7 @@ func toFlakyRunDTO(r metrics.FlakyRun) flakyRunDTO {
 }
 
 type runStepDTO struct {
+	JobID      string `json:"jobId,omitempty"`
 	Name       string `json:"name"`
 	Status     string `json:"status"`
 	Conclusion string `json:"conclusion,omitempty"`
@@ -108,6 +109,7 @@ type runStepDTO struct {
 
 func toRunStepDTO(s metrics.RunStep) runStepDTO {
 	return runStepDTO{
+		JobID:      s.JobID,
 		Name:       s.Name,
 		Status:     s.Status,
 		Conclusion: s.Conclusion,

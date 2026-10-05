@@ -139,7 +139,7 @@ func (s *Store) PipelineRuns(ctx context.Context, ref metrics.PipelineRef, windo
 // PipelineSteps implements metrics.Store.
 func (s *Store) PipelineSteps(ctx context.Context, ref metrics.PipelineRef, window metrics.Window) ([]metrics.StepOccurrence, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url, j.run_id, r.started_at
+		SELECT s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url, j.run_id, r.started_at, j.id
 		FROM steps s
 		JOIN jobs j ON j.id = s.job_id
 		JOIN runs r ON r.id = j.run_id
@@ -400,7 +400,7 @@ func (s *Store) attachSteps(ctx context.Context, runs []metrics.RunEntry) error 
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT j.run_id, s.name, s.status, s.conclusion, j.forge_url
+		SELECT j.run_id, s.name, s.status, s.conclusion, j.forge_url, j.id
 		FROM steps s
 		JOIN jobs j ON j.id = s.job_id
 		WHERE j.run_id IN (SELECT value FROM json_each(?))
@@ -418,7 +418,7 @@ func (s *Store) attachSteps(ctx context.Context, runs []metrics.RunEntry) error 
 			conclusion sql.NullString
 		)
 
-		if err := rows.Scan(&runID, &step.Name, &step.Status, &conclusion, &step.ForgeURL); err != nil {
+		if err := rows.Scan(&runID, &step.Name, &step.Status, &conclusion, &step.ForgeURL, &step.JobID); err != nil {
 			return fmt.Errorf("scan run step: %w", err)
 		}
 
@@ -436,7 +436,7 @@ func (s *Store) attachSteps(ctx context.Context, runs []metrics.RunEntry) error 
 // RunSteps implements metrics.Store.
 func (s *Store) RunSteps(ctx context.Context, runID string) ([]metrics.StepOccurrence, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url, j.run_id, r.started_at
+		SELECT s.name, s.status, s.conclusion, s.started_at, s.completed_at, j.queued_at, j.started_at, j.forge_url, j.run_id, r.started_at, j.id
 		FROM steps s
 		JOIN jobs j ON j.id = s.job_id
 		JOIN runs r ON r.id = j.run_id
@@ -462,7 +462,7 @@ func scanStepOccurrences(rows *sql.Rows) ([]metrics.StepOccurrence, error) {
 
 		err := rows.Scan(
 			&occ.Name, &occ.Status, &conclusion, &occ.StartedAt, &occ.CompletedAt,
-			&occ.JobQueuedAt, &occ.JobStartedAt, &occ.JobForgeURL, &occ.RunID, &occ.RunStartedAt,
+			&occ.JobQueuedAt, &occ.JobStartedAt, &occ.JobForgeURL, &occ.RunID, &occ.RunStartedAt, &occ.JobID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan step: %w", err)
