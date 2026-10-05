@@ -108,6 +108,11 @@ func (h *mcpHandler) addRunTools(server *mcp.Server) {
 	}, h.getRunSteps)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_branches",
+		Description: "List the branches with runs in a 24h, 7d or 30d window, busiest first, each with its run count. Pass a name as branch to get_failure_insights, list_runs or list_flaky_steps to scope them. Matches GET /api/branches.",
+	}, h.listBranches)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_flaky_steps",
 		Description: "List flaky steps across every pipeline, ranked by flake rate, each with its run count and up to 40 recent outcomes, oldest first. Matches GET /api/steps/flaky.",
 	}, h.listFlakySteps)
@@ -410,6 +415,23 @@ func (h *mcpHandler) getJobLog(ctx context.Context, _ *mcp.CallToolRequest, in j
 	}
 
 	return nil, toJobLogDTO(result), nil
+}
+
+type listBranchesInput struct {
+	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted covers every repo"`
+	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted covers every forge"`
+	Window string `json:"window,omitempty" jsonschema:"24h, 7d or 30d; anything else, or omitted, is 7d, and the result reports the window used"`
+}
+
+func (h *mcpHandler) listBranches(ctx context.Context, _ *mcp.CallToolRequest, in listBranchesInput) (*mcp.CallToolResult, branchListDTO, error) {
+	window := metrics.ParseInsightWindow(in.Window)
+
+	branches, err := h.metrics.ListBranches(ctx, time.Now(), window, metrics.InsightFilter{RepoID: in.RepoID, Forge: in.Forge})
+	if err != nil {
+		return nil, branchListDTO{}, fmt.Errorf("list branches: %w", err)
+	}
+
+	return nil, toBranchListDTO(window, branches), nil
 }
 
 type listFlakyStepsInput struct {

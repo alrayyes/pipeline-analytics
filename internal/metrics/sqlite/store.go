@@ -201,6 +201,43 @@ func (s *Store) WindowRuns(ctx context.Context, filter metrics.RunWindowFilter) 
 	return runs, nil
 }
 
+// WindowBranches implements metrics.Store.
+func (s *Store) WindowBranches(ctx context.Context, filter metrics.RunWindowFilter) ([]metrics.BranchCount, error) {
+	query := "SELECT r.branch, COUNT(*) FROM runs r"
+	if filter.Forge != "" {
+		query += " JOIN repos p ON p.id = r.repo_id"
+	}
+
+	query += " WHERE r.started_at >= ? AND r.started_at < ? AND r.branch IS NOT NULL AND r.branch != ''"
+	args := []any{filter.Since, filter.Until}
+
+	query, args = appendRunScope(query, args, filter.RepoID, filter.Forge, "")
+	query += " GROUP BY r.branch ORDER BY COUNT(*) DESC, r.branch"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query window branches: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var branches []metrics.BranchCount
+
+	for rows.Next() {
+		var b metrics.BranchCount
+		if err := rows.Scan(&b.Name, &b.RunCount); err != nil {
+			return nil, fmt.Errorf("scan branch: %w", err)
+		}
+
+		branches = append(branches, b)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate branches: %w", err)
+	}
+
+	return branches, nil
+}
+
 // WindowSteps implements metrics.Store.
 func (s *Store) WindowSteps(ctx context.Context, filter metrics.RunWindowFilter) ([]metrics.WindowStep, error) {
 	query := `

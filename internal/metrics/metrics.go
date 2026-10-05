@@ -272,6 +272,10 @@ type Store interface {
 	// that started in [filter.Since, filter.Until), with its pipeline. Order
 	// is unspecified.
 	WindowSteps(ctx context.Context, filter RunWindowFilter) ([]WindowStep, error)
+	// WindowBranches returns each branch with runs that started in
+	// [filter.Since, filter.Until), busiest first then by name. filter.Branch
+	// is ignored; runs with no branch are not counted.
+	WindowBranches(ctx context.Context, filter RunWindowFilter) ([]BranchCount, error)
 	// ListRuns returns a page of runs matching filter, newest first (a run
 	// that hasn't started yet before the rest), each with its steps, plus
 	// whether more beyond this page match -- always false when filter.Limit

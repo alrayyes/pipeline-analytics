@@ -60,6 +60,9 @@ type fakeStore struct {
 	windowSteps      []metrics.WindowStep
 	runList          []metrics.RunEntry
 	runListHasMore   bool
+	windowBranches   []metrics.BranchCount
+	branchesErr      error
+	gotBranchFilter  metrics.RunWindowFilter
 	gotRunListFilter metrics.RunListFilter
 }
 
@@ -126,6 +129,14 @@ func (f *fakeStore) WindowRuns(_ context.Context, filter metrics.RunWindowFilter
 	}
 
 	return matching, nil
+}
+
+// WindowBranches records the filter it was given and returns the canned
+// branches; the real query is tested against SQLite.
+func (f *fakeStore) WindowBranches(_ context.Context, filter metrics.RunWindowFilter) ([]metrics.BranchCount, error) {
+	f.gotBranchFilter = filter
+
+	return f.windowBranches, f.branchesErr
 }
 
 // WindowSteps applies the same bounds as WindowRuns, on the owning run's
