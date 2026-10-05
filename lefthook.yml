@@ -1,3 +1,12 @@
+# Silent on success, full output on failure: the default banner and per-job
+# lines are pure overhead once a hook's output lands in an agent's tool
+# result (rules/linting.md).
+output: [failure]
+
+# CI-only, on purpose: govulncheck. Its database changes without a commit,
+# so a pass here proves nothing the pipeline won't re-check.
+# CI-only, on purpose: bun audit. Advisories land overnight, same reason.
+#
 # pre-commit fixes and restages; pre-push checks the whole tree and never
 # writes -- go-lint.md/go-mod.md/linting.md's split. Go commands run
 # through Docker so the host's go/golangci-lint installs never drift from
@@ -8,6 +17,7 @@ pre-commit:
     go-fmt:
       glob: "*.go"
       run: >
+        mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
@@ -16,6 +26,7 @@ pre-commit:
     go-mod-fmt:
       glob: "go.mod"
       run: >
+        mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
@@ -75,6 +86,7 @@ pre-push:
   commands:
     go-vet:
       run: >
+        mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
         .github/scripts/hook-guard.sh --push go --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
@@ -83,6 +95,7 @@ pre-push:
         golang:1.27.1-bookworm go vet ./...
     go-test:
       run: >
+        mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
         .github/scripts/hook-guard.sh --push go --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
@@ -91,14 +104,25 @@ pre-push:
         golang:1.27.1-bookworm go test -race -cover ./...
     go-mod-tidy:
       run: >
+        mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
         .github/scripts/hook-guard.sh --push go --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
         golang:1.27.1-bookworm go mod tidy -diff
+    go-mod-fmt-check:
+      run: >
+        mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
+        .github/scripts/hook-guard.sh --push go --
+        docker run --rm --user "$(id -u):$(id -g)"
+        -v "$(pwd):/src" -w /src
+        -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
+        -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
+        golang:1.27.1-bookworm sh -c 'go mod edit -fmt -print go.mod | diff -u go.mod -'
     golangci-lint:
       run: >
+        mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/golangci-lint-docker" &&
         .github/scripts/hook-guard.sh --push lint --
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
@@ -107,6 +131,14 @@ pre-push:
         golangci/golangci-lint:v2.13.2 golangci-lint run ./...
     spectral:
       run: .github/scripts/hook-guard.sh --push api -- bunx spectral lint --display-only-failures openapi/openapi.yaml
+    redocly:
+      run: .github/scripts/hook-guard.sh --push api -- bunx @redocly/cli lint
+    goreleaser-check:
+      run: >
+        .github/scripts/hook-guard.sh --push goreleaser --
+        docker run --rm -v "$(pwd):/src" -w /src
+        -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src
+        --entrypoint goreleaser goreleaser/goreleaser:v2.17.1 check
     sort-package-json-check:
       run: .github/scripts/hook-guard.sh --push package -- bunx sort-package-json --check package.json web/package.json
     frontend-check:
@@ -129,6 +161,8 @@ pre-push:
     # The Dockerfile only COPYs a prebuilt binary (go-releases.md), so this
     # rebuilds that binary itself before building the image, same shape as
     # ci.yml's docker job.
+    hadolint:
+      run: .github/scripts/hook-guard.sh --push docker -- sh -c 'docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile'
     docker-build:
       run: .github/scripts/hook-guard.sh --push docker -- sh -c 'go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics'
     # Whole tree, not just the prose files mechanics/style below check --

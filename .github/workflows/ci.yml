@@ -51,6 +51,7 @@ jobs:
           .github/scripts/hook-guard.test.sh
           .github/scripts/ci-needs.test.sh
           .github/scripts/lefthook-off.test.sh
+          .github/scripts/lefthook-parity.test.sh
       - id: filter
         env:
           EVENT: ${{ github.event_name }}
