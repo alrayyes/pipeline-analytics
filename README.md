@@ -45,7 +45,11 @@ branch.
 ## Requirements
 
 - A GitHub or Forgejo repository to track, and a repo-scoped personal access
-  token for it (Actions-read and webhook-management permissions).
+  token for it (Actions-read and webhook-management permissions). Instead of
+  typing it for each repo, save one per forge (and Forgejo instance) with
+  `PUT /api/forge-tokens` from a logged-in session: registering or
+  discovering with no token in the request then uses the saved one. It's
+  stored encrypted and never returned, only its last four characters.
 - A public HTTPS URL the server is reachable at, so GitHub/Forgejo can
   deliver webhooks to it.
 - To build from source: Go 1.27+, and [bun](https://bun.sh) 1.3.x (not 1.4+
@@ -156,7 +160,7 @@ interactive CLI a human persists a preference for:
   is built from. It has to match what a browser and GitHub/Forgejo actually
   reach the server at.
 - `--encryption-key` is a hex-encoded 32-byte (AES-256) key that repo
-  access tokens are encrypted under at rest. Generate one with
+  access tokens, and saved forge tokens, are encrypted under at rest. Generate one with
   `openssl rand -hex 32` and keep it — losing it means every tracked repo's
   token has to be re-entered.
 - `--reconcile-interval` bounds how often the server polls each tracked
