@@ -179,6 +179,7 @@ func TestMCPToolsList(t *testing.T) {
 		"get_failure_insights",
 		"list_runs",
 		"get_run_steps",
+		"get_job_log",
 		"list_flaky_steps",
 	}, names, "tool list must be exactly the read tools, no write tool")
 }

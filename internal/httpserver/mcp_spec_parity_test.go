@@ -28,6 +28,7 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "get_failure_insights", path: "/api/insights/failures"},
 	{tool: "list_runs", path: "/api/runs"},
 	{tool: "get_run_steps", path: "/api/runs/{runId}/steps"},
+	{tool: "get_job_log", path: "/api/runs/{runId}/jobs/{jobId}/log"},
 	{tool: "list_flaky_steps", path: "/api/steps/flaky"},
 }
 
@@ -36,15 +37,14 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 // this map nor mcpToolEndpoints fails TestEveryReadEndpointHasAnMCPTool, so
 // a new endpoint can't ship without its tool or a stated reason.
 var notMCPTools = map[string]string{
-	"/healthz":                           "liveness probe, not data",
-	"/readyz":                            "readiness probe, not data",
-	"/api/version":                       "build metadata, not pipeline data",
-	"/api/repos":                         "repo administration, a dashboard concern",
-	"/api/repos/identifiers":             "repo administration, a dashboard concern",
-	"/api/insights/github-rate-limit":    "operational status of the server's own forge access, not pipeline data",
-	"/api/settings":                      "the signed-in user's dashboard preferences",
-	"/api/auth/credentials":              "passkey management, session-only",
-	"/api/runs/{runId}/jobs/{jobId}/log": "the endpoint exists; its MCP tool is the next change (#343), which removes this line",
+	"/healthz":                        "liveness probe, not data",
+	"/readyz":                         "readiness probe, not data",
+	"/api/version":                    "build metadata, not pipeline data",
+	"/api/repos":                      "repo administration, a dashboard concern",
+	"/api/repos/identifiers":          "repo administration, a dashboard concern",
+	"/api/insights/github-rate-limit": "operational status of the server's own forge access, not pipeline data",
+	"/api/settings":                   "the signed-in user's dashboard preferences",
+	"/api/auth/credentials":           "passkey management, session-only",
 }
 
 // TestEveryReadEndpointHasAnMCPTool is the other half of

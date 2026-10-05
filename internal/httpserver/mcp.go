@@ -20,6 +20,13 @@ import (
 // same way).
 var errRepoNotFound = errors.New("repo not found")
 
+// errInvalidToolInput is a tool argument outside what its schema allows.
+var errInvalidToolInput = errors.New("invalid tool input")
+
+// errJobLogsUnavailable is returned by get_job_log in a build with no job log
+// service, which the REST route answers with a 404.
+var errJobLogsUnavailable = errors.New("job logs are not available")
+
 // mcpHandler adapts the same metrics.Service / ingestion.Store calls the
 // REST handlers in this package already make into MCP tools, per
 // mcp-endpoint/spec.md's "MCP tools cover the existing read surface" --
@@ -28,6 +35,7 @@ var errRepoNotFound = errors.New("repo not found")
 type mcpHandler struct {
 	metrics *metrics.Service
 	repos   ingestion.Store
+	logs    *ingestion.JobLogService
 }
 
 // newMCPHandler builds the Streamable HTTP handler for POST /api/mcp,
@@ -38,7 +46,7 @@ type mcpHandler struct {
 // would enable (there's nothing it pushes to a client unprompted), and
 // statelessness keeps a single-account, always-on server simple.
 func newMCPHandler(deps Deps) http.Handler {
-	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore}
+	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore, logs: deps.JobLogs}
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "pipeline-analytics",
@@ -80,6 +88,15 @@ func newMCPHandler(deps Deps) http.Handler {
 		Description: "Get failure aggregates over a 24h, 7d or 30d window: pass rate and its change, MTTR, failures by step, failure categories, top failing pipelines and root-cause groups. Matches GET /api/insights/failures.",
 	}, h.getFailureInsights)
 
+	h.addRunTools(server)
+
+	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return server
+	}, &mcp.StreamableHTTPOptions{Stateless: true})
+}
+
+// addRunTools registers the tools about individual runs and their jobs.
+func (h *mcpHandler) addRunTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_runs",
 		Description: "List runs newest first, each with its steps and a normalized outcome. Matches GET /api/runs.",
@@ -95,9 +112,10 @@ func newMCPHandler(deps Deps) http.Handler {
 		Description: "List flaky steps across every pipeline, ranked by flake rate, each with its run count and up to 40 recent outcomes, oldest first. Matches GET /api/steps/flaky.",
 	}, h.listFlakySteps)
 
-	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-		return server
-	}, &mcp.StreamableHTTPOptions{Stateless: true})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_job_log",
+		Description: "Get the last lines of one job's log, fetched from the forge on demand, with ANSI sequences untouched. When the forge can't supply it, available is false with a reason and the job's forgeUrl. Matches GET /api/runs/{runId}/jobs/{jobId}/log.",
+	}, h.getJobLog)
 }
 
 type listPipelinesInput struct {
@@ -362,6 +380,33 @@ func (h *mcpHandler) getRunSteps(ctx context.Context, _ *mcp.CallToolRequest, in
 	}
 
 	return nil, runDetailDTO{RunID: detail.RunID, StartedAt: detail.StartedAt, Steps: steps}, nil
+}
+
+type jobLogInput struct {
+	RunID string `json:"runId" jsonschema:"a run's id, as list_runs or get_run_steps reports it"`
+	JobID string `json:"jobId" jsonschema:"a job's id, as get_run_steps reports it on each step"`
+	Lines int    `json:"lines,omitempty" jsonschema:"how many trailing lines, 1 to 1000; omitted returns 200"`
+}
+
+func (h *mcpHandler) getJobLog(ctx context.Context, _ *mcp.CallToolRequest, in jobLogInput) (*mcp.CallToolResult, jobLogDTO, error) {
+	if in.Lines != 0 && (in.Lines < 1 || in.Lines > ingestion.MaxLogLines) {
+		return nil, jobLogDTO{}, fmt.Errorf("%w: lines must be from 1 to %d", errInvalidToolInput, ingestion.MaxLogLines)
+	}
+
+	if h.logs == nil {
+		return nil, jobLogDTO{}, errJobLogsUnavailable
+	}
+
+	result, err := h.logs.Tail(ctx, in.RunID, in.JobID, in.Lines)
+	if err != nil {
+		if errors.Is(err, ingestion.ErrJobNotFound) {
+			return nil, jobLogDTO{}, fmt.Errorf("%w: run %s, job %s", ingestion.ErrJobNotFound, in.RunID, in.JobID)
+		}
+
+		return nil, jobLogDTO{}, fmt.Errorf("get job log: %w", err)
+	}
+
+	return nil, toJobLogDTO(result), nil
 }
 
 type listFlakyStepsInput struct {

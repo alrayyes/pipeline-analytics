@@ -11,6 +11,7 @@ import (
 	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -156,5 +157,81 @@ func TestJobLog(t *testing.T) {
 		rec := httptest.NewRecorder()
 		srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/runs/"+runID+"/jobs/"+jobID+"/log", nil))
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}
+
+func TestMCPGetJobLog(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the log tail, as the REST endpoint does", func(t *testing.T) {
+		t.Parallel()
+
+		reader := &stubLogReader{tail: ingestion.JobLogTail{Lines: []string{"one", "\x1b[31mtwo\x1b[0m"}}}
+		srv, runID, jobID := logTestServer(t, reader)
+
+		got := callTool[struct {
+			Available bool     `json:"available"`
+			Lines     []string `json:"lines"`
+			ForgeURL  string   `json:"forgeUrl"`
+		}](t, connectMCP(t, srv), "get_job_log", map[string]any{"runId": runID, "jobId": jobID, "lines": 20})
+
+		require.True(t, got.Available)
+		require.Equal(t, []string{"one", "\x1b[31mtwo\x1b[0m"}, got.Lines)
+		require.Contains(t, got.ForgeURL, "/job/100")
+		require.Equal(t, 20, reader.got.Lines)
+	})
+
+	t.Run("a log the forge can't give carries the reason", func(t *testing.T) {
+		t.Parallel()
+
+		srv, runID, jobID := logTestServer(t, &stubLogReader{err: ingestion.ErrLogForbidden})
+
+		got := callTool[struct {
+			Available bool   `json:"available"`
+			Reason    string `json:"reason"`
+		}](t, connectMCP(t, srv), "get_job_log", map[string]any{"runId": runID, "jobId": jobID})
+
+		require.False(t, got.Available)
+		require.Equal(t, "forbidden", got.Reason)
+	})
+
+	t.Run("an unknown job is a tool error", func(t *testing.T) {
+		t.Parallel()
+
+		srv, runID, _ := logTestServer(t, &stubLogReader{})
+
+		res, err := connectMCP(t, srv).CallTool(context.Background(), &mcp.CallToolParams{Name: "get_job_log", Arguments: map[string]any{"runId": runID, "jobId": "nope"}})
+		require.NoError(t, err)
+		require.True(t, res.IsError)
+	})
+
+	t.Run("lines outside 1 to 1000 is a tool error", func(t *testing.T) {
+		t.Parallel()
+
+		srv, runID, jobID := logTestServer(t, &stubLogReader{})
+
+		res, err := connectMCP(t, srv).CallTool(context.Background(), &mcp.CallToolParams{Name: "get_job_log", Arguments: map[string]any{"runId": runID, "jobId": jobID, "lines": 5000}})
+		require.NoError(t, err)
+		require.True(t, res.IsError)
+	})
+
+	t.Run("a build without a log service says so", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		res, err := connectMCP(t, srv).CallTool(context.Background(), &mcp.CallToolParams{Name: "get_job_log", Arguments: map[string]any{"runId": "r", "jobId": "j"}})
+		require.NoError(t, err)
+		require.True(t, res.IsError)
+	})
+
+	t.Run("an unexpected reader failure is a tool error", func(t *testing.T) {
+		t.Parallel()
+
+		srv, runID, jobID := logTestServer(t, &stubLogReader{err: errStubReader})
+
+		res, err := connectMCP(t, srv).CallTool(context.Background(), &mcp.CallToolParams{Name: "get_job_log", Arguments: map[string]any{"runId": runID, "jobId": jobID}})
+		require.NoError(t, err)
+		require.True(t, res.IsError)
 	})
 }

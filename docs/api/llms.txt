@@ -9,7 +9,7 @@
 
 This page (Scalar) renders the OpenAPI 3.1 description below.
 There's also a read-only MCP server at `POST /api/mcp` exposing the same
-pipeline health, trend, flaky-step and usage data as six tools over the
+pipeline health, trend, flaky-step, usage, run and job-log data as read-only tools over the
 Streamable HTTP transport, using the same bearer token as the REST API.
 
 ## Docs
