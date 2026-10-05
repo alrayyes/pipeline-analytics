@@ -46,10 +46,10 @@ branch.
 
 - A GitHub or Forgejo repository to track, and a repo-scoped personal access
   token for it (Actions-read and webhook-management permissions). Instead of
-  typing it for each repo, save one per forge (and Forgejo instance) with
-  `PUT /api/forge-tokens` from a logged-in session: registering or
-  discovering with no token in the request then uses the saved one. It's
-  stored encrypted and never returned, only its last four characters.
+  typing it for each repo, save one per forge (and Forgejo instance) under
+  Settings → Saved tokens, or with `PUT /api/forge-tokens` from a logged-in
+  session: registering or discovering with no token then uses the saved one.
+  It's stored encrypted and never returned, only its last four characters.
 - A public HTTPS URL the server is reachable at, so GitHub/Forgejo can
   deliver webhooks to it.
 - To build from source: Go 1.27+, and [bun](https://bun.sh) 1.3.x (not 1.4+
