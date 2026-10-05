@@ -1,6 +1,7 @@
 node_modules/
 *.db
 coverage.out
+junit.xml
 
 # Vale's synced style packages -- fetched by `vale sync`, not committed.
 styles/Google/

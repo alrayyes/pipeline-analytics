@@ -52,6 +52,7 @@ jobs:
           .github/scripts/ci-needs.test.sh
           .github/scripts/lefthook-off.test.sh
           .github/scripts/lefthook-parity.test.sh
+          .github/scripts/test-analytics.test.sh
       - id: filter
         env:
           EVENT: ${{ github.event_name }}
@@ -82,7 +83,7 @@ jobs:
           go-version-file: go.mod
       - run: go build ./...
       - run: go vet ./...
-      - run: go test -race -coverprofile=coverage.out ./...
+      - run: go run gotest.tools/gotestsum@v1.13.0 --junitfile junit.xml -- -race -coverprofile=coverage.out ./...
       # Dependabot-triggered runs get no repo secrets, only DEPENDABOT_-
       # prefixed ones (releases.md's "Dependency bots" section) --
       # CODECOV_TOKEN resolves empty there and main's branch protection
@@ -93,6 +94,16 @@ jobs:
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: go
+          fail_ci_if_error: true
+      # Test results go up even when a test failed: a red run is what Test
+      # Analytics exists to explain, and the coverage step above never runs then.
+      - if: ${{ !cancelled() && github.actor != 'dependabot[bot]' }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: junit.xml
           flags: go
           fail_ci_if_error: true
       - name: go mod tidy -diff
@@ -190,6 +201,14 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: web/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: true
+      - if: ${{ !cancelled() && github.actor != 'dependabot[bot]' }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: web/junit.xml
           flags: frontend
           fail_ci_if_error: true
       - run: bun run build

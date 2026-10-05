@@ -16,7 +16,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"preview": "vite preview",
 		"test": "bun test",
-		"test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
+		"test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --reporter=junit --reporter-outfile=junit.xml",
 		"test:e2e": "playwright test",
 		"test:mutation": "stryker run"
 	},
