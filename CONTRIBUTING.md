@@ -52,6 +52,19 @@ go mod tidy -diff
 golangci-lint run ./...
 ```
 
+The code that decodes data we don't control has fuzz tests: the webhook
+signature and event decoders, the GitHub and Forgejo response decoders, the
+webhook endpoint and the MCP endpoint. `go test` replays their seeds and any
+committed crasher. To hunt for new inputs, run one for a while:
+
+```sh
+go test ./internal/ingestion -run '^$' -fuzz '^FuzzProcessGitHubEvent$' -fuzztime 1m
+```
+
+The `Fuzz` workflow does that for every target weekly, and on demand from the
+Actions tab. A crash uploads the input Go wrote under `testdata/fuzz/`, and committing
+that file with the fix keeps it as a regression test.
+
 Frontend (from `web/`):
 
 ```sh
