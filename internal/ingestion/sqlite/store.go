@@ -185,6 +185,28 @@ func (s *Store) GetRepo(ctx context.Context, id string) (ingestion.Repo, error) 
 	return repo, nil
 }
 
+// LocateJob implements ingestion.JobLocator. A job id that belongs to a
+// different run is not found: the pair must match.
+func (s *Store) LocateJob(ctx context.Context, runID, jobID string) (ingestion.JobLocation, error) {
+	var location ingestion.JobLocation
+
+	err := s.db.QueryRowContext(ctx, `
+		SELECT r.repo_id, j.forge_job_id, j.forge_url
+		FROM jobs j
+		JOIN runs r ON r.id = j.run_id
+		WHERE j.id = ? AND j.run_id = ?
+	`, jobID, runID).Scan(&location.RepoID, &location.ForgeJobID, &location.ForgeURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ingestion.JobLocation{}, ingestion.ErrJobNotFound
+	}
+
+	if err != nil {
+		return ingestion.JobLocation{}, fmt.Errorf("locate job: %w", err)
+	}
+
+	return location, nil
+}
+
 // DeleteRepo implements ingestion.Store. The schema's ON DELETE CASCADE
 // takes care of its runs, jobs, and steps.
 func (s *Store) DeleteRepo(ctx context.Context, id string) error {

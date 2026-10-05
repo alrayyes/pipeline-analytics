@@ -98,6 +98,15 @@ func (f *fakeReconciler) identifiersReconciled() []string {
 func newTestServerWithReconciler(t *testing.T, reconciler ingestion.RepoReconciler) testServer {
 	t.Helper()
 
+	return newTestServerWithDeps(t, func(deps *httpserver.Deps) { deps.Reconciler = reconciler })
+}
+
+// newTestServerWithDeps is the shared builder: a server over an in-memory
+// database with a signed-in session, and tweak (if any) applied to its Deps
+// before it is built.
+func newTestServerWithDeps(t *testing.T, tweak func(*httpserver.Deps)) testServer {
+	t.Helper()
+
 	conn, err := db.Open(":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
@@ -116,16 +125,19 @@ func newTestServerWithReconciler(t *testing.T, reconciler ingestion.RepoReconcil
 	sessionID, err := authStore.CreateSession(ctx, user.ID)
 	require.NoError(t, err)
 
-	handler := httpserver.New(httpserver.Deps{
+	deps := httpserver.Deps{
 		Registrar:      registrar,
 		IngestionStore: ingestionStore,
 		RunStore:       ingestionStore,
-		Reconciler:     reconciler,
 		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
 		AuthStore:      authStore,
 		Version:        "test-version",
 		Assets:         testAssets,
-	})
+	}
+
+	if tweak != nil {
+		tweak(&deps)
+	}
 
 	cookie := &http.Cookie{
 		Name:     "session",
@@ -135,7 +147,7 @@ func newTestServerWithReconciler(t *testing.T, reconciler ingestion.RepoReconcil
 		SameSite: http.SameSiteStrictMode,
 	}
 
-	return testServer{Handler: handler, sessionCookie: cookie, runStore: ingestionStore}
+	return testServer{Handler: httpserver.New(deps), sessionCookie: cookie, runStore: ingestionStore}
 }
 
 func TestWebhookReceiver(t *testing.T) {

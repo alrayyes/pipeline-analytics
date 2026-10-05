@@ -399,3 +399,41 @@ func TestStore_ListRepoIdentifiers(t *testing.T) {
 		require.Empty(t, identifiers)
 	})
 }
+
+func TestStore_LocateJob(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	repo, err := store.CreateRepo(ctx, ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "o/n", Token: "t"})
+	require.NoError(t, err)
+
+	run, err := store.UpsertRun(ctx, ingestion.Run{RepoID: repo.ID, ForgeRunID: "1", PipelineName: "CI", Status: "completed"})
+	require.NoError(t, err)
+
+	job, err := store.UpsertJob(ctx, ingestion.Job{RunID: run.ID, ForgeJobID: "5001", Name: "build", Status: "completed", ForgeURL: "https://forge/job/5001"})
+	require.NoError(t, err)
+
+	t.Run("finds a job by its run and id", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := store.LocateJob(ctx, run.ID, job.ID)
+		require.NoError(t, err)
+		require.Equal(t, ingestion.JobLocation{RepoID: repo.ID, ForgeJobID: "5001", ForgeURL: "https://forge/job/5001"}, got)
+	})
+
+	t.Run("a job under another run is not found", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.LocateJob(ctx, "other", job.ID)
+		require.ErrorIs(t, err, ingestion.ErrJobNotFound)
+	})
+
+	t.Run("an unknown job is not found", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := store.LocateJob(ctx, run.ID, "nope")
+		require.ErrorIs(t, err, ingestion.ErrJobNotFound)
+	})
+}
