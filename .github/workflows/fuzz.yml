@@ -1,0 +1,58 @@
+name: Fuzz
+
+# The fuzz targets replay their seeds and any committed crasher in every
+# ordinary `go test` run (ci.yml). This is the longer pass that goes looking
+# for new inputs (rules/go-test.md): weekly, and on demand before a release.
+# A crash fails the job and uploads the input Go wrote under testdata/fuzz;
+# commit that file with the fix and it becomes a regression test.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: "How long each fuzzer runs, e.g. 5m"
+        default: "2m"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: FuzzVerifySignature, package: ./internal/ingestion }
+          - { target: FuzzProcessGitHubEvent, package: ./internal/ingestion }
+          - {
+              target: FuzzListRecentRunsResponses,
+              package: ./internal/ingestion/forgejo,
+            }
+          - {
+              target: FuzzListRecentRunsResponses,
+              package: ./internal/ingestion/github,
+            }
+          - { target: FuzzWebhookReceiver, package: ./internal/httpserver }
+          - { target: FuzzMCPRequest, package: ./internal/httpserver }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: fuzz
+        env:
+          FUZZTIME: ${{ inputs.fuzztime || '2m' }}
+          TARGET: ${{ matrix.target }}
+          PACKAGE: ${{ matrix.package }}
+        run: go test "$PACKAGE" -run '^$' -fuzz "^${TARGET}\$" -fuzztime "$FUZZTIME"
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crasher-${{ matrix.target }}-${{ strategy.job-index }}
+          path: "**/testdata/fuzz/"
+          retention-days: 30
