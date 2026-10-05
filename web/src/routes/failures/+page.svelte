@@ -1,4 +1,6 @@
 <script lang="ts">
+import { getBranch } from '$lib/branchFilter.svelte.js';
+import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
 import CategoryBreakdown from '$lib/components/telemetry/CategoryBreakdown.svelte';
 import FailureGroupCard from '$lib/components/telemetry/FailureGroupCard.svelte';
 import WindowToggle from '$lib/components/telemetry/WindowToggle.svelte';
@@ -23,9 +25,10 @@ let generation = 0;
 async function load(
 	gen: number,
 	window: InsightsWindow | undefined,
+	branch: string | undefined,
 ): Promise<void> {
 	try {
-		const body = await fetchFailureInsights({ window });
+		const body = await fetchFailureInsights({ window, branch });
 		if (gen !== generation) return;
 
 		insights = body;
@@ -42,10 +45,11 @@ async function load(
 
 $effect(() => {
 	const window = getTelemetryWindow() ?? undefined;
+	const branch = getBranch() ?? undefined;
 	const gen = ++generation;
 
 	loading = true;
-	load(gen, window);
+	load(gen, window, branch);
 
 	return () => {
 		generation++;
@@ -61,12 +65,15 @@ $effect(() => {
 	<div class="flex flex-wrap items-center gap-4">
 		<h1 class="text-2xl font-semibold">Root cause diagnostics</h1>
 		<WindowToggle value={getTelemetryWindow() ?? insights?.window ?? null} onChange={setTelemetryWindow} />
+		<BranchSelect window={getTelemetryWindow() ?? undefined} />
 	</div>
 
 	{#if loading}
 		<p class="mt-6 text-muted-foreground">Loading…</p>
 	{:else if error}
 		<p role="alert" class="mt-6 text-destructive">Couldn't load failures right now.</p>
+	{:else if insights && getBranch() && insights.totalRuns === 0}
+		<p class="mt-6 text-muted-foreground">No runs on {getBranch()} in this window.</p>
 	{:else if insights && insights.failureGroups.length === 0}
 		<p class="mt-6 text-muted-foreground">No failures in this window.</p>
 	{:else if insights}

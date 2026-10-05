@@ -35,6 +35,11 @@ export function previousPage(): void {
 	offset = Math.max(0, offset - RUNS_PAGE_SIZE);
 }
 
+// A different branch is a different list, so it starts at the top too.
+export function backToFirstPage(): void {
+	offset = 0;
+}
+
 export function resetRunsFilters(): void {
 	status = 'all';
 	offset = 0;
