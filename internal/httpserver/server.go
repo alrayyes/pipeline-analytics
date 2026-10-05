@@ -25,9 +25,12 @@ type Deps struct {
 	// webhook fires -- see webhooksHandler.forgejo.
 	Reconciler ingestion.RepoReconciler
 	Metrics    *metrics.Service
-	Auth       *auth.Service
-	AuthStore  auth.Store
-	Settings   *settings.Service
+	// JobLogs reads a job's log from its forge for GET /api/runs/{runId}/
+	// jobs/{jobId}/log. nil is fine: the route then answers 404.
+	JobLogs   *ingestion.JobLogService
+	Auth      *auth.Service
+	AuthStore auth.Store
+	Settings  *settings.Service
 	// GitHubRateLimits reports the rate-limit status last observed for a
 	// GitHub token, for GET /api/insights/github-rate-limit. nil is fine --
 	// the endpoint just reports every token with no status yet.
@@ -79,6 +82,11 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}/steps", pipelines.steps)
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}/flaky-runs", pipelines.flakyRuns)
 	mux.HandleFunc("GET /api/runs/{runId}/steps", pipelines.runSteps)
+
+	if deps.JobLogs != nil {
+		mux.HandleFunc("GET /api/runs/{runId}/jobs/{jobId}/log", (&jobLogHandler{service: deps.JobLogs}).get)
+	}
+
 	mux.HandleFunc("GET /api/steps/unhealthy", pipelines.unhealthySteps)
 
 	insights := &insightsHandler{repos: deps.IngestionStore, rateLimits: deps.GitHubRateLimits}

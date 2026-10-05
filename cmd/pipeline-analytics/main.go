@@ -321,6 +321,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		GitHubRateLimits: githubRateLimits,
 		Reconciler:       reconciler,
 		Metrics:          metrics.NewService(metricssqlite.NewStore(conn)),
+		JobLogs:          ingestion.NewJobLogService(ingestionStore, ingestionStore, jobLogReaders(forgeClients)),
 		Auth:             auth.NewService(webAuthn, authStore),
 		AuthStore:        authStore,
 		Settings:         settings.NewService(settingssqlite.NewStore(conn)),
@@ -335,6 +336,19 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 // no scheme or port) and allowed origin from the server's own public
 // callback URL -- the dashboard is same-origin with itself, so there's
 // nothing else to configure here.
+// jobLogReaders picks out the forge clients that can read a job's log.
+func jobLogReaders(forgeClients map[ingestion.Forge]ingestion.ForgeClient) map[ingestion.Forge]ingestion.JobLogReader {
+	readers := make(map[ingestion.Forge]ingestion.JobLogReader, len(forgeClients))
+
+	for forge, client := range forgeClients {
+		if reader, ok := client.(ingestion.JobLogReader); ok {
+			readers[forge] = reader
+		}
+	}
+
+	return readers
+}
+
 func newWebAuthn(callbackURL string) (*webauthn.WebAuthn, error) {
 	u, err := url.Parse(callbackURL)
 	if err != nil {
