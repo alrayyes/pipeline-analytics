@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	ApiError,
+	type BranchList,
 	type FailureInsights,
 	type FlakyStepList,
+	fetchBranches,
 	fetchFailureInsights,
 	fetchFlakySteps,
 	fetchPipeline,
@@ -486,5 +488,81 @@ describe('fetchFlakySteps', () => {
 		await expect(
 			fetchFlakySteps({}, fetchFn as typeof fetch),
 		).rejects.toMatchObject({ status: 500 });
+	});
+});
+
+describe('branch scoping', () => {
+	function recordingFetch(body: unknown) {
+		const urls: string[] = [];
+		const fetchFn: FetchMock = (input) => {
+			urls.push(String(input));
+			return Promise.resolve(jsonResponse(body));
+		};
+
+		return { urls, fetchFn };
+	}
+
+	test('the three reads send the branch, encoded, only when one is chosen', async () => {
+		const insights = recordingFetch({});
+		const runs = recordingFetch({ runs: [], hasMore: false });
+		const flaky = recordingFetch({ steps: [], hasMore: false });
+
+		await fetchFailureInsights(
+			{ branch: 'feat/a b' },
+			insights.fetchFn as typeof fetch,
+		);
+		await fetchRuns(
+			{ limit: 5, offset: 0, branch: 'main' },
+			runs.fetchFn as typeof fetch,
+		);
+		await fetchFlakySteps({ branch: 'main' }, flaky.fetchFn as typeof fetch);
+		await fetchFailureInsights({}, insights.fetchFn as typeof fetch);
+		await fetchRuns({ limit: 5, offset: 0 }, runs.fetchFn as typeof fetch);
+		await fetchFlakySteps({}, flaky.fetchFn as typeof fetch);
+
+		expect(insights.urls).toEqual([
+			'/api/insights/failures?branch=feat%2Fa+b',
+			'/api/insights/failures',
+		]);
+		expect(runs.urls).toEqual([
+			'/api/runs?limit=5&offset=0&branch=main',
+			'/api/runs?limit=5&offset=0',
+		]);
+		expect(flaky.urls).toEqual([
+			'/api/steps/flaky?branch=main',
+			'/api/steps/flaky',
+		]);
+	});
+
+	test('fetchBranches asks for the window, forge and repo and returns the list', async () => {
+		const list: BranchList = {
+			window: '7d',
+			branches: [{ name: 'main', runCount: 9 }],
+		};
+		const { urls, fetchFn } = recordingFetch(list);
+
+		const result = await fetchBranches(
+			{ window: '7d', forge: 'github', repoId: 'r1' },
+			fetchFn as typeof fetch,
+		);
+
+		expect(urls).toEqual(['/api/branches?window=7d&repoId=r1&forge=github']);
+		expect(result).toEqual(list);
+	});
+
+	test('fetchBranches sends nothing for an unset window', async () => {
+		const { urls, fetchFn } = recordingFetch({ window: '7d', branches: [] });
+
+		await fetchBranches({}, fetchFn as typeof fetch);
+
+		expect(urls).toEqual(['/api/branches']);
+	});
+
+	test('fetchBranches throws an ApiError on a failed response', async () => {
+		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 500));
+
+		await expect(
+			fetchBranches({}, fetchFn as typeof fetch),
+		).rejects.toBeInstanceOf(ApiError);
 	});
 });

@@ -1,4 +1,6 @@
 <script lang="ts">
+import { getBranch } from '$lib/branchFilter.svelte.js';
+import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
 import RunCard from '$lib/components/telemetry/RunCard.svelte';
 import { Button } from '$lib/components/ui/button/index.js';
 import {
@@ -11,6 +13,7 @@ import {
 	type RunSummary,
 } from '$lib/dashboardApi.js';
 import {
+	backToFirstPage,
 	getOffset,
 	getStatus,
 	nextPage,
@@ -41,7 +44,7 @@ let generation = 0;
 
 async function load(
 	gen: number,
-	params: { offset: number; status: RunStatusFilter },
+	params: { offset: number; status: RunStatusFilter; branch?: string },
 	background: boolean,
 ): Promise<void> {
 	try {
@@ -49,6 +52,7 @@ async function load(
 			limit: RUNS_PAGE_SIZE,
 			offset: params.offset,
 			status: params.status === 'all' ? undefined : params.status,
+			branch: params.branch,
 		});
 		if (gen !== generation) return;
 
@@ -75,7 +79,11 @@ async function load(
 }
 
 $effect(() => {
-	const params = { offset: getOffset(), status: getStatus() };
+	const params = {
+		offset: getOffset(),
+		status: getStatus(),
+		branch: getBranch() ?? undefined,
+	};
 	const gen = ++generation;
 
 	loading = true;
@@ -111,6 +119,7 @@ $effect(() => {
 				{/each}
 			</ToggleGroup>
 		</div>
+		<BranchSelect onChange={backToFirstPage} />
 	</div>
 
 	{#if loading}
@@ -118,7 +127,9 @@ $effect(() => {
 	{:else if error}
 		<p role="alert" class="mt-6 text-destructive">Couldn't load runs right now.</p>
 	{:else if runs?.length === 0}
-		<p class="mt-6 text-muted-foreground">No runs match this filter.</p>
+		<p class="mt-6 text-muted-foreground">
+			{getBranch() ? `No runs on ${getBranch()} match this filter.` : 'No runs match this filter.'}
+		</p>
 	{:else}
 		<ul class="mt-6 grid gap-4">
 			{#each runs ?? [] as run (run.id)}

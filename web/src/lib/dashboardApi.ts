@@ -280,6 +280,8 @@ export interface FailureInsightsParams {
 	window?: InsightsWindow;
 	forge?: 'github' | 'forgejo';
 	repoId?: string;
+	// Omit for every branch.
+	branch?: string;
 }
 
 export async function fetchFailureInsights(
@@ -290,6 +292,7 @@ export async function fetchFailureInsights(
 	if (params.window) searchParams.set('window', params.window);
 	if (params.repoId) searchParams.set('repoId', params.repoId);
 	if (params.forge) searchParams.set('forge', params.forge);
+	if (params.branch) searchParams.set('branch', params.branch);
 
 	const query = searchParams.size > 0 ? `?${searchParams}` : '';
 	const res = await fetchFn(`/api/insights/failures${query}`);
@@ -304,6 +307,8 @@ export interface RunsParams {
 	status?: RunStatusFilter;
 	forge?: 'github' | 'forgejo';
 	repoId?: string;
+	// Omit for every branch.
+	branch?: string;
 }
 
 export async function fetchRuns(
@@ -320,6 +325,7 @@ export async function fetchRuns(
 	}
 	if (params.repoId) searchParams.set('repoId', params.repoId);
 	if (params.forge) searchParams.set('forge', params.forge);
+	if (params.branch) searchParams.set('branch', params.branch);
 
 	const res = await fetchFn(`/api/runs?${searchParams}`);
 	if (!res.ok) throw new ApiError(res.status);
@@ -332,6 +338,8 @@ export interface FlakyStepsParams {
 	window?: InsightsWindow;
 	forge?: 'github' | 'forgejo';
 	repoId?: string;
+	// Omit for every branch.
+	branch?: string;
 	limit?: number;
 	offset?: number;
 }
@@ -344,6 +352,7 @@ export async function fetchFlakySteps(
 	if (params.window) searchParams.set('window', params.window);
 	if (params.repoId) searchParams.set('repoId', params.repoId);
 	if (params.forge) searchParams.set('forge', params.forge);
+	if (params.branch) searchParams.set('branch', params.branch);
 	if (params.limit !== undefined) {
 		searchParams.set('limit', String(params.limit));
 	}
@@ -356,4 +365,39 @@ export async function fetchFlakySteps(
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as FlakyStepList;
+}
+
+export interface BranchCount {
+	name: string;
+	runCount: number;
+}
+
+export interface BranchList {
+	// The window these counts cover; show this, don't assume a default.
+	window: InsightsWindow;
+	// Busiest first, then by name. Runs with no recorded branch are left out.
+	branches: BranchCount[];
+}
+
+export interface BranchesParams {
+	// Omit to let the server use its default window.
+	window?: InsightsWindow;
+	forge?: 'github' | 'forgejo';
+	repoId?: string;
+}
+
+export async function fetchBranches(
+	params: BranchesParams,
+	fetchFn: typeof fetch = fetch,
+): Promise<BranchList> {
+	const searchParams = new URLSearchParams();
+	if (params.window) searchParams.set('window', params.window);
+	if (params.repoId) searchParams.set('repoId', params.repoId);
+	if (params.forge) searchParams.set('forge', params.forge);
+
+	const query = searchParams.size > 0 ? `?${searchParams}` : '';
+	const res = await fetchFn(`/api/branches${query}`);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as BranchList;
 }

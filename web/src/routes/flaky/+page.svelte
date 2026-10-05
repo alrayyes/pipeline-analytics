@@ -1,4 +1,6 @@
 <script lang="ts">
+import { getBranch } from '$lib/branchFilter.svelte.js';
+import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
 import FlakyStepCard from '$lib/components/telemetry/FlakyStepCard.svelte';
 import WindowToggle from '$lib/components/telemetry/WindowToggle.svelte';
 import {
@@ -22,9 +24,10 @@ let generation = 0;
 async function load(
 	gen: number,
 	window: InsightsWindow | undefined,
+	branch: string | undefined,
 ): Promise<void> {
 	try {
-		const body = await fetchFlakySteps({ window });
+		const body = await fetchFlakySteps({ window, branch });
 		if (gen !== generation) return;
 
 		list = body;
@@ -41,10 +44,11 @@ async function load(
 
 $effect(() => {
 	const window = getTelemetryWindow() ?? undefined;
+	const branch = getBranch() ?? undefined;
 	const gen = ++generation;
 
 	loading = true;
-	load(gen, window);
+	load(gen, window, branch);
 
 	return () => {
 		generation++;
@@ -60,6 +64,7 @@ $effect(() => {
 	<div class="flex flex-wrap items-center gap-4">
 		<h1 class="text-2xl font-semibold">Flaky tests</h1>
 		<WindowToggle value={getTelemetryWindow() ?? list?.window ?? null} onChange={setTelemetryWindow} />
+		<BranchSelect window={getTelemetryWindow() ?? undefined} />
 	</div>
 
 	{#if loading}
@@ -67,7 +72,9 @@ $effect(() => {
 	{:else if error}
 		<p role="alert" class="mt-6 text-destructive">Couldn't load flaky steps right now.</p>
 	{:else if list && list.steps.length === 0}
-		<p class="mt-6 text-muted-foreground">No flaky steps in this window.</p>
+		<p class="mt-6 text-muted-foreground">
+			No flaky steps{getBranch() ? ` on ${getBranch()}` : ''} in this window.
+		</p>
 	{:else if list}
 		<ul class="mt-6 grid gap-4">
 			{#each list.steps as step (`${step.pipelineId}|${step.name}`)}
