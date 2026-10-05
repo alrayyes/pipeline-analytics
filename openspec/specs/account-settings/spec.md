@@ -62,3 +62,14 @@ documented defaults in a single request.
 - **WHEN** the user resets the Pipelines page's filters
 - **THEN** the system persists the documented default for the
   health-status filter, repo selector, and sort order
+
+### Requirement: The settings response carries the defaults
+
+The system SHALL return, with every settings response, the documented default
+of each setting, whatever the account has stored.
+
+#### Scenario: A stored value differs from its default
+
+- **WHEN** an account has set the Pipelines health filter to `all`
+- **THEN** the response's `pipelinesHealthFilter` is `all` and
+  `defaults.pipelinesHealthFilter` is `unhealthy`

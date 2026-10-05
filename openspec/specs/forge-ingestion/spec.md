@@ -100,3 +100,36 @@ tracked, rather than a generic internal error.
 - **THEN** the system excludes every already-tracked repository on
   that forge and instance from the results, regardless of how many
   repositories are tracked in total
+
+### Requirement: A malformed Forgejo response doesn't crash ingestion
+
+The system SHALL skip a null run, job or step in a Forgejo response and keep
+the surrounding entries, and SHALL NOT panic on any response body.
+
+#### Scenario: A null run
+
+- **WHEN** the run list response contains `null` in place of a run
+- **THEN** the poll succeeds and returns the other runs
+
+#### Scenario: A null job or step
+
+- **WHEN** a job list response contains `null` in place of a job, or the steps
+  of a job contain `null`
+- **THEN** that entry is skipped and the rest are kept
+
+### Requirement: Decoders of external data are fuzzed
+
+The system SHALL keep a fuzz test seeded with real payloads for each decoder of
+external data, replay committed crashing inputs in every `go test` run, and
+run each fuzz test for a bounded time on a schedule.
+
+#### Scenario: A crashing input is found
+
+- **WHEN** a scheduled fuzz run finds an input that panics a decoder
+- **THEN** the job fails and uploads the input for committing under
+  `testdata/fuzz`
+
+#### Scenario: A committed crasher
+
+- **WHEN** a crashing input is committed under `testdata/fuzz`
+- **THEN** an ordinary `go test` replays it
