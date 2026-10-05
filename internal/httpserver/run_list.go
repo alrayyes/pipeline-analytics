@@ -82,12 +82,18 @@ func (h *runListHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	branch, ok := branchFilter(w, r)
+	if !ok {
+		return
+	}
+
 	limit, _ := strconv.Atoi(query.Get("limit"))
 	offset, _ := strconv.Atoi(query.Get("offset"))
 
 	runs, hasMore, err := h.service.ListRuns(r.Context(), metrics.RunListFilter{
 		RepoID: query.Get("repoId"),
 		Forge:  query.Get("forge"),
+		Branch: branch,
 		Status: status,
 		Limit:  limit,
 		Offset: offset,

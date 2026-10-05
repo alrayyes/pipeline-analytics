@@ -57,6 +57,11 @@ type flakyStepsHandler struct {
 // flake rate, with an optional repo and forge scope.
 func (h *flakyStepsHandler) list(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
+	branch, ok := branchFilter(w, r)
+	if !ok {
+		return
+	}
+
 	window := metrics.ParseInsightWindow(query.Get("window"))
 	limit, _ := strconv.Atoi(query.Get("limit"))
 	offset, _ := strconv.Atoi(query.Get("offset"))
@@ -65,7 +70,7 @@ func (h *flakyStepsHandler) list(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		time.Now(),
 		window,
-		metrics.InsightFilter{RepoID: query.Get("repoId"), Forge: query.Get("forge")},
+		metrics.InsightFilter{RepoID: query.Get("repoId"), Forge: query.Get("forge"), Branch: branch},
 		limit,
 		offset,
 	)

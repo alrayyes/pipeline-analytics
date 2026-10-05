@@ -44,6 +44,7 @@ func ParseRunStatus(raw string) (RunStatus, error) {
 type RunListFilter struct {
 	RepoID string
 	Forge  string
+	Branch string
 	Status RunStatus
 	Limit  int
 	Offset int

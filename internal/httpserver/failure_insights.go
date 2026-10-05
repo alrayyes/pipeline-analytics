@@ -122,11 +122,16 @@ type failureInsightsHandler struct {
 func (h *failureInsightsHandler) get(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
+	branch, ok := branchFilter(w, r)
+	if !ok {
+		return
+	}
+
 	insights, err := h.service.GetFailureInsights(
 		r.Context(),
 		time.Now(),
 		metrics.ParseInsightWindow(query.Get("window")),
-		metrics.InsightFilter{RepoID: query.Get("repoId"), Forge: query.Get("forge")},
+		metrics.InsightFilter{RepoID: query.Get("repoId"), Forge: query.Get("forge"), Branch: branch},
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "compute failure insights")

@@ -169,15 +169,7 @@ func (s *Store) WindowRuns(ctx context.Context, filter metrics.RunWindowFilter) 
 	query += " WHERE r.started_at >= ? AND r.started_at < ?"
 	args = append(args, filter.Since, filter.Until)
 
-	if filter.RepoID != "" {
-		query += " AND r.repo_id = ?"
-		args = append(args, filter.RepoID)
-	}
-
-	if filter.Forge != "" {
-		query += " AND p.forge = ?"
-		args = append(args, filter.Forge)
-	}
+	query, args = appendRunScope(query, args, filter.RepoID, filter.Forge, filter.Branch)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -226,15 +218,7 @@ func (s *Store) WindowSteps(ctx context.Context, filter metrics.RunWindowFilter)
 	query += " WHERE r.started_at >= ? AND r.started_at < ?"
 	args = append(args, filter.Since, filter.Until)
 
-	if filter.RepoID != "" {
-		query += " AND r.repo_id = ?"
-		args = append(args, filter.RepoID)
-	}
-
-	if filter.Forge != "" {
-		query += " AND p.forge = ?"
-		args = append(args, filter.Forge)
-	}
+	query, args = appendRunScope(query, args, filter.RepoID, filter.Forge, filter.Branch)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -271,6 +255,27 @@ func (s *Store) WindowSteps(ctx context.Context, filter metrics.RunWindowFilter)
 }
 
 // runListQuery builds the SQL and args ListRuns runs for filter.
+// appendRunScope narrows a query over runs r (joined to repos p when forge is
+// set) to one repo, forge and branch. Empty means unrestricted.
+func appendRunScope(query string, args []any, repoID, forge, branch string) (string, []any) {
+	if repoID != "" {
+		query += " AND r.repo_id = ?"
+		args = append(args, repoID)
+	}
+
+	if forge != "" {
+		query += " AND p.forge = ?"
+		args = append(args, forge)
+	}
+
+	if branch != "" {
+		query += " AND r.branch = ?"
+		args = append(args, branch)
+	}
+
+	return query, args
+}
+
 func runListQuery(filter metrics.RunListFilter) (string, []any) {
 	query := `
 		SELECT r.id, r.repo_id, r.pipeline_name, r.status, r.conclusion, r.started_at, r.completed_at,
@@ -284,15 +289,7 @@ func runListQuery(filter metrics.RunListFilter) (string, []any) {
 
 	query += " WHERE 1 = 1"
 
-	if filter.RepoID != "" {
-		query += " AND r.repo_id = ?"
-		args = append(args, filter.RepoID)
-	}
-
-	if filter.Forge != "" {
-		query += " AND p.forge = ?"
-		args = append(args, filter.Forge)
-	}
+	query, args = appendRunScope(query, args, filter.RepoID, filter.Forge, filter.Branch)
 
 	switch filter.Status {
 	case metrics.RunStatusFailed:

@@ -50,11 +50,17 @@ func (w InsightWindow) Label() string {
 	}
 }
 
+// MaxBranchLength bounds a branch filter (the OpenAPI spec's BranchFilter
+// maxLength).
+const MaxBranchLength = 255
+
 // InsightFilter scopes the insights to one repo and/or forge. The zero value
 // covers every tracked repo.
 type InsightFilter struct {
 	RepoID string
 	Forge  string
+	// Branch, when set, covers only runs on that branch.
+	Branch string
 }
 
 // RunWindowFilter selects runs that started in [Since, Until), optionally
@@ -62,6 +68,7 @@ type InsightFilter struct {
 type RunWindowFilter struct {
 	RepoID string
 	Forge  string
+	Branch string
 	Since  time.Time
 	Until  time.Time
 }
@@ -155,6 +162,7 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 	runs, err := s.store.WindowRuns(ctx, RunWindowFilter{
 		RepoID: filter.RepoID,
 		Forge:  filter.Forge,
+		Branch: filter.Branch,
 		Since:  boundary.Add(-window.Duration),
 		Until:  now,
 	})
@@ -179,6 +187,7 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
 		RepoID: filter.RepoID,
 		Forge:  filter.Forge,
+		Branch: filter.Branch,
 		Since:  boundary,
 		Until:  now,
 	})
