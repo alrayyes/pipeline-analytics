@@ -170,6 +170,7 @@ type FlakyRun struct {
 // RunStep is one step's status within a single run, for the drill-down a
 // FlakyRun leads to.
 type RunStep struct {
+	JobID      string
 	Name       string
 	Status     string
 	Conclusion string
@@ -213,6 +214,7 @@ type StepOccurrence struct {
 	JobForgeURL  string
 	RunID        string
 	RunStartedAt *time.Time
+	JobID        string
 }
 
 // UsageRecord is one job's execution duration, attributed to its pipeline
@@ -423,6 +425,7 @@ func (s *Service) GetRunSteps(ctx context.Context, runID string) (RunDetail, err
 	steps := make([]RunStep, 0, len(occurrences))
 	for _, occ := range occurrences {
 		steps = append(steps, RunStep{
+			JobID:      occ.JobID,
 			Name:       occ.Name,
 			Status:     occ.Status,
 			Conclusion: occ.Conclusion,
