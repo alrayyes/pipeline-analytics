@@ -66,7 +66,7 @@ func TestSettingsGet(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var got map[string]string
+		var got map[string]any
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		require.Equal(t, settings.DefaultTheme, got["theme"])
 		require.Equal(t, settings.DefaultForgeFilter, got["forgeFilter"])
@@ -74,6 +74,32 @@ func TestSettingsGet(t *testing.T) {
 		require.Equal(t, settings.DefaultPipelinesRepoSelector, got["pipelinesRepoSelector"])
 		require.Equal(t, settings.DefaultPipelinesSortOrder, got["pipelinesSortOrder"])
 		require.Equal(t, settings.DefaultTelemetryWindow, got["telemetryWindow"])
+	})
+
+	t.Run("carries the defaults, so a client never keeps its own copy", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newSettingsTestServer(t)
+
+		patch := srv.authenticated(httptest.NewRequest(http.MethodPatch, "/api/settings", bytes.NewReader([]byte(`{"pipelinesHealthFilter":"all","forgeFilter":"github"}`))))
+		srv.ServeHTTP(httptest.NewRecorder(), patch)
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/settings", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		var got map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Equal(t, "all", got["pipelinesHealthFilter"], "the stored value is still what is in force")
+
+		require.Equal(t, map[string]any{
+			"theme":                 settings.DefaultTheme,
+			"forgeFilter":           settings.DefaultForgeFilter,
+			"pipelinesHealthFilter": settings.DefaultPipelinesHealthFilter,
+			"pipelinesRepoSelector": settings.DefaultPipelinesRepoSelector,
+			"pipelinesSortOrder":    settings.DefaultPipelinesSortOrder,
+			"telemetryWindow":       settings.DefaultTelemetryWindow,
+		}, got["defaults"])
 	})
 
 	t.Run("rejects an unauthenticated request", func(t *testing.T) {
@@ -103,7 +129,7 @@ func TestSettingsPatch(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, patchRec.Code)
 
-		var patched map[string]string
+		var patched map[string]any
 		require.NoError(t, json.Unmarshal(patchRec.Body.Bytes(), &patched))
 		require.Equal(t, "dark", patched["theme"])
 
@@ -111,7 +137,7 @@ func TestSettingsPatch(t *testing.T) {
 		getRec := httptest.NewRecorder()
 		srv.ServeHTTP(getRec, getReq)
 
-		var got map[string]string
+		var got map[string]any
 		require.NoError(t, json.Unmarshal(getRec.Body.Bytes(), &got))
 		require.Equal(t, "dark", got["theme"])
 	})
@@ -130,7 +156,7 @@ func TestSettingsPatch(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var got map[string]string
+		var got map[string]any
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		require.Equal(t, settings.DefaultTheme, got["theme"])
 	})
@@ -153,7 +179,7 @@ func TestSettingsPatch(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		var got map[string]string
+		var got map[string]any
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		require.Equal(t, settings.DefaultPipelinesHealthFilter, got["pipelinesHealthFilter"])
 		require.Equal(t, settings.DefaultPipelinesRepoSelector, got["pipelinesRepoSelector"])
@@ -178,7 +204,7 @@ func TestSettingsPatch(t *testing.T) {
 		getRec := httptest.NewRecorder()
 		srv.ServeHTTP(getRec, getReq)
 
-		var got map[string]string
+		var got map[string]any
 		require.NoError(t, json.Unmarshal(getRec.Body.Bytes(), &got))
 		require.Equal(t, "dark", got["theme"])
 	})

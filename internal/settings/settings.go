@@ -92,6 +92,19 @@ type Settings struct {
 	TelemetryWindow       string
 }
 
+// Defaults returns the documented default for every setting, the values a
+// cleared key resolves to.
+func Defaults() Settings {
+	return Settings{
+		Theme:                 DefaultTheme,
+		ForgeFilter:           DefaultForgeFilter,
+		PipelinesHealthFilter: DefaultPipelinesHealthFilter,
+		PipelinesRepoSelector: DefaultPipelinesRepoSelector,
+		PipelinesSortOrder:    DefaultPipelinesSortOrder,
+		TelemetryWindow:       DefaultTelemetryWindow,
+	}
+}
+
 // Store is the port account settings are persisted through. It works in
 // terms of the raw, possibly-partial override map (only explicitly-set
 // keys present) rather than a resolved Settings struct, so it -- and the
