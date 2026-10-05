@@ -59,7 +59,7 @@ bun run check          # svelte-check
 bun run lint           # biome
 bun run test           # unit tests (bun:test)
 bun run test:coverage  # same, plus a coverage report and `junit.xml`
-bun run test:mutation  # mutation testing (Stryker), reports a score, doesn't gate on one
+bun run test:mutation  # mutation testing (Stryker), fails on a surviving mutant
 bun run build
 bun audit
 bun run test:e2e        # Playwright, builds the real binary and runs against it

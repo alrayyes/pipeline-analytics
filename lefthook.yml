@@ -153,8 +153,7 @@ pre-push:
     frontend-test:
       root: "web/"
       run: ../.github/scripts/hook-guard.sh --push web -- bun run test
-    # Reports, doesn't gate -- no mutation-score threshold decided yet
-    # (same reasoning as ci.yml's mutation job).
+    # Fails on a surviving mutant, like ci.yml's mutation job.
     frontend-mutation:
       root: "web/"
       run: ../.github/scripts/hook-guard.sh --push web -- bun run test:mutation
