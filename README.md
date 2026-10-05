@@ -180,7 +180,7 @@ at <https://alrayyes.github.io/pipeline-analytics/docs/api/>.
 `POST /api/mcp` serves an [MCP](https://modelcontextprotocol.io) server over
 the Streamable HTTP transport, exposing the same pipeline health, trend,
 flaky-step, usage, run and failure-insight data the dashboard and REST API do,
-as ten read-only tools. Every read endpoint that serves pipeline data has a
+as eleven read-only tools. Every read endpoint that serves pipeline data has a
 tool; a test fails when one doesn't, unless it's listed with a reason. It
 needs the same bearer API token as the REST API — issue one with a
 logged-in session: `curl -X POST https://<your-server>/api/auth/tokens
