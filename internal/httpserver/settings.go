@@ -7,7 +7,7 @@ import (
 	"github.com/alrayyes/pipeline-analytics/internal/settings"
 )
 
-type settingsDTO struct {
+type settingsValuesDTO struct {
 	Theme                 string `json:"theme"`
 	ForgeFilter           string `json:"forgeFilter"`
 	PipelinesHealthFilter string `json:"pipelinesHealthFilter"`
@@ -16,8 +16,20 @@ type settingsDTO struct {
 	TelemetryWindow       string `json:"telemetryWindow"`
 }
 
+// settingsDTO is the settings in force and, beside them, the server's
+// defaults, so a client never keeps a copy of those.
+type settingsDTO struct {
+	settingsValuesDTO
+
+	Defaults settingsValuesDTO `json:"defaults"`
+}
+
 func toSettingsDTO(s settings.Settings) settingsDTO {
-	return settingsDTO{
+	return settingsDTO{settingsValuesDTO: toSettingsValuesDTO(s), Defaults: toSettingsValuesDTO(settings.Defaults())}
+}
+
+func toSettingsValuesDTO(s settings.Settings) settingsValuesDTO {
+	return settingsValuesDTO{
 		Theme:                 s.Theme,
 		ForgeFilter:           s.ForgeFilter,
 		PipelinesHealthFilter: s.PipelinesHealthFilter,
