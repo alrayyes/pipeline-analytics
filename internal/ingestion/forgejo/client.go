@@ -201,6 +201,12 @@ func (c *Client) ListRecentRuns(ctx context.Context, req ingestion.ListRunsReque
 	runs := make([]ingestion.RunSnapshot, 0, len(runsResp.WorkflowRuns))
 
 	for _, run := range runsResp.WorkflowRuns {
+		// A null entry decodes to a nil pointer; skip it rather than trust
+		// the instance (#446).
+		if run == nil {
+			continue
+		}
+
 		jobs, err := c.listWorkflowJobs(ctx, req.InstanceURL, req.Token, owner, name, run.ID)
 		if err != nil {
 			return ingestion.ListRunsResult{}, err
@@ -244,6 +250,10 @@ func (c *Client) listWorkflowJobs(ctx context.Context, instanceURL, token, owner
 
 	jobs := make([]ingestion.JobSnapshot, 0, len(jobsResp))
 	for _, job := range jobsResp {
+		if job == nil {
+			continue
+		}
+
 		jobs = append(jobs, convertWorkflowJob(job))
 	}
 
@@ -308,6 +318,10 @@ func parseWorkflowJobs(body []byte) ([]*gitea.ActionWorkflowJob, error) {
 func convertWorkflowJob(job *gitea.ActionWorkflowJob) ingestion.JobSnapshot {
 	steps := make([]ingestion.StepSnapshot, 0, len(job.Steps))
 	for _, step := range job.Steps {
+		if step == nil {
+			continue
+		}
+
 		steps = append(steps, ingestion.StepSnapshot{
 			Number:      int(step.Number),
 			Name:        step.Name,
