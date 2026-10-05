@@ -10,6 +10,25 @@ import {
 	setRepoSelector,
 	setSortBy,
 } from './pipelinesFilters.svelte.js';
+import type { ServerSettings, SettingsValues } from './settingsSync.js';
+
+const serverDefaults: SettingsValues = {
+	theme: 'system',
+	forgeFilter: 'all',
+	pipelinesHealthFilter: 'unhealthy',
+	pipelinesRepoSelector: 'all',
+	pipelinesSortOrder: 'name',
+	telemetryWindow: '7d',
+};
+
+// A settings response whose values are the server's defaults, overridden
+// per test -- the front end holds no default of its own.
+function settings(
+	overrides: Partial<SettingsValues> = {},
+	defaults: SettingsValues = serverDefaults,
+): ServerSettings {
+	return { ...defaults, ...overrides, defaults };
+}
 
 const realFetch = globalThis.fetch;
 const realStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -59,7 +78,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-	resetFilters();
+	initPipelinesFilters(settings());
 	patches = [];
 	store.clear();
 });
@@ -88,6 +107,29 @@ describe('isAtDefaults', () => {
 	});
 });
 
+describe('isAtDefaults, against the server defaults', () => {
+	test('follows a default the server changed', () => {
+		initPipelinesFilters(
+			settings(
+				{ pipelinesHealthFilter: 'healthy' },
+				{ ...serverDefaults, pipelinesHealthFilter: 'healthy' },
+			),
+		);
+
+		expect(isAtDefaults()).toBe(true);
+
+		setHealthFilter('unhealthy');
+		expect(isAtDefaults()).toBe(false);
+	});
+
+	test('true when the defaults are unknown, so there is nothing to reset to', () => {
+		initPipelinesFilters(undefined);
+		setHealthFilter('healthy');
+
+		expect(isAtDefaults()).toBe(true);
+	});
+});
+
 describe('resetFilters', () => {
 	test('restores every filter to its documented default', () => {
 		setHealthFilter('all');
@@ -100,25 +142,64 @@ describe('resetFilters', () => {
 		expect(getRepoSelector()).toBe('all');
 		expect(getSortBy()).toBe('name');
 	});
+
+	test('restores the server defaults, not any value the client knows', () => {
+		initPipelinesFilters(
+			settings(
+				{},
+				{
+					...serverDefaults,
+					pipelinesHealthFilter: 'healthy',
+					pipelinesRepoSelector: 'repo-9',
+					pipelinesSortOrder: 'lastRun',
+				},
+			),
+		);
+		setHealthFilter('all');
+
+		resetFilters();
+
+		expect(getHealthFilter()).toBe('healthy');
+		expect(getRepoSelector()).toBe('repo-9');
+		expect(getSortBy()).toBe('lastRun');
+	});
+
+	test('still clears the server when the defaults are unknown', async () => {
+		initPipelinesFilters(undefined);
+		patches = [];
+
+		resetFilters();
+		await Promise.resolve();
+
+		expect(patches).toEqual([
+			{
+				pipelinesHealthFilter: null,
+				pipelinesRepoSelector: null,
+				pipelinesSortOrder: null,
+			},
+		]);
+	});
 });
 
 describe('initPipelinesFilters', () => {
 	test('server-supplied values win over the cache and the default', () => {
-		initPipelinesFilters({
-			pipelinesHealthFilter: 'all',
-			pipelinesRepoSelector: 'repo-2',
-			pipelinesSortOrder: 'lastRun',
-		});
+		initPipelinesFilters(
+			settings({
+				pipelinesHealthFilter: 'all',
+				pipelinesRepoSelector: 'repo-2',
+				pipelinesSortOrder: 'lastRun',
+			}),
+		);
 
 		expect(getHealthFilter()).toBe('all');
 		expect(getRepoSelector()).toBe('repo-2');
 		expect(getSortBy()).toBe('lastRun');
 	});
 
-	test('falls back to the documented default when no server value is given', () => {
+	test('falls back to unfiltered when no server value is given', () => {
 		initPipelinesFilters(undefined);
 
-		expect(getHealthFilter()).toBe('unhealthy');
+		expect(getHealthFilter()).toBe('all');
 		expect(getRepoSelector()).toBe('all');
 		expect(getSortBy()).toBe('name');
 	});
@@ -201,11 +282,13 @@ describe('initPipelinesFilters from the cache', () => {
 	});
 
 	test('writes the resolved values back to the cache', () => {
-		initPipelinesFilters({
-			pipelinesHealthFilter: 'all',
-			pipelinesRepoSelector: 'repo-2',
-			pipelinesSortOrder: 'lastRun',
-		});
+		initPipelinesFilters(
+			settings({
+				pipelinesHealthFilter: 'all',
+				pipelinesRepoSelector: 'repo-2',
+				pipelinesSortOrder: 'lastRun',
+			}),
+		);
 
 		expect(Object.fromEntries(store)).toEqual({
 			pipelinesHealthFilter: 'all',
@@ -214,12 +297,12 @@ describe('initPipelinesFilters from the cache', () => {
 		});
 	});
 
-	test('falls back to the defaults when storage is unavailable', () => {
+	test('falls back to unfiltered when storage is unavailable', () => {
 		useStorage(brokenStorage);
 
 		initPipelinesFilters(undefined);
 
-		expect(getHealthFilter()).toBe('unhealthy');
+		expect(getHealthFilter()).toBe('all');
 		expect(getRepoSelector()).toBe('all');
 		expect(getSortBy()).toBe('name');
 	});

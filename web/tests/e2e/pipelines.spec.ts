@@ -98,3 +98,34 @@ test('with no pipelines at all, it still says nothing has been ingested', async 
 		page.getByText('No pipelines match the selected filters.'),
 	).toHaveCount(0);
 });
+
+test('"Reset filters" follows the server\'s defaults, with no copy in the page', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await mockOneRepo(page);
+	await page.route(
+		'**/api/pipelines*',
+		serve([{ id: 'ci', repoId: 'r1', name: 'CI', healthStatus: 'unhealthy' }]),
+	);
+
+	await page.goto('/pipelines');
+
+	const reset = page.getByRole('button', { name: 'Reset filters' });
+	const healthFilter = page.getByRole('radiogroup', {
+		name: 'Filter by health status',
+	});
+
+	// A fresh account is on the server's defaults, whatever they are.
+	await expect(reset).toBeDisabled();
+
+	await healthFilter.getByRole('radio', { name: 'All' }).click();
+	await expect(reset).toBeEnabled();
+
+	await reset.click();
+	await expect(reset).toBeDisabled();
+	await expect(
+		healthFilter.getByRole('radio', { name: 'Unhealthy' }),
+	).toBeChecked();
+});

@@ -53,7 +53,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-	setForgeFilter('all');
+	initForgeFilter('all');
 	patches = [];
 	store.clear();
 });

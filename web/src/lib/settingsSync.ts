@@ -3,13 +3,20 @@
 // filters) goes through this, rather than each rolling its own fetch, so
 // the request/response shape only needs to be gotten right once.
 
-export interface ServerSettings {
+export interface SettingsValues {
 	theme: 'light' | 'dark' | 'system';
 	forgeFilter: 'all' | 'github' | 'forgejo';
 	pipelinesHealthFilter: 'all' | 'healthy' | 'unhealthy';
 	pipelinesRepoSelector: string;
 	pipelinesSortOrder: 'name' | 'lastRun';
 	telemetryWindow: '24h' | '7d' | '30d';
+}
+
+// GET /api/settings answers every setting plus the server's own `defaults`
+// for each, so no store keeps a copy of a default that could drift from the
+// server's (rules/frontend.md).
+export interface ServerSettings extends SettingsValues {
+	defaults: SettingsValues;
 }
 
 // Used by +layout.ts's load(), which supplies SvelteKit's own fetch (so
@@ -39,7 +46,7 @@ export async function fetchSettings(
 // a failed PATCH here just means the next full settings fetch (a reload,
 // another device) is what eventually reconciles it.
 export async function patchSettings(
-	update: Partial<Record<keyof ServerSettings, string | null>>,
+	update: Partial<Record<keyof SettingsValues, string | null>>,
 ): Promise<void> {
 	try {
 		await fetch('/api/settings', {
