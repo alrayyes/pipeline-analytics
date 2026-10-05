@@ -106,7 +106,19 @@ runs, straight from [`lefthook.yml`](lefthook.yml):
   is always the one the repo declares, not whatever your package manager
   last updated -- plus `sort-package-json --check`, `bun run check`,
   `bun run lint`, `bun run test`, `bun run test:mutation`, `docker build`,
+  `hadolint`, `goreleaser check`, Redocly, the `go.mod` formatting check
   and the Markdown/prose checks.
+
+The Go hooks create `~/.cache/go-build-docker` and the other cache
+directories themselves, so Docker doesn't create them as root on a clean
+machine. lefthook prints nothing for a passing hook and the full output
+for a failing one (`output: [failure]`).
+
+Two CI checks have no hook, on purpose: `govulncheck` and `bun audit`.
+Both read advisory databases that change without a commit, so a local pass
+proves nothing the pipeline won't re-check. `lefthook.yml` says so too, and
+`.github/scripts/lefthook-parity.test.sh` fails when any other check loses
+its hook.
 
 Each `pre-push` job runs through
 [`hook-guard.sh`](.github/scripts/hook-guard.sh), which asks
