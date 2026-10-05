@@ -32,6 +32,8 @@ export default {
 		'src/lib/relativeTime.ts',
 		'src/lib/pipelinesFilters.svelte.ts',
 		'src/lib/forgeFilter.svelte.ts',
+		'src/lib/savedForgeTokens.ts',
+		'src/lib/lastForgeSelection.ts',
 	],
 	// A surviving mutant fails the run (rules/javascript.md): 100, not a floor
 	// to ratchet up later.

@@ -41,11 +41,13 @@ import {
 import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
 import {
 	getRememberedForgeSelection,
-	getRememberedToken,
-	maskToken,
 	rememberForgeSelection,
-	rememberToken,
-} from '$lib/rememberedToken.js';
+} from '$lib/lastForgeSelection.js';
+import {
+	findSavedToken,
+	listForgeTokens,
+	type SavedForgeToken,
+} from '$lib/savedForgeTokens.js';
 
 interface Repo {
 	id: string;
@@ -186,20 +188,37 @@ const manualOnlySelected = $derived(
 	[...selected].filter((id) => !discoveredRepos?.includes(id)),
 );
 
-// A token already used to register a repo on this forge (+ instance, for
-// Forgejo) is used automatically rather than ever asking for it again --
-// browser-local only (issue #72's design decision), so it doesn't survive a
-// cleared browser or carry across devices. #262 took this from a one-click
-// "Use saved token" affordance to skipping the token step entirely: the
-// token field only ever appears when there's genuinely nothing to reuse.
-let rememberedForCurrentForge = $state<string | null>(null);
+// The token saved in settings for this forge (+ instance, for Forgejo) is
+// used automatically rather than ever asking for it again (#262, #462). It is
+// kept on the server and only its masked form reaches the browser, so a
+// request that uses it simply carries no `token`. The token field only
+// appears when there's genuinely nothing saved to use.
+let savedTokens = $state<SavedForgeToken[]>([]);
 
-// Set once the user explicitly asks for a different token, or a remembered
-// one just failed to authenticate -- either way, the token field needs to
-// come back for this forge/instance rather than silently retrying (or
-// hiding) it. Reset in resetForm() and the moment forge/instance actually
-// change (a different credential context deserves its own fresh check),
-// not merely because this effect re-ran for some other reason.
+async function loadSavedTokens(): Promise<void> {
+	try {
+		savedTokens = await listForgeTokens();
+	} catch {
+		// Best effort -- without the list the dialog just asks for a token.
+		savedTokens = [];
+	}
+}
+
+const savedForCurrentForge = $derived(
+	findSavedToken(
+		savedTokens,
+		forge,
+		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
+	),
+);
+
+// Set once the user explicitly asks for a different token, or the saved one
+// was just refused -- either way, the token field needs to come back for this
+// forge/instance rather than silently retrying (or hiding) it. The saved
+// token itself stays until it's replaced or deleted in settings. Reset in
+// resetForm() and the moment forge/instance actually change (a different
+// credential context deserves its own fresh check), not merely because this
+// effect re-ran for some other reason.
 let overrideToken = $state(false);
 // Auto-discovery fires once per dialog-open (or forge/instance switch), not
 // on every re-render that lands back on the 'token' step -- without this,
@@ -208,8 +227,8 @@ let overrideToken = $state(false);
 let autoDiscoverAttempted = $state(false);
 let previousForgeInstanceKey: string | undefined;
 
-const usingRememberedToken = $derived(
-	Boolean(rememberedForCurrentForge) && !overrideToken,
+const usingSavedToken = $derived(
+	Boolean(savedForCurrentForge) && !overrideToken,
 );
 
 $effect(() => {
@@ -222,36 +241,25 @@ $effect(() => {
 		autoDiscoverAttempted = false;
 	}
 
-	rememberedForCurrentForge = getRememberedToken(
-		forge,
-		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
-	);
-
 	if (
 		registerOpen &&
 		step === 'token' &&
-		rememberedForCurrentForge &&
+		savedForCurrentForge &&
 		!overrideToken &&
 		!autoDiscoverAttempted
 	) {
 		autoDiscoverAttempted = true;
-		tryRememberedToken();
+		trySavedToken();
 	}
 });
 
-// A remembered token that's stopped authenticating (revoked/rotated on the
-// forge side) shouldn't leave the user stuck looking at an error with no
-// token field to fix it from -- falls back to asking for a new one.
-async function tryRememberedToken(): Promise<void> {
-	if (!rememberedForCurrentForge) return;
-
-	token = rememberedForCurrentForge;
+// A saved token the forge now refuses (revoked or rotated there) shouldn't
+// leave the user stuck looking at an error with no token field to fix it
+// from -- the failure shows, and the field comes back for a different token.
+async function trySavedToken(): Promise<void> {
 	await discoverRepos();
 
-	if (discoverError) {
-		overrideToken = true;
-		token = '';
-	}
+	if (discoverError) overrideToken = true;
 }
 
 function useDifferentToken(): void {
@@ -350,9 +358,9 @@ $effect(() => {
 function resetForm(): void {
 	step = 'token';
 	// Restores whichever forge (+ instance URL, for Forgejo) was last used
-	// successfully, rather than always resetting to GitHub -- otherwise a
-	// remembered token for any other forge/instance is never even looked
-	// up under the right key (#262).
+	// successfully, rather than always resetting to GitHub -- otherwise the
+	// token saved for any other forge/instance wouldn't be the one in use
+	// (#262).
 	const remembered = getRememberedForgeSelection();
 	forge = remembered?.forge ?? 'github';
 	forgejoInstanceUrl =
@@ -365,6 +373,7 @@ function resetForm(): void {
 	selected = new Set();
 	manualIdentifier = '';
 	batchResults = null;
+	loadSavedTokens();
 }
 
 async function discoverRepos(): Promise<void> {
@@ -377,7 +386,7 @@ async function discoverRepos(): Promise<void> {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				forge,
-				token,
+				...(usingSavedToken ? {} : { token }),
 				...(forge === 'forgejo' ? { forgejoInstanceUrl } : {}),
 			}),
 		});
@@ -455,7 +464,7 @@ async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 				body: JSON.stringify({
 					forge,
 					identifier,
-					token,
+					...(usingSavedToken ? {} : { token }),
 					...(forge === 'forgejo' ? { forgejoInstanceUrl } : {}),
 				}),
 			});
@@ -491,11 +500,6 @@ async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 	// creation failed, but the repo itself is still tracked) still counts
 	// as a real POST success here, same as the single-repo flow always
 	// treated it.
-	rememberToken(
-		forge,
-		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
-		token,
-	);
 	rememberForgeSelection(
 		forge,
 		forge === 'forgejo' ? forgejoInstanceUrl : undefined,
@@ -603,11 +607,11 @@ async function handleUntrack(): Promise<void> {
 								</div>
 							{/if}
 
-							{#if usingRememberedToken}
+							{#if usingSavedToken}
 								<p class="text-sm text-muted-foreground">
 									{discoverBusy
 										? `Finding repositories with your saved ${FORGE_LABELS[forge]} token…`
-										: `Using your saved ${FORGE_LABELS[forge]} token (${maskToken(rememberedForCurrentForge ?? '')}).`}
+										: `Using your saved ${FORGE_LABELS[forge]} token (${savedForCurrentForge?.tokenMasked}).`}
 								</p>
 								<button
 									type="button"
@@ -631,7 +635,7 @@ async function handleUntrack(): Promise<void> {
 						</div>
 
 						<DialogFooter>
-							{#if !usingRememberedToken}
+							{#if !usingSavedToken}
 								<Button type="submit" disabled={!canDiscover || discoverBusy}>
 									{discoverBusy ? 'Finding…' : 'Find repositories'}
 								</Button>
@@ -643,7 +647,9 @@ async function handleUntrack(): Promise<void> {
 						<DialogHeader>
 							<DialogTitle>Select repositories to follow</DialogTitle>
 							<DialogDescription>
-								{FORGE_LABELS[forge]} · token ending {maskToken(token)}
+								{FORGE_LABELS[forge]} · {usingSavedToken
+									? `saved token ${savedForCurrentForge?.tokenMasked}`
+									: 'the token you entered'}
 							</DialogDescription>
 						</DialogHeader>
 

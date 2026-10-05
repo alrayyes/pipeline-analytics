@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import SavedTokens from '$lib/components/SavedTokens.svelte';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -307,6 +308,15 @@ async function handleRevoke(): Promise<void> {
 					</form>
 				</DialogContent>
 			</Dialog>
+		</CardContent>
+	</Card>
+
+	<Card class="mt-6">
+		<CardHeader>
+			<CardTitle>Saved tokens</CardTitle>
+		</CardHeader>
+		<CardContent>
+			<SavedTokens />
 		</CardContent>
 	</Card>
 </main>

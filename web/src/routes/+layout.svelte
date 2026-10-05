@@ -7,6 +7,7 @@ import Footer from '$lib/components/Footer.svelte';
 import Nav from '$lib/components/Nav.svelte';
 import TabBar from '$lib/components/TabBar.svelte';
 import { initForgeFilter } from '$lib/forgeFilter.svelte.js';
+import { purgeRememberedTokens } from '$lib/lastForgeSelection.js';
 import { initPipelinesFilters } from '$lib/pipelinesFilters.svelte.js';
 import { registerServiceWorker } from '$lib/serviceWorker.js';
 import { initTelemetryWindow } from '$lib/telemetryWindow.svelte.js';
@@ -48,6 +49,8 @@ $effect.pre(() => {
 
 const showChrome = $derived(page.url.pathname !== '/login');
 
+// Tokens remembered in the browser before they were saved server-side (#462).
+onMount(purgeRememberedTokens);
 onMount(registerServiceWorker);
 onMount(registerWebMCPTools);
 </script>

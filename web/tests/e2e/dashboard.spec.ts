@@ -318,12 +318,42 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		.click();
 	await expect(page.getByText('No repositories tracked yet.')).toBeVisible();
 
-	// Token reuse (#72, #262): the token used above is used again
-	// automatically, browser-local only -- no token field, no click, straight
-	// to the repo picker. Registering for real here (rather than abandoning
-	// the dialog) also puts a repo back so the rest of this test's nav
-	// clicks -- disabled while zero repos are registered (#71) -- keep
-	// working.
+	// Saved tokens (#462): a token saved in settings is stored on the server
+	// and used for registration with no token field, whatever the browser
+	// forgets. Both forges get one here, for the registrations below.
+	await page.getByRole('link', { name: 'Settings' }).click();
+	await expect(page).toHaveURL('/settings');
+	await expect(page.getByText('No saved tokens.')).toBeVisible();
+
+	await page.getByLabel('Access token').fill('ghp_faketoken1234');
+	await page.getByRole('button', { name: 'Save token' }).click();
+	await expect(page.getByText('Saved GitHub token (****1234).')).toBeVisible();
+
+	await page.getByLabel('Forge', { exact: true }).click();
+	await page.getByRole('option', { name: 'Forgejo' }).click();
+	await page
+		.getByLabel('Forgejo instance URL')
+		.fill('https://forgejo.example.com');
+	await page.getByLabel('Access token').fill('forgejo_faketoken5678');
+	await page.getByRole('button', { name: 'Save token' }).click();
+	await expect(
+		page.getByRole('row', {
+			name: /Forgejo · https:\/\/forgejo\.example\.com/,
+		}),
+	).toContainText('****5678');
+
+	const savedTokensScan = await new AxeBuilder({ page })
+		.withTags(a11yTags)
+		.analyze();
+	expect(savedTokensScan.violations).toEqual([]);
+
+	// Token reuse (#72, #262, #462): the saved token is used automatically
+	// -- no token field, no click, straight to the repo picker. Registering
+	// for real here (rather than abandoning the dialog) also puts a repo back
+	// so the rest of this test's nav clicks -- disabled while zero repos are
+	// registered (#71) -- keep working.
+	await page.getByRole('link', { name: 'Register a repository' }).click();
+	await expect(page).toHaveURL('/repos');
 	await page.getByRole('button', { name: 'Register repository' }).click();
 	await expect(
 		page.getByRole('heading', { name: 'Select repositories to follow' }),
@@ -362,7 +392,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// journey doesn't expect a Forgejo repo hanging around.
 	//
 	// The dialog restores GitHub (#262, last used above) and immediately
-	// auto-discovers with its remembered token, landing straight on the
+	// auto-discovers with the saved token, landing straight on the
 	// picker -- "Back" is what gets to the Forge selector to switch away
 	// from it, same one extra click the escape-hatch scenario above needs.
 	await page.getByRole('button', { name: 'Register repository' }).click();
@@ -372,11 +402,14 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('button', { name: 'Back' }).click();
 	await page.getByLabel('Forge', { exact: true }).click();
 	await page.getByRole('option', { name: 'Forgejo' }).click();
-	await page.getByLabel('Access token').fill('forgejo_faketoken5678');
 	await page
 		.getByLabel('Forgejo instance URL')
 		.fill('https://forgejo.example.com');
-	await page.getByRole('button', { name: 'Find repositories' }).click();
+	// The Forgejo token saved in settings is picked up as soon as the
+	// instance URL matches, so there is no token field and no button.
+	await expect(
+		page.getByRole('heading', { name: 'Select repositories to follow' }),
+	).toBeVisible();
 	await page.getByLabel('Add another by name').fill('alrayyes/forgejo-repo');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await page.getByRole('button', { name: 'Follow 1 repository' }).click();
@@ -407,13 +440,13 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 
 	// Restoring the last-used forge (#262): reopening the dialog after the
 	// Forgejo registration above starts on Forgejo, not reset back to
-	// GitHub -- otherwise the just-saved Forgejo token would never even be
-	// looked up under the right key.
+	// GitHub -- otherwise the Forgejo token saved for it wouldn't be the one
+	// in use.
 	await page.getByRole('button', { name: 'Register repository' }).click();
 	await expect(
 		page.getByRole('heading', { name: 'Select repositories to follow' }),
 	).toBeVisible();
-	await expect(page.getByText('Forgejo · token ending ****5678')).toBeVisible();
+	await expect(page.getByText('Forgejo · saved token ****5678')).toBeVisible();
 
 	// The escape hatch (#262): even with a saved token already in use, the
 	// user can still explicitly swap it out -- "Back" alone doesn't
@@ -1330,6 +1363,9 @@ test('past PAGE_SIZE tracked repos, Discover still excludes every one of them (#
 		}),
 	);
 	await page.getByRole('button', { name: 'Register repository' }).click();
+	// A typed token isn't kept (#462), so the second discovery asks again.
+	await page.getByLabel('Access token').fill('ghp_faketoken1234');
+	await page.getByRole('button', { name: 'Find repositories' }).click();
 
 	await expect(
 		page.getByRole('checkbox', { name: 'alrayyes/repo-new' }),
