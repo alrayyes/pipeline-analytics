@@ -214,8 +214,8 @@ jobs:
       - run: bun run build
       - run: bun audit
 
-  # Reports a mutation score, doesn't gate on one yet -- no baseline/
-  # threshold policy decided. Scoped to the handful of modules the unit-
+  # A surviving mutant fails the job (thresholds.break is 100 in
+  # stryker.conf.mjs, rules/javascript.md). Scoped to the handful of modules the unit-
   # test layer above actually covers (stryker.conf.mjs), so this stays
   # cheap enough (a few seconds) for every push; revisit if that changes
   # as more of web/ grows real unit coverage.

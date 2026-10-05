@@ -18,6 +18,9 @@ const SORT_BY_KEY = 'pipelinesSortOrder';
 // theme.svelte.ts/forgeFilter.svelte.ts, extended to the Pipelines page's
 // three filter controls, which used to be plain, unpersisted component
 // state.
+// An empty catch returns undefined, and every caller treats that like null
+// (`??`), so that mutant is equivalent and ignored for this function.
+// Stryker disable BlockStatement
 function readCached(key: string): string | null {
 	try {
 		return localStorage.getItem(key);
@@ -25,6 +28,7 @@ function readCached(key: string): string | null {
 		return null;
 	}
 }
+// Stryker restore BlockStatement
 
 function writeCache(key: string, value: string): void {
 	try {

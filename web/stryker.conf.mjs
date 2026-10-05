@@ -6,6 +6,9 @@
 export default {
 	plugins: ['@hughescr/stryker-bun-runner'],
 	testRunner: 'bun',
+	// Same flag as `bun run test`: each file gets its own module registry, so
+	// a test that reads a store's initial value can't see another file's writes.
+	bun: { bunArgs: ['--isolate'] },
 	coverageAnalysis: 'perTest',
 	// Stryker's sandbox is built from `git ls-files`, so the gitignored,
 	// generated `.svelte-kit/` -- which is what actually resolves the
@@ -30,6 +33,9 @@ export default {
 		'src/lib/pipelinesFilters.svelte.ts',
 		'src/lib/forgeFilter.svelte.ts',
 	],
+	// A surviving mutant fails the run (rules/javascript.md): 100, not a floor
+	// to ratchet up later.
+	thresholds: { high: 100, low: 100, break: 100 },
 	concurrency: 4,
 	reporters: ['clear-text', 'html'],
 };

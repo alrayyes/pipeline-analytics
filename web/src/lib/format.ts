@@ -21,5 +21,8 @@ export function formatPercentagePoints(points: number): string {
 	const magnitude = Math.abs(points).toFixed(1);
 	if (magnitude === '0.0') return '0.0 pts';
 
+	// A zero change returned above, so `points >= 0` and `points > 0` can't
+	// differ here: the mutant below is equivalent.
+	// Stryker disable next-line EqualityOperator: equivalent mutant
 	return `${points > 0 ? '+' : '-'}${magnitude} pts`;
 }
