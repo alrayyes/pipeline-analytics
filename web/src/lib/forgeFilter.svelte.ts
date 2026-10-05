@@ -4,15 +4,20 @@ export type ForgeFilter = 'all' | 'github' | 'forgejo';
 
 const STORAGE_KEY = 'forgeFilter';
 
+// What shows while neither the server nor the cache has said anything: every
+// forge. Not a default -- the server owns that (rules/frontend.md) -- and
+// nothing compares against it.
+const UNFILTERED: ForgeFilter = 'all';
+
 // localStorage is a paint-only cache now (persist-account-settings/
 // design.md), populated after every successful sync with the server.
 function readCached(): ForgeFilter {
 	try {
 		const stored = localStorage.getItem(STORAGE_KEY);
 
-		return stored === 'github' || stored === 'forgejo' ? stored : 'all';
+		return stored === 'github' || stored === 'forgejo' ? stored : UNFILTERED;
 	} catch {
-		return 'all';
+		return UNFILTERED;
 	}
 }
 
@@ -28,7 +33,7 @@ function writeCache(filter: ForgeFilter): void {
 // what a single filter applied consistently across pages wants -- one
 // source of truth read and written from wherever the segmented control
 // appears, same reasoning as theme.svelte.ts's own module-level theme.
-let forgeFilter = $state<ForgeFilter>('all');
+let forgeFilter = $state<ForgeFilter>(UNFILTERED);
 
 export function getForgeFilter(): ForgeFilter {
 	return forgeFilter;

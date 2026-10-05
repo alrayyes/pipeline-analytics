@@ -6,8 +6,8 @@ import {
 } from './pipelinesFilters.svelte.js';
 
 // Its own file, for the reason forgeFilter.initial.test.ts gives.
-test('start on the documented defaults', () => {
-	expect(getHealthFilter()).toBe('unhealthy');
+test('start unfiltered until the server answers', () => {
+	expect(getHealthFilter()).toBe('all');
 	expect(getRepoSelector()).toBe('all');
 	expect(getSortBy()).toBe('name');
 });

@@ -1,13 +1,19 @@
-import { patchSettings } from './settingsSync.js';
+import {
+	patchSettings,
+	type ServerSettings,
+	type SettingsValues,
+} from './settingsSync.js';
 
 export type HealthFilter = 'all' | 'healthy' | 'unhealthy';
 export type SortBy = 'name' | 'lastRun';
 
-// Defaults to unhealthy-only (#101): this is a monitoring dashboard, so
-// leading with what needs attention beats an everything-at-once list.
-export const DEFAULT_HEALTH_FILTER: HealthFilter = 'unhealthy';
-export const DEFAULT_REPO_SELECTOR = 'all';
-export const DEFAULT_SORT_BY: SortBy = 'name';
+// What the filters show while neither the server nor the cache has said
+// anything: everything, unfiltered. It is not a default -- the server owns
+// those and sends them as `defaults` (rules/frontend.md) -- so it never
+// feeds isAtDefaults() or resetFilters().
+const UNFILTERED_HEALTH: HealthFilter = 'all';
+const UNFILTERED_REPO = 'all';
+const UNSORTED: SortBy = 'name';
 
 const HEALTH_FILTER_KEY = 'pipelinesHealthFilter';
 const REPO_SELECTOR_KEY = 'pipelinesRepoSelector';
@@ -38,9 +44,13 @@ function writeCache(key: string, value: string): void {
 	}
 }
 
-let healthFilter = $state<HealthFilter>(DEFAULT_HEALTH_FILTER);
-let repoSelector = $state(DEFAULT_REPO_SELECTOR);
-let sortBy = $state<SortBy>(DEFAULT_SORT_BY);
+let healthFilter = $state<HealthFilter>(UNFILTERED_HEALTH);
+let repoSelector = $state(UNFILTERED_REPO);
+let sortBy = $state<SortBy>(UNSORTED);
+
+// The server's defaults, from the last settings response; undefined until
+// one arrives (a failed fetch, or a route that doesn't make it).
+let defaults = $state<SettingsValues | undefined>();
 
 export function getHealthFilter(): HealthFilter {
 	return healthFilter;
@@ -75,31 +85,36 @@ export function setSortBy(next: SortBy): void {
 	void patchSettings({ pipelinesSortOrder: next });
 }
 
-// Whether every filter already matches its default -- the Pipelines page's
-// "Reset filters" control disables itself (not hides, matching this app's
-// existing convention for a currently-inapplicable action) when this is
-// already true.
+// Whether every filter already matches the server's default -- the
+// Pipelines page's "Reset filters" control disables itself (not hides,
+// matching this app's existing convention for a currently-inapplicable
+// action) when this is true. With no defaults to compare against there is
+// nothing to reset to, so it reports true and the control stays disabled.
 export function isAtDefaults(): boolean {
+	if (!defaults) return true;
+
 	return (
-		healthFilter === DEFAULT_HEALTH_FILTER &&
-		repoSelector === DEFAULT_REPO_SELECTOR &&
-		sortBy === DEFAULT_SORT_BY
+		healthFilter === defaults.pipelinesHealthFilter &&
+		repoSelector === defaults.pipelinesRepoSelector &&
+		sortBy === defaults.pipelinesSortOrder
 	);
 }
 
-// Resets all three filters to their documented defaults in one request
-// (account-settings/spec.md's "Reset Pipelines filters to defaults") --
-// PATCHing all three keys to null rather than to their literal default
-// values, so this stays correct even if a default ever changes server-side
-// without this client also having to know the new value.
+// Resets all three filters to the server's defaults in one request
+// (account-settings/spec.md's "Reset Pipelines filters to defaults"). The
+// PATCH sends null rather than the default values, so the server stays the
+// one place that decides what they are; the local update only mirrors its
+// answer, and is skipped when the defaults are unknown.
 export function resetFilters(): void {
-	healthFilter = DEFAULT_HEALTH_FILTER;
-	repoSelector = DEFAULT_REPO_SELECTOR;
-	sortBy = DEFAULT_SORT_BY;
+	if (defaults) {
+		healthFilter = defaults.pipelinesHealthFilter;
+		repoSelector = defaults.pipelinesRepoSelector;
+		sortBy = defaults.pipelinesSortOrder;
 
-	writeCache(HEALTH_FILTER_KEY, DEFAULT_HEALTH_FILTER);
-	writeCache(REPO_SELECTOR_KEY, DEFAULT_REPO_SELECTOR);
-	writeCache(SORT_BY_KEY, DEFAULT_SORT_BY);
+		writeCache(HEALTH_FILTER_KEY, healthFilter);
+		writeCache(REPO_SELECTOR_KEY, repoSelector);
+		writeCache(SORT_BY_KEY, sortBy);
+	}
 
 	void patchSettings({
 		pipelinesHealthFilter: null,
@@ -108,28 +123,26 @@ export function resetFilters(): void {
 	});
 }
 
-// Called once from the root layout, with the Pipelines filters persist-
-// account-settings' load() already fetched server-side (undefined if that
-// fetch failed, or on a route that doesn't fetch it at all) -- falls back
-// to the cached values otherwise, same reconciliation shape as
-// theme.svelte.ts's initTheme.
-export function initPipelinesFilters(server?: {
-	pipelinesHealthFilter: HealthFilter;
-	pipelinesRepoSelector: string;
-	pipelinesSortOrder: SortBy;
-}): void {
+// Called once from the root layout, with the settings persist-account-
+// settings' load() already fetched server-side (undefined if that fetch
+// failed, or on a route that doesn't fetch it at all) -- falls back to the
+// cached values otherwise, same reconciliation shape as theme.svelte.ts's
+// initTheme.
+export function initPipelinesFilters(server?: ServerSettings): void {
+	defaults = server?.defaults;
+
 	healthFilter =
 		server?.pipelinesHealthFilter ??
 		(readCached(HEALTH_FILTER_KEY) as HealthFilter | null) ??
-		DEFAULT_HEALTH_FILTER;
+		UNFILTERED_HEALTH;
 	repoSelector =
 		server?.pipelinesRepoSelector ??
 		readCached(REPO_SELECTOR_KEY) ??
-		DEFAULT_REPO_SELECTOR;
+		UNFILTERED_REPO;
 	sortBy =
 		server?.pipelinesSortOrder ??
 		(readCached(SORT_BY_KEY) as SortBy | null) ??
-		DEFAULT_SORT_BY;
+		UNSORTED;
 
 	writeCache(HEALTH_FILTER_KEY, healthFilter);
 	writeCache(REPO_SELECTOR_KEY, repoSelector);
