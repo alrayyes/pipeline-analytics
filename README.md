@@ -137,6 +137,14 @@ and unauthenticated.
 Put a reverse proxy (Caddy, Tailscale Funnel, your VPS's existing one) in
 front for TLS — the server itself speaks plain HTTP on `--addr`.
 
+The server doesn't rate-limit itself; that's the proxy's job. The routes
+reachable without a session are the login ceremony (`/api/auth/`), the forge
+webhook receivers (`/webhooks/`) and the health, readiness and version
+endpoints. Limit those at the proxy. The server still caps request bodies and
+verifies the signature on each webhook before doing any work. Passkey login can't be
+brute-forced the way a password can, which is why this is left to the proxy
+and not built into a single-user tool.
+
 ## Configuration
 
 Flags and environment variables (`PIPELINE_ANALYTICS_<FLAG>`, uppercased
