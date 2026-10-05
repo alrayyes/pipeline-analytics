@@ -36,14 +36,15 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 // this map nor mcpToolEndpoints fails TestEveryReadEndpointHasAnMCPTool, so
 // a new endpoint can't ship without its tool or a stated reason.
 var notMCPTools = map[string]string{
-	"/healthz":                        "liveness probe, not data",
-	"/readyz":                         "readiness probe, not data",
-	"/api/version":                    "build metadata, not pipeline data",
-	"/api/repos":                      "repo administration, a dashboard concern",
-	"/api/repos/identifiers":          "repo administration, a dashboard concern",
-	"/api/insights/github-rate-limit": "operational status of the server's own forge access, not pipeline data",
-	"/api/settings":                   "the signed-in user's dashboard preferences",
-	"/api/auth/credentials":           "passkey management, session-only",
+	"/healthz":                           "liveness probe, not data",
+	"/readyz":                            "readiness probe, not data",
+	"/api/version":                       "build metadata, not pipeline data",
+	"/api/repos":                         "repo administration, a dashboard concern",
+	"/api/repos/identifiers":             "repo administration, a dashboard concern",
+	"/api/insights/github-rate-limit":    "operational status of the server's own forge access, not pipeline data",
+	"/api/settings":                      "the signed-in user's dashboard preferences",
+	"/api/auth/credentials":              "passkey management, session-only",
+	"/api/runs/{runId}/jobs/{jobId}/log": "spec only until its handler lands (#343); the handler change adds the tool and removes this line",
 }
 
 // TestEveryReadEndpointHasAnMCPTool is the other half of
