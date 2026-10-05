@@ -58,6 +58,7 @@ func toRepoDTO(r ingestion.Repo) repoDTO {
 type reposHandler struct {
 	registrar *ingestion.Registrar
 	store     ingestion.Store
+	tokens    ingestion.ForgeTokenStore
 }
 
 func (h *reposHandler) list(w http.ResponseWriter, r *http.Request) {
@@ -89,8 +90,8 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if in.Identifier == "" || in.Token == "" || (in.Forge != string(ingestion.ForgeGitHub) && in.Forge != string(ingestion.ForgeForgejo)) {
-		writeError(w, http.StatusBadRequest, "invalid_body", "forge, identifier, and token are required")
+	if in.Identifier == "" || !validForge(in.Forge) {
+		writeError(w, http.StatusBadRequest, "invalid_body", "forge and identifier are required")
 
 		return
 	}
@@ -101,11 +102,16 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, ok := resolveToken(w, r, h.tokens, in.Forge, in.ForgejoInstanceURL, in.Token)
+	if !ok {
+		return
+	}
+
 	repo, err := h.registrar.Register(r.Context(), ingestion.NewRepo{
 		Forge:              ingestion.Forge(in.Forge),
 		Identifier:         in.Identifier,
 		ForgejoInstanceURL: in.ForgejoInstanceURL,
-		Token:              in.Token,
+		Token:              token,
 	})
 	if err != nil {
 		if code, message, ok := registrationConflict(err); ok {
@@ -174,8 +180,8 @@ func (h *reposHandler) discover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if in.Token == "" || (in.Forge != string(ingestion.ForgeGitHub) && in.Forge != string(ingestion.ForgeForgejo)) {
-		writeError(w, http.StatusBadRequest, "invalid_body", "forge and token are required")
+	if !validForge(in.Forge) {
+		writeError(w, http.StatusBadRequest, "invalid_body", "forge is required")
 
 		return
 	}
@@ -186,7 +192,12 @@ func (h *reposHandler) discover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repos, err := h.registrar.Discover(r.Context(), ingestion.Forge(in.Forge), in.ForgejoInstanceURL, in.Token)
+	token, ok := resolveToken(w, r, h.tokens, in.Forge, in.ForgejoInstanceURL, in.Token)
+	if !ok {
+		return
+	}
+
+	repos, err := h.registrar.Discover(r.Context(), ingestion.Forge(in.Forge), in.ForgejoInstanceURL, token)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "forge_error", "could not list repositories: "+err.Error())
 

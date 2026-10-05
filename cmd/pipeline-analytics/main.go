@@ -322,6 +322,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		Reconciler:       reconciler,
 		Metrics:          metrics.NewService(metricssqlite.NewStore(conn)),
 		JobLogs:          ingestion.NewJobLogService(ingestionStore, ingestionStore, jobLogReaders(forgeClients)),
+		ForgeTokens:      ingestionStore,
 		Auth:             auth.NewService(webAuthn, authStore),
 		AuthStore:        authStore,
 		Settings:         settings.NewService(settingssqlite.NewStore(conn)),

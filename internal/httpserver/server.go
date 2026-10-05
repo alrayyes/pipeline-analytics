@@ -25,6 +25,9 @@ type Deps struct {
 	// webhook fires -- see webhooksHandler.forgejo.
 	Reconciler ingestion.RepoReconciler
 	Metrics    *metrics.Service
+	// ForgeTokens keeps the tokens saved for registering repos. nil is fine:
+	// the routes aren't served and a token must then be given each time.
+	ForgeTokens ingestion.ForgeTokenStore
 	// JobLogs reads a job's log from its forge for GET /api/runs/{runId}/
 	// jobs/{jobId}/log. nil is fine: the route then answers 404.
 	JobLogs   *ingestion.JobLogService
@@ -64,6 +67,19 @@ func mountTelemetry(mux *http.ServeMux, service *metrics.Service) {
 	mux.HandleFunc("GET /api/steps/flaky", (&flakyStepsHandler{service: service}).list)
 }
 
+// mountForgeTokens registers the saved forge token routes, when there is a
+// store to keep them in.
+func mountForgeTokens(mux *http.ServeMux, store ingestion.ForgeTokenStore) {
+	if store == nil {
+		return
+	}
+
+	h := &forgeTokensHandler{store: store}
+	mux.HandleFunc("GET /api/forge-tokens", h.list)
+	mux.HandleFunc("PUT /api/forge-tokens", h.save)
+	mux.HandleFunc("DELETE /api/forge-tokens/{tokenId}", h.delete)
+}
+
 // New returns the root HTTP handler.
 func New(deps Deps) http.Handler {
 	mux := http.NewServeMux()
@@ -74,7 +90,7 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("/readyz", readyzHandler(deps.Ready, deps.ReadyCacheTTL, deps.Draining))
 	mux.HandleFunc("GET /api/version", versionHandler(deps.Version))
 
-	repos := &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore}
+	repos := &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore, tokens: deps.ForgeTokens}
 	mux.HandleFunc("GET /api/repos", repos.list)
 	mux.HandleFunc("POST /api/repos", repos.register)
 	mux.HandleFunc("GET /api/repos/identifiers", repos.identifiers)
@@ -101,6 +117,8 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("GET /api/insights/github-rate-limit", insights.githubRateLimit)
 
 	mountTelemetry(mux, deps.Metrics)
+
+	mountForgeTokens(mux, deps.ForgeTokens)
 
 	runList := &runListHandler{service: deps.Metrics}
 	mux.HandleFunc("GET /api/runs", runList.list)

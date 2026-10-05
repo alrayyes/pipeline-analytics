@@ -437,3 +437,132 @@ func TestStore_LocateJob(t *testing.T) {
 		require.ErrorIs(t, err, ingestion.ErrJobNotFound)
 	})
 }
+
+func TestStore_ForgeTokens(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	t.Run("saves a token and reads it back for the same forge", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+
+		saved, err := store.SaveForgeToken(ctx, ingestion.ForgeGitHub, "", "ghp_secret1234")
+		require.NoError(t, err)
+		require.NotEmpty(t, saved.ID)
+		require.Equal(t, "****1234", saved.TokenMasked)
+
+		got, err := store.ForgeToken(ctx, ingestion.ForgeGitHub, "")
+		require.NoError(t, err)
+		require.Equal(t, "ghp_secret1234", got)
+	})
+
+	t.Run("never keeps the token in the clear", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+
+		_, err := store.SaveForgeToken(ctx, ingestion.ForgeGitHub, "", "ghp_secret1234")
+		require.NoError(t, err)
+
+		var stored []byte
+		require.NoError(t, store.DB().QueryRowContext(ctx, "SELECT token_encrypted FROM forge_tokens").Scan(&stored))
+		require.NotContains(t, string(stored), "ghp_secret1234")
+	})
+
+	t.Run("saving again for the same forge replaces it, keeping one row", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+
+		_, err := store.SaveForgeToken(ctx, ingestion.ForgeGitHub, "", "ghp_old00000")
+		require.NoError(t, err)
+
+		saved, err := store.SaveForgeToken(ctx, ingestion.ForgeGitHub, "", "ghp_new11111")
+		require.NoError(t, err)
+		require.Equal(t, "****1111", saved.TokenMasked)
+
+		got, err := store.ForgeToken(ctx, ingestion.ForgeGitHub, "")
+		require.NoError(t, err)
+		require.Equal(t, "ghp_new11111", got)
+
+		list, err := store.ListForgeTokens(ctx)
+		require.NoError(t, err)
+		require.Len(t, list, 1)
+	})
+
+	t.Run("Forgejo tokens are per instance, and a trailing slash is the same instance", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+
+		_, err := store.SaveForgeToken(ctx, ingestion.ForgeForgejo, "https://git.example/", "fj_aaaa1111")
+		require.NoError(t, err)
+
+		_, err = store.SaveForgeToken(ctx, ingestion.ForgeForgejo, "https://other.example", "fj_bbbb2222")
+		require.NoError(t, err)
+
+		got, err := store.ForgeToken(ctx, ingestion.ForgeForgejo, "https://git.example")
+		require.NoError(t, err)
+		require.Equal(t, "fj_aaaa1111", got)
+
+		list, err := store.ListForgeTokens(ctx)
+		require.NoError(t, err)
+		require.Len(t, list, 2)
+	})
+
+	t.Run("an instance URL means nothing for GitHub", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+
+		_, err := store.SaveForgeToken(ctx, ingestion.ForgeGitHub, "https://ignored.example", "ghp_secret1234")
+		require.NoError(t, err)
+
+		got, err := store.ForgeToken(ctx, ingestion.ForgeGitHub, "")
+		require.NoError(t, err)
+		require.Equal(t, "ghp_secret1234", got)
+	})
+
+	t.Run("no token saved is not found", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := newTestStore(t).ForgeToken(ctx, ingestion.ForgeGitHub, "")
+		require.ErrorIs(t, err, ingestion.ErrSavedTokenNotFound)
+	})
+
+	t.Run("deleting removes it, and an unknown id is not found", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+
+		saved, err := store.SaveForgeToken(ctx, ingestion.ForgeGitHub, "", "ghp_secret1234")
+		require.NoError(t, err)
+
+		require.NoError(t, store.DeleteForgeToken(ctx, saved.ID))
+
+		_, err = store.ForgeToken(ctx, ingestion.ForgeGitHub, "")
+		require.ErrorIs(t, err, ingestion.ErrSavedTokenNotFound)
+
+		require.ErrorIs(t, store.DeleteForgeToken(ctx, saved.ID), ingestion.ErrSavedTokenNotFound)
+	})
+
+	t.Run("deleting a saved token leaves a registered repo's own copy working", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+
+		saved, err := store.SaveForgeToken(ctx, ingestion.ForgeGitHub, "", "ghp_secret1234")
+		require.NoError(t, err)
+
+		repo, err := store.CreateRepo(ctx, ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "o/n", Token: "ghp_secret1234"})
+		require.NoError(t, err)
+
+		require.NoError(t, store.DeleteForgeToken(ctx, saved.ID))
+
+		got, err := store.RepoToken(ctx, repo.ID)
+		require.NoError(t, err)
+		require.Equal(t, "ghp_secret1234", got)
+	})
+}
