@@ -45,6 +45,7 @@ var notMCPTools = map[string]string{
 	"/api/repos/identifiers":          "repo administration, a dashboard concern",
 	"/api/insights/github-rate-limit": "operational status of the server's own forge access, not pipeline data",
 	"/api/settings":                   "the signed-in user's dashboard preferences",
+	"/api/forge-tokens":               "saved forge tokens, a secret to manage, session-only (the response is masked, but an agent has no business with it)",
 	"/api/auth/credentials":           "passkey management, session-only",
 }
 
