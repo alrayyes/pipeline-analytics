@@ -56,6 +56,14 @@ type Deps struct {
 	Assets fs.FS
 }
 
+// mountTelemetry registers the reads behind the telemetry views: failure
+// insights, the branch list and the flaky steps.
+func mountTelemetry(mux *http.ServeMux, service *metrics.Service) {
+	mux.HandleFunc("GET /api/insights/failures", (&failureInsightsHandler{service: service}).get)
+	mux.HandleFunc("GET /api/branches", (&branchesHandler{service: service}).list)
+	mux.HandleFunc("GET /api/steps/flaky", (&flakyStepsHandler{service: service}).list)
+}
+
 // New returns the root HTTP handler.
 func New(deps Deps) http.Handler {
 	mux := http.NewServeMux()
@@ -92,11 +100,7 @@ func New(deps Deps) http.Handler {
 	insights := &insightsHandler{repos: deps.IngestionStore, rateLimits: deps.GitHubRateLimits}
 	mux.HandleFunc("GET /api/insights/github-rate-limit", insights.githubRateLimit)
 
-	failureInsights := &failureInsightsHandler{service: deps.Metrics}
-	mux.HandleFunc("GET /api/insights/failures", failureInsights.get)
-
-	flakySteps := &flakyStepsHandler{service: deps.Metrics}
-	mux.HandleFunc("GET /api/steps/flaky", flakySteps.list)
+	mountTelemetry(mux, deps.Metrics)
 
 	runList := &runListHandler{service: deps.Metrics}
 	mux.HandleFunc("GET /api/runs", runList.list)

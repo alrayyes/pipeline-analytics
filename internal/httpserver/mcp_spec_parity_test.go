@@ -30,6 +30,7 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "get_run_steps", path: "/api/runs/{runId}/steps"},
 	{tool: "get_job_log", path: "/api/runs/{runId}/jobs/{jobId}/log"},
 	{tool: "list_flaky_steps", path: "/api/steps/flaky"},
+	{tool: "list_branches", path: "/api/branches"},
 }
 
 // notMCPTools lists every GET operation openapi.yaml declares that

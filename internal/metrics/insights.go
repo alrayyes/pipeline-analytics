@@ -73,6 +73,12 @@ type RunWindowFilter struct {
 	Until  time.Time
 }
 
+// BranchCount is a branch and how many runs on it started in a window.
+type BranchCount struct {
+	Name     string
+	RunCount int
+}
+
 // WindowRun is a run with the pipeline it belongs to.
 type WindowRun struct {
 	Pipeline PipelineRef
