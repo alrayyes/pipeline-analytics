@@ -40,6 +40,7 @@ func (s *Service) ListFlakySteps(ctx context.Context, now time.Time, window Insi
 	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
 		RepoID: filter.RepoID,
 		Forge:  filter.Forge,
+		Branch: filter.Branch,
 		Since:  now.Add(-window.Duration),
 		Until:  now,
 	})

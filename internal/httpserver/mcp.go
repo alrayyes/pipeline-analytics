@@ -310,6 +310,7 @@ func (h *mcpHandler) listUnhealthySteps(ctx context.Context, _ *mcp.CallToolRequ
 type failureInsightsInput struct {
 	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted covers every repo"`
 	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted covers every forge"`
+	Branch string `json:"branch,omitempty" jsonschema:"cover only runs on this branch, matched exactly; omitted covers every branch"`
 	Window string `json:"window,omitempty" jsonschema:"24h, 7d or 30d; anything else, or omitted, is 7d, and the result reports the window used"`
 }
 
@@ -318,7 +319,7 @@ func (h *mcpHandler) getFailureInsights(ctx context.Context, _ *mcp.CallToolRequ
 		ctx,
 		time.Now(),
 		metrics.ParseInsightWindow(in.Window),
-		metrics.InsightFilter{RepoID: in.RepoID, Forge: in.Forge},
+		metrics.InsightFilter{RepoID: in.RepoID, Forge: in.Forge, Branch: in.Branch},
 	)
 	if err != nil {
 		return nil, failureInsightsDTO{}, fmt.Errorf("get failure insights: %w", err)
@@ -330,6 +331,7 @@ func (h *mcpHandler) getFailureInsights(ctx context.Context, _ *mcp.CallToolRequ
 type listRunsInput struct {
 	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted returns every repo's runs"`
 	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted returns every forge"`
+	Branch string `json:"branch,omitempty" jsonschema:"cover only runs on this branch, matched exactly; omitted covers every branch"`
 	Status string `json:"status,omitempty" jsonschema:"all (default), failed, running or success; anything else is an error"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"max runs to return; omitted returns every matching run"`
 	Offset int    `json:"offset,omitempty" jsonschema:"runs to skip before the returned page"`
@@ -344,6 +346,7 @@ func (h *mcpHandler) listRuns(ctx context.Context, _ *mcp.CallToolRequest, in li
 	runs, hasMore, err := h.metrics.ListRuns(ctx, metrics.RunListFilter{
 		RepoID: in.RepoID,
 		Forge:  in.Forge,
+		Branch: in.Branch,
 		Status: status,
 		Limit:  in.Limit,
 		Offset: in.Offset,
@@ -412,6 +415,7 @@ func (h *mcpHandler) getJobLog(ctx context.Context, _ *mcp.CallToolRequest, in j
 type listFlakyStepsInput struct {
 	RepoID string `json:"repoId,omitempty" jsonschema:"restrict to one tracked repo; omitted covers every repo"`
 	Forge  string `json:"forge,omitempty" jsonschema:"restrict to one forge; omitted covers every forge"`
+	Branch string `json:"branch,omitempty" jsonschema:"cover only runs on this branch, matched exactly; omitted covers every branch"`
 	Window string `json:"window,omitempty" jsonschema:"24h, 7d or 30d; anything else, or omitted, is 7d, and the result reports the window used"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"max steps to return; omitted returns every flaky step"`
 	Offset int    `json:"offset,omitempty" jsonschema:"steps to skip before the returned page"`
@@ -424,7 +428,7 @@ func (h *mcpHandler) listFlakySteps(ctx context.Context, _ *mcp.CallToolRequest,
 		ctx,
 		time.Now(),
 		window,
-		metrics.InsightFilter{RepoID: in.RepoID, Forge: in.Forge},
+		metrics.InsightFilter{RepoID: in.RepoID, Forge: in.Forge, Branch: in.Branch},
 		in.Limit,
 		in.Offset,
 	)
