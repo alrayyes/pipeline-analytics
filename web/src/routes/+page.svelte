@@ -1,6 +1,8 @@
 <script lang="ts">
 import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+import { getBranch } from '$lib/branchFilter.svelte.js';
+import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
 import MetricCard from '$lib/components/telemetry/MetricCard.svelte';
 import WindowToggle from '$lib/components/telemetry/WindowToggle.svelte';
 import {
@@ -38,9 +40,10 @@ function plural(count: number, one: string, many: string): string {
 async function load(
 	gen: number,
 	window: InsightsWindow | undefined,
+	branch: string | undefined,
 ): Promise<void> {
 	try {
-		const body = await fetchFailureInsights({ window });
+		const body = await fetchFailureInsights({ window, branch });
 		if (gen !== generation) return;
 
 		insights = body;
@@ -59,24 +62,27 @@ $effect(() => {
 	if (!data.hasRepos) return;
 
 	const window = getTelemetryWindow() ?? undefined;
+	const branch = getBranch() ?? undefined;
 	const gen = ++generation;
 
 	loading = true;
-	load(gen, window);
+	load(gen, window, branch);
 
 	return () => {
 		generation++;
 	};
 });
 
-// The latest failure isn't windowed, and failing to load it must not take
-// the rest of the page down, so it's fetched on its own.
+// The latest failure isn't windowed, but it follows the chosen branch. Failing
+// to load it must not take the rest of the page down, so it's fetched on its
+// own.
 $effect(() => {
 	if (!data.hasRepos) return;
 
+	const branch = getBranch() ?? undefined;
 	let stale = false;
 
-	fetchRuns({ limit: 1, offset: 0, status: 'failed' })
+	fetchRuns({ limit: 1, offset: 0, status: 'failed', branch })
 		.then((body) => {
 			if (!stale) latestFailure = body.runs[0] ?? null;
 		})
@@ -99,6 +105,7 @@ $effect(() => {
 		<h1 class="text-2xl font-semibold">Overview</h1>
 		{#if data.hasRepos}
 			<WindowToggle value={getTelemetryWindow() ?? insights?.window ?? null} onChange={setTelemetryWindow} />
+			<BranchSelect window={getTelemetryWindow() ?? undefined} />
 		{/if}
 	</div>
 
@@ -137,6 +144,10 @@ $effect(() => {
 			<p class="mt-6 text-muted-foreground">Loading…</p>
 		{:else if error}
 			<p role="alert" class="mt-6 text-destructive">Couldn't load the overview right now.</p>
+		{:else if insights && getBranch() && insights.totalRuns === 0}
+			<p class="mt-6 text-muted-foreground">
+				No runs on {getBranch()} in this window.
+			</p>
 		{:else if insights}
 			<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
 				<MetricCard

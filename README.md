@@ -17,6 +17,10 @@ one SQLite file, no external services.
 
 ![Overview: pass rate, mean time to recovery, failed runs and where they fail, over a window you pick: 24 hours, 7 days or 30 days](docs/screenshot-failure-overview.png)
 
+The overview, root-cause, flaky and runs views can be scoped to one branch
+with the branch selector beside the window; with none chosen they cover every
+branch.
+
 <details>
 <summary>More screenshots</summary>
 

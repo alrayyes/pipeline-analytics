@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import {
+	backToFirstPage,
 	getOffset,
 	getStatus,
 	nextPage,
@@ -83,5 +84,18 @@ describe('resetRunsFilters', () => {
 
 		expect(getStatus()).toBe('all');
 		expect(getOffset()).toBe(0);
+	});
+});
+
+describe('backToFirstPage', () => {
+	test('returns to the first page and leaves the status alone', () => {
+		setStatus('failed');
+		nextPage();
+		nextPage();
+
+		backToFirstPage();
+
+		expect(getOffset()).toBe(0);
+		expect(getStatus()).toBe('failed');
 	});
 });
