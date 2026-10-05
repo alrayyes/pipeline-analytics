@@ -58,7 +58,7 @@ Frontend (from `web/`):
 bun run check          # svelte-check
 bun run lint           # biome
 bun run test           # unit tests (bun:test)
-bun run test:coverage  # same, plus a coverage report
+bun run test:coverage  # same, plus a coverage report and `junit.xml`
 bun run test:mutation  # mutation testing (Stryker), reports a score, doesn't gate on one
 bun run build
 bun audit
