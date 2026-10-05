@@ -57,3 +57,41 @@ The system SHALL track runner time consumed per workflow and per repository, ove
 #### Scenario: Usage is attributable to a workflow
 - **WHEN** a user requests usage for a tracked repository
 - **THEN** the system reports total runner minutes consumed, broken down by workflow, for the requested window
+
+### Requirement: Telemetry can be scoped to one branch
+
+The system SHALL accept an optional `branch` on the failure insights, the run
+list and the flaky steps, cover only runs on that exact branch when it is
+given and every branch when it is not, and reject one longer than 255
+characters.
+
+#### Scenario: A healthy main beside a broken feature branch
+
+- **WHEN** the insights are read with `branch=main`
+- **THEN** only main's runs count toward the totals and the pass rate
+
+#### Scenario: A branch with no runs
+
+- **WHEN** a branch has no runs in the window
+- **THEN** the answer is an empty result, not an error
+
+#### Scenario: A branch that is too long
+
+- **WHEN** `branch` is longer than 255 characters
+- **THEN** the answer is `400`
+
+### Requirement: The branches with runs can be listed
+
+The system SHALL list the branches that have runs started in the trailing
+window, with their run counts, busiest first and then by name, and SHALL NOT
+count a run with no recorded branch.
+
+#### Scenario: A selector's options
+
+- **WHEN** a client asks for the branches in the 7d window
+- **THEN** each branch with a run in that window appears once with its count
+
+#### Scenario: Runs with no branch
+
+- **WHEN** some runs have no recorded branch
+- **THEN** they aren't counted under any branch
