@@ -73,13 +73,15 @@ func (s *Service) ResetPipelinesFilters(ctx context.Context, userID string) (Set
 }
 
 func resolve(raw map[string]string) Settings {
+	def := Defaults()
+
 	return Settings{
-		Theme:                 valueOr(raw, KeyTheme, DefaultTheme),
-		ForgeFilter:           valueOr(raw, KeyForgeFilter, DefaultForgeFilter),
-		PipelinesHealthFilter: valueOr(raw, KeyPipelinesHealthFilter, DefaultPipelinesHealthFilter),
-		PipelinesRepoSelector: valueOr(raw, KeyPipelinesRepoSelector, DefaultPipelinesRepoSelector),
-		PipelinesSortOrder:    valueOr(raw, KeyPipelinesSortOrder, DefaultPipelinesSortOrder),
-		TelemetryWindow:       valueOr(raw, KeyTelemetryWindow, DefaultTelemetryWindow),
+		Theme:                 valueOr(raw, KeyTheme, def.Theme),
+		ForgeFilter:           valueOr(raw, KeyForgeFilter, def.ForgeFilter),
+		PipelinesHealthFilter: valueOr(raw, KeyPipelinesHealthFilter, def.PipelinesHealthFilter),
+		PipelinesRepoSelector: valueOr(raw, KeyPipelinesRepoSelector, def.PipelinesRepoSelector),
+		PipelinesSortOrder:    valueOr(raw, KeyPipelinesSortOrder, def.PipelinesSortOrder),
+		TelemetryWindow:       valueOr(raw, KeyTelemetryWindow, def.TelemetryWindow),
 	}
 }
 
