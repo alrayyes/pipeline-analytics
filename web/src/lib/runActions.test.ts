@@ -33,6 +33,7 @@ describe('rerunRun', () => {
 
 	test.each([
 		[403, 'forbidden', 'token needs Actions write permission'],
+		[403, 'forbidden', 'Replace it in Settings'],
 		[409, 'not_actionable', 'can only be re-run once it has finished'],
 		[501, 'unsupported', 'doesn’t support re-running'],
 		[502, 'unreachable', 'forge didn’t answer'],
@@ -100,6 +101,8 @@ describe('cancelRun', () => {
 
 		if (result.ok) throw new Error('expected a failure');
 		expect(actionMessage('cancel', result)).toContain('Actions write');
+		// The way out is in settings, where the saved token is replaced.
+		expect(actionMessage('cancel', result)).toContain('Settings');
 	});
 });
 

@@ -44,6 +44,13 @@ test('a saved token is used by the register dialog, and no response carries it',
 	await page.goto('/repos');
 	await page.getByRole('button', { name: 'Register repository' }).click();
 	await expect(page.getByLabel('Access token')).toBeVisible();
+	// Read-only Actions tracks a repo; re-running and cancelling need write.
+	await expect(page.getByRole('dialog')).toContainText(
+		'Actions (read-only) is enough to track a repository',
+	);
+	await expect(page.getByRole('dialog')).toContainText(
+		'Actions write permission is also needed to re-run or cancel runs',
+	);
 	await page.keyboard.press('Escape');
 
 	await saveGitHubToken(page, 'ghp_secrettoken9999');
