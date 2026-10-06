@@ -63,7 +63,7 @@ export function actionMessage(
 ): string {
 	switch (result.code) {
 		case 'forbidden':
-			return `The saved token needs Actions write permission to ${VERBS[kind]} a run on GitHub.`;
+			return `The saved token needs Actions write permission to ${VERBS[kind]} a run on GitHub. Replace it in Settings with one that has it.`;
 		case 'not_actionable':
 			return NOT_ACTIONABLE[kind];
 		case 'unsupported':

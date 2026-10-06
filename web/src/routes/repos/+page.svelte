@@ -72,7 +72,7 @@ const FORGE_LABELS: Record<string, string> = {
 };
 const TOKEN_HELP: Record<string, string> = {
 	github:
-		'Classic token: the "repo" scope. Fine-grained token: this repository selected, with "Actions" (read-only) and "Webhooks" (read and write) repository permissions.',
+		'Classic token: the "repo" scope. Fine-grained token: this repository selected, with "Actions" and "Webhooks" (read and write) repository permissions. Actions (read-only) is enough to track a repository. Actions write permission is also needed to re-run or cancel runs from the dashboard.',
 	forgejo:
 		'A token with "repository" (read and write) and "user" (read) access, created under Settings → Applications → Manage Access Tokens.',
 };
