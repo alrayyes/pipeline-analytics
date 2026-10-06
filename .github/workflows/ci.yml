@@ -212,7 +212,9 @@ jobs:
           flags: frontend
           fail_ci_if_error: true
       - run: bun run build
-      - run: bun audit
+      # sprintf-js 1.1.3 is the latest release and still flagged. It comes in
+      # through @lhci/cli, a dev tool, and never reaches the shipped bundle.
+      - run: bun audit --ignore GHSA-hp3w-g68c-fv3c
 
   # A surviving mutant fails the job (thresholds.break is 100 in
   # stryker.conf.mjs, rules/javascript.md). Scoped to the handful of modules the unit-
