@@ -1,26 +1,25 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import { page } from '$app/state';
-import ForgeFilter from '$lib/components/ForgeFilter.svelte';
-import { Badge } from '$lib/components/ui/badge/index.js';
-import { Button } from '$lib/components/ui/button/index.js';
+import ForgeFilter from '#lib/components/ForgeFilter.svelte';
+import { Badge } from '#lib/components/ui/badge/index.js';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
-import { Label } from '$lib/components/ui/label/index.js';
+} from '#lib/components/ui/card/index.js';
+import { Label } from '#lib/components/ui/label/index.js';
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-} from '$lib/components/ui/select/index.js';
+} from '#lib/components/ui/select/index.js';
 import {
 	ToggleGroup,
 	ToggleGroupItem,
-} from '$lib/components/ui/toggle-group/index.js';
+} from '#lib/components/ui/toggle-group/index.js';
 import {
 	ApiError,
 	fetchPipelines,
@@ -28,8 +27,8 @@ import {
 	type PipelineGroup,
 	type PipelineSummary,
 	type Repo,
-} from '$lib/dashboardApi.js';
-import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
+} from '#lib/dashboardApi.js';
+import { getForgeFilter } from '#lib/forgeFilter.svelte.js';
 import {
 	getHealthFilter,
 	getRepoSelector,
@@ -41,8 +40,9 @@ import {
 	setHealthFilter,
 	setRepoSelector,
 	setSortBy,
-} from '$lib/pipelinesFilters.svelte.js';
-import { formatRelativeTime } from '$lib/relativeTime.js';
+} from '#lib/pipelinesFilters.svelte.js';
+import { formatRelativeTime } from '#lib/relativeTime.js';
+import { page } from '$app/state';
 
 // Mirrors the Repos page's PAGE_SIZE (#165/#166).
 const PAGE_SIZE = 20;

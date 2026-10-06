@@ -2,13 +2,13 @@
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { onMount } from 'svelte';
-import type { Release } from '$lib/changelog.js';
+import type { Release } from '#lib/changelog.js';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
+} from '#lib/components/ui/card/index.js';
 
 // Generated from CHANGELOG.md at build time (scripts/generate-releases.ts)
 // and served by the app itself, so opening this page never queries GitHub

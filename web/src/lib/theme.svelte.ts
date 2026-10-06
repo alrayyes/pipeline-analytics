@@ -1,4 +1,4 @@
-import { patchSettings } from '$lib/settingsSync.js';
+import { patchSettings } from '#lib/settingsSync.js';
 
 export type Theme = 'light' | 'dark' | 'system';
 

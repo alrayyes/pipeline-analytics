@@ -1,18 +1,18 @@
 <script lang="ts">
-import { clearBranch, getBranch, setBranch } from '$lib/branchFilter.svelte.js';
-import { ALL_BRANCHES, branchOptions } from '$lib/branchOptions.js';
-import { Label } from '$lib/components/ui/label/index.js';
+import { clearBranch, getBranch, setBranch } from '#lib/branchFilter.svelte.js';
+import { ALL_BRANCHES, branchOptions } from '#lib/branchOptions.js';
+import { Label } from '#lib/components/ui/label/index.js';
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-} from '$lib/components/ui/select/index.js';
+} from '#lib/components/ui/select/index.js';
 import {
 	type BranchCount,
 	fetchBranches,
 	type InsightsWindow,
-} from '$lib/dashboardApi.js';
+} from '#lib/dashboardApi.js';
 
 let {
 	window,

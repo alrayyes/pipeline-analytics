@@ -4,7 +4,7 @@ import type {
 	HTMLButtonAttributes,
 } from 'svelte/elements';
 import { tv, type VariantProps } from 'tailwind-variants';
-import { cn, type WithElementRef } from '$lib/utils.js';
+import { cn, type WithElementRef } from '#lib/utils.js';
 
 export const buttonVariants = tv({
 	// disabled:opacity-60, not the more conventional -50: a disabled

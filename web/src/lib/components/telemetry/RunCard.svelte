@@ -2,8 +2,8 @@
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 import XIcon from '@lucide/svelte/icons/x';
-import StageProgress from '$lib/components/telemetry/StageProgress.svelte';
-import StatusBadge from '$lib/components/telemetry/StatusBadge.svelte';
+import StageProgress from '#lib/components/telemetry/StageProgress.svelte';
+import StatusBadge from '#lib/components/telemetry/StatusBadge.svelte';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -13,18 +13,18 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from '$lib/components/ui/alert-dialog/index.js';
-import { Button } from '$lib/components/ui/button/index.js';
+} from '#lib/components/ui/alert-dialog/index.js';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
 	CardFooter,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
-import type { RunSummary } from '$lib/dashboardApi.js';
-import { formatSeconds } from '$lib/format.js';
-import { formatRelativeTime } from '$lib/relativeTime.js';
+} from '#lib/components/ui/card/index.js';
+import type { RunSummary } from '#lib/dashboardApi.js';
+import { formatSeconds } from '#lib/format.js';
+import { formatRelativeTime } from '#lib/relativeTime.js';
 import {
 	actionMessage,
 	cancelRun,
@@ -32,8 +32,8 @@ import {
 	offersRerun,
 	type RunActionKind,
 	rerunRun,
-} from '$lib/runActions.js';
-import { outcomeLabel, outcomeTone } from '$lib/statusModel.js';
+} from '#lib/runActions.js';
+import { outcomeLabel, outcomeTone } from '#lib/statusModel.js';
 
 let { run }: { run: RunSummary } = $props();
 
