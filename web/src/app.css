@@ -122,3 +122,70 @@
 		@apply font-sans;
 	}
 }
+
+/* The step log viewer's terminal (ansi.ts maps escape codes to these names).
+   A fixed dark surface in both themes, with every colour at least 4.5:1
+   against it (WCAG AA), so a log reads the same in light and dark mode. */
+:root {
+	--terminal-bg: #111418;
+	--terminal-fg: #e6e8eb;
+	--ansi-black: #9aa3ad;
+	--ansi-red: #ff7b7b;
+	--ansi-green: #6fdc8c;
+	--ansi-yellow: #f2cd5d;
+	--ansi-blue: #7cb0ff;
+	--ansi-magenta: #d7a0ff;
+	--ansi-cyan: #5fdcdc;
+	--ansi-white: #ffffff;
+}
+
+@layer utilities {
+	.ansi-black {
+		color: var(--ansi-black);
+	}
+	.ansi-red {
+		color: var(--ansi-red);
+	}
+	.ansi-green {
+		color: var(--ansi-green);
+	}
+	.ansi-yellow {
+		color: var(--ansi-yellow);
+	}
+	.ansi-blue {
+		color: var(--ansi-blue);
+	}
+	.ansi-magenta {
+		color: var(--ansi-magenta);
+	}
+	.ansi-cyan {
+		color: var(--ansi-cyan);
+	}
+	.ansi-white {
+		color: var(--ansi-white);
+	}
+	.ansi-bright-black {
+		color: var(--ansi-black);
+	}
+	.ansi-bright-red {
+		color: var(--ansi-red);
+	}
+	.ansi-bright-green {
+		color: var(--ansi-green);
+	}
+	.ansi-bright-yellow {
+		color: var(--ansi-yellow);
+	}
+	.ansi-bright-blue {
+		color: var(--ansi-blue);
+	}
+	.ansi-bright-magenta {
+		color: var(--ansi-magenta);
+	}
+	.ansi-bright-cyan {
+		color: var(--ansi-cyan);
+	}
+	.ansi-bright-white {
+		color: var(--ansi-white);
+	}
+}

@@ -72,6 +72,8 @@ export type Outcome =
 	| 'unknown';
 
 export interface RunStep {
+	// The job this step ran in; absent on rows ingested before it was kept.
+	jobId?: string;
 	name: string;
 	status: string;
 	conclusion?: string;
@@ -275,6 +277,33 @@ export async function fetchRepoUsage(
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as UsageEntry[];
+}
+
+export interface JobLog {
+	available: boolean;
+	// Present when `available` is false: why the forge gave no log.
+	reason?: 'unsupported' | 'expired' | 'forbidden' | 'unreachable';
+	// Oldest first, raw text with ANSI sequences included.
+	lines: string[];
+	truncated: boolean;
+	// Deep link to the job on the forge, always present.
+	forgeUrl: string;
+}
+
+// How many trailing lines the step viewer asks for.
+export const JOB_LOG_LINES = 200;
+
+export async function fetchJobLog(
+	runId: string,
+	jobId: string,
+	fetchFn: typeof fetch = fetch,
+): Promise<JobLog> {
+	const res = await fetchFn(
+		`/api/runs/${encodeURIComponent(runId)}/jobs/${encodeURIComponent(jobId)}/log?lines=${JOB_LOG_LINES}`,
+	);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as JobLog;
 }
 
 export interface FailureInsightsParams {

@@ -1,6 +1,8 @@
 <script lang="ts">
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 import { onMount } from 'svelte';
+import StepLog from '#lib/components/telemetry/StepLog.svelte';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -18,9 +20,11 @@ import {
 import { page } from '$app/state';
 
 interface RunStep {
+	jobId?: string;
 	name: string;
 	status: string;
 	conclusion?: string;
+	outcome?: string;
 	forgeUrl?: string;
 }
 
@@ -33,6 +37,8 @@ interface RunDetail {
 let detail = $state<RunDetail | null>(null);
 let notFound = $state(false);
 let error = $state<string | null>(null);
+// Which steps have their log open, by position in the list.
+let openLogs = $state<Record<number, boolean>>({});
 
 // Carried over from the flaky-runs list (#216) so this page's back link
 // returns there instead of always falling back to the Pipelines overview.
@@ -107,6 +113,7 @@ function formatDate(iso?: string): string {
 							<TableRow>
 								<TableHead>Step</TableHead>
 								<TableHead>Status</TableHead>
+								<TableHead class="sr-only">Log</TableHead>
 								<TableHead class="sr-only">Forge link</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -117,6 +124,18 @@ function formatDate(iso?: string): string {
 										{step.name}
 									</TableCell>
 									<TableCell>{step.conclusion || step.status}</TableCell>
+									<TableCell>
+										{#if step.outcome === 'failed' && step.jobId}
+											<Button
+												variant="outline"
+												size="sm"
+												aria-expanded={Boolean(openLogs[i])}
+												onclick={() => (openLogs[i] = !openLogs[i])}
+											>
+												{openLogs[i] ? 'Hide log' : 'Show log'}
+											</Button>
+										{/if}
+									</TableCell>
 									<TableCell>
 										{#if step.forgeUrl}
 											<a
@@ -132,6 +151,13 @@ function formatDate(iso?: string): string {
 										{/if}
 									</TableCell>
 								</TableRow>
+								{#if openLogs[i] && step.jobId}
+									<TableRow>
+										<TableCell colspan={4}>
+											<StepLog runId={detail.runId} jobId={step.jobId} forgeUrl={step.forgeUrl} />
+										</TableCell>
+									</TableRow>
+								{/if}
 							{/each}
 						</TableBody>
 					</Table>

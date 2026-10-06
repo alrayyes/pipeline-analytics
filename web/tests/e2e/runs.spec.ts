@@ -402,3 +402,140 @@ test('cancels a running run only after confirmation, and says why when refused',
 	const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
 	expect(scan.violations).toEqual([]);
 });
+
+// The step log viewer: the last lines of a failed step's job, ANSI colours
+// drawn, and never anything the log says treated as markup.
+function runWithFailedStep() {
+	return {
+		runId: 'run-1',
+		startedAt: '2026-10-02T12:00:00Z',
+		steps: [
+			{
+				jobId: 'job-1',
+				name: 'checkout',
+				status: 'completed',
+				conclusion: 'success',
+				outcome: 'passed',
+			},
+			{
+				jobId: 'job-2',
+				name: 'canary',
+				status: 'completed',
+				conclusion: 'failure',
+				outcome: 'failed',
+				forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/1/job/2',
+			},
+		],
+	};
+}
+
+test('a failed step shows its log, coloured, and offers none for a passing one', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await page.route('**/api/runs/run-1/steps', (route) =>
+		route.fulfill({ json: runWithFailedStep() }),
+	);
+	let asked = '';
+	await page.route('**/api/runs/run-1/jobs/job-2/log*', (route) => {
+		asked = new URL(route.request().url()).search;
+
+		return route.fulfill({
+			json: {
+				available: true,
+				lines: ['\u001b[31merror:\u001b[0m canary timed out', 'exit code 1'],
+				truncated: true,
+				forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/1/job/2',
+			},
+		});
+	});
+
+	await page.goto('/runs/run-1');
+	await expect(page.getByRole('button', { name: 'Show log' })).toHaveCount(1);
+
+	await page.getByRole('button', { name: 'Show log' }).click();
+	const log = page.getByLabel('Step log');
+	await expect(log).toContainText('error: canary timed out');
+	expect(asked).toBe('?lines=200');
+
+	// The escape code is drawn as a colour, not left in the text.
+	await expect(log).not.toContainText('[31m');
+	const colour = await log
+		.getByText('error:')
+		.evaluate((el) => getComputedStyle(el).color);
+	expect(colour).toBe('rgb(255, 123, 123)');
+
+	await expect(log.locator('..').getByText('Last 200 lines.')).toBeVisible();
+
+	const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(scan.violations).toEqual([]);
+});
+
+test('markup in a log is shown as text and never runs', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await page.route('**/api/runs/run-1/steps', (route) =>
+		route.fulfill({ json: runWithFailedStep() }),
+	);
+	const payload =
+		'<script>window.__pwned = 1</script><img src=x onerror="window.__pwned = 2">';
+	await page.route('**/api/runs/run-1/jobs/job-2/log*', (route) =>
+		route.fulfill({
+			json: {
+				available: true,
+				lines: [payload],
+				truncated: false,
+				forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/1/job/2',
+			},
+		}),
+	);
+
+	await page.goto('/runs/run-1');
+	await page.getByRole('button', { name: 'Show log' }).click();
+	const log = page.getByLabel('Step log');
+
+	await expect(log).toContainText(payload);
+	await expect(log.locator('script, img')).toHaveCount(0);
+	expect(
+		await page.evaluate(() => (window as { __pwned?: number }).__pwned),
+	).toBe(undefined);
+});
+
+test('a log the forge cannot give says why and still links to the forge', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await page.route('**/api/runs/run-1/steps', (route) =>
+		route.fulfill({ json: runWithFailedStep() }),
+	);
+	await page.route('**/api/runs/run-1/jobs/job-2/log*', (route) =>
+		route.fulfill({
+			json: {
+				available: false,
+				reason: 'unsupported',
+				lines: [],
+				truncated: false,
+				forgeUrl: 'https://forge.example/alrayyes/payments/actions/runs/1',
+			},
+		}),
+	);
+
+	await page.goto('/runs/run-1');
+	await page.getByRole('button', { name: 'Show log' }).click();
+
+	await expect(page.getByText('no log API')).toBeVisible();
+	await expect(page.getByLabel('Step log')).toHaveCount(0);
+	await expect(
+		page.getByRole('link', { name: 'View on forge' }).last(),
+	).toHaveAttribute(
+		'href',
+		'https://forge.example/alrayyes/payments/actions/runs/1',
+	);
+
+	const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(scan.violations).toEqual([]);
+});
