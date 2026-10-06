@@ -28,6 +28,12 @@ branch.
 
 ![Runs: each run's steps as a progress bar, with its commit, status and a link to the forge](docs/screenshot-runs.png)
 
+Open a run and a failed step has a **Show log** button: the last 200 lines of
+that step's job log, fetched from the forge when you ask and never stored, with
+ANSI colors drawn. A forge with no log API (Forgejo before v16), an expired
+log or a token that can't read it says so and still links to the job on the
+forge.
+
 A concluded GitHub run has a **Re-run** button on the Runs view. It asks GitHub
 to re-run the failed jobs (every job if the run passed) and needs a saved token
 with Actions write permission. A queued or running GitHub run has a **Cancel

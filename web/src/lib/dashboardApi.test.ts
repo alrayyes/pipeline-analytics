@@ -7,6 +7,7 @@ import {
 	fetchBranches,
 	fetchFailureInsights,
 	fetchFlakySteps,
+	fetchJobLog,
 	fetchPipeline,
 	fetchPipelineSteps,
 	fetchPipelines,
@@ -565,5 +566,57 @@ describe('branch scoping', () => {
 		await expect(
 			fetchBranches({}, fetchFn as typeof fetch),
 		).rejects.toBeInstanceOf(ApiError);
+	});
+});
+
+describe('fetchJobLog', () => {
+	test('asks for the last 200 lines of one job, with both ids escaped', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+
+			return Promise.resolve(
+				jsonResponse({
+					available: true,
+					lines: ['a'],
+					truncated: false,
+					forgeUrl: 'https://github.com/o/r/actions/runs/1/job/2',
+				}),
+			);
+		};
+
+		const log = await fetchJobLog('run 1', 'job/2', fetchFn as typeof fetch);
+
+		expect(requestedUrl).toBe('/api/runs/run%201/jobs/job%2F2/log?lines=200');
+		expect(log.lines).toEqual(['a']);
+	});
+
+	test('an unavailable log is a normal answer that carries its reason', async () => {
+		const fetchFn: FetchMock = () =>
+			Promise.resolve(
+				jsonResponse({
+					available: false,
+					reason: 'unsupported',
+					lines: [],
+					truncated: false,
+					forgeUrl: 'https://forge.example/o/r/actions/runs/1',
+				}),
+			);
+
+		const log = await fetchJobLog('r', 'j', fetchFn as typeof fetch);
+
+		expect(log).toMatchObject({ available: false, reason: 'unsupported' });
+	});
+
+	test('throws an ApiError carrying the status on a failed response', async () => {
+		const fetchFn: FetchMock = () =>
+			Promise.resolve(jsonResponse({ code: 'not_found' }, 404));
+
+		const failure = await fetchJobLog('r', 'j', fetchFn as typeof fetch).catch(
+			(e) => e,
+		);
+
+		expect(failure).toBeInstanceOf(ApiError);
+		expect((failure as ApiError).status).toBe(404);
 	});
 });
