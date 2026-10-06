@@ -1,7 +1,9 @@
 <script lang="ts">
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 import StageProgress from '$lib/components/telemetry/StageProgress.svelte';
 import StatusBadge from '$lib/components/telemetry/StatusBadge.svelte';
+import { Button } from '$lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -12,9 +14,27 @@ import {
 import type { RunSummary } from '$lib/dashboardApi.js';
 import { formatSeconds } from '$lib/format.js';
 import { formatRelativeTime } from '$lib/relativeTime.js';
+import { actionMessage, offersRerun, rerunRun } from '$lib/runActions.js';
 import { outcomeLabel, outcomeTone } from '$lib/statusModel.js';
 
 let { run }: { run: RunSummary } = $props();
+
+let rerunning = $state(false);
+let rerunNote = $state<{ text: string; failed: boolean } | null>(null);
+
+async function rerun(): Promise<void> {
+	rerunning = true;
+	rerunNote = null;
+
+	const result = await rerunRun(run.id);
+	rerunNote = result.ok
+		? {
+				text: 'Re-run requested. The forge will start it shortly.',
+				failed: false,
+			}
+		: { text: actionMessage('rerun', result), failed: true };
+	rerunning = false;
+}
 
 const hasCommit = $derived(Boolean(run.sha || run.message || run.actor));
 </script>
@@ -63,5 +83,23 @@ const hasCommit = $derived(Boolean(run.sha || run.message || run.actor));
 				<ExternalLinkIcon aria-hidden="true" class="size-3" />
 			</a>
 		{/if}
+		{#if offersRerun(run)}
+			<Button
+				variant="outline"
+				size="sm"
+				class="ml-auto"
+				disabled={rerunning}
+				onclick={rerun}
+			>
+				<RotateCcwIcon aria-hidden="true" class="size-3" />
+				Re-run
+			</Button>
+		{/if}
+		<p
+			role={rerunNote?.failed ? 'alert' : 'status'}
+			class={['w-full', rerunNote?.failed && 'text-destructive']}
+		>
+			{rerunNote?.text ?? ''}
+		</p>
 	</CardFooter>
 </Card>
