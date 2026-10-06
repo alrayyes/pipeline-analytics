@@ -1,12 +1,12 @@
 <script lang="ts">
-import { goto } from '$app/navigation';
-import { Button } from '$lib/components/ui/button/index.js';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
+} from '#lib/components/ui/card/index.js';
+import { goto } from '$app/navigation';
 
 type Mode = 'checking' | 'register' | 'login' | 'unreachable';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { FlakyStep } from '$lib/dashboardApi.js';
-import { flakeCells, flakeSummary } from '$lib/flakeMatrix.js';
-import type { Tone } from '$lib/statusModel.js';
+import type { FlakyStep } from '#lib/dashboardApi.js';
+import { flakeCells, flakeSummary } from '#lib/flakeMatrix.js';
+import type { Tone } from '#lib/statusModel.js';
 
 let { step }: { step: FlakyStep } = $props();
 

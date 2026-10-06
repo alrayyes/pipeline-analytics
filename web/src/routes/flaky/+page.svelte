@@ -1,17 +1,17 @@
 <script lang="ts">
-import { getBranch } from '$lib/branchFilter.svelte.js';
-import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
-import FlakyStepCard from '$lib/components/telemetry/FlakyStepCard.svelte';
-import WindowToggle from '$lib/components/telemetry/WindowToggle.svelte';
+import { getBranch } from '#lib/branchFilter.svelte.js';
+import BranchSelect from '#lib/components/telemetry/BranchSelect.svelte';
+import FlakyStepCard from '#lib/components/telemetry/FlakyStepCard.svelte';
+import WindowToggle from '#lib/components/telemetry/WindowToggle.svelte';
 import {
 	type FlakyStepList,
 	fetchFlakySteps,
 	type InsightsWindow,
-} from '$lib/dashboardApi.js';
+} from '#lib/dashboardApi.js';
 import {
 	getTelemetryWindow,
 	setTelemetryWindow,
-} from '$lib/telemetryWindow.svelte.js';
+} from '#lib/telemetryWindow.svelte.js';
 
 let list = $state<FlakyStepList | null>(null);
 let error = $state(false);

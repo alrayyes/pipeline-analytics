@@ -1,13 +1,12 @@
 <script lang="ts">
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 import { onMount } from 'svelte';
-import { page } from '$app/state';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
+} from '#lib/components/ui/card/index.js';
 import {
 	Table,
 	TableBody,
@@ -15,7 +14,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '$lib/components/ui/table/index.js';
+} from '#lib/components/ui/table/index.js';
+import { page } from '$app/state';
 
 interface RunStep {
 	name: string;

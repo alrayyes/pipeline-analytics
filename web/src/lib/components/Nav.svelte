@@ -2,12 +2,12 @@
 import MenuIcon from '@lucide/svelte/icons/menu';
 import SettingsIcon from '@lucide/svelte/icons/settings';
 import XIcon from '@lucide/svelte/icons/x';
+import logo from '#lib/assets/favicon.svg';
+import { isActivePath } from '#lib/components/navActive.js';
+import { Button } from '#lib/components/ui/button/index.js';
+import { cn } from '#lib/utils.js';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
-import logo from '$lib/assets/favicon.svg';
-import { isActivePath } from '$lib/components/navActive.js';
-import { Button } from '$lib/components/ui/button/index.js';
-import { cn } from '$lib/utils.js';
 
 let { hasRepos }: { hasRepos: boolean } = $props();
 

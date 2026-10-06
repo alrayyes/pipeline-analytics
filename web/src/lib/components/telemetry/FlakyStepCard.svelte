@@ -4,9 +4,9 @@ import {
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
-import type { FlakyStep } from '$lib/dashboardApi.js';
-import { flakyRunsHref } from '$lib/flakyRuns.js';
+} from '#lib/components/ui/card/index.js';
+import type { FlakyStep } from '#lib/dashboardApi.js';
+import { flakyRunsHref } from '#lib/flakyRuns.js';
 import FlakeMatrix from './FlakeMatrix.svelte';
 import StatusBadge from './StatusBadge.svelte';
 

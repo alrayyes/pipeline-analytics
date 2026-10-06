@@ -12,11 +12,11 @@ export default {
 	coverageAnalysis: 'perTest',
 	// Stryker's sandbox is built from `git ls-files`, so the gitignored,
 	// generated `.svelte-kit/` -- which is what actually resolves the
-	// `$lib` alias, via tsconfig.json's `extends` -- never makes it in.
+	// generated tsconfig that `extends` resolves -- never makes it in.
 	// That was latent as long as every *.test.ts happened to only use
 	// relative imports; the dry run's full `bun test` sweep now also picks
 	// up src/routes/layout.test.ts (#251), which imports +layout.ts, which
-	// imports $lib/settingsSync.js, and that fails to resolve with no
+	// imports #lib/settingsSync.js, and that fails to resolve with no
 	// .svelte-kit/tsconfig.json in the sandbox. Stryker runs this directly
 	// (no shell), so a `[ -f ... ] ||` guard isn't available -- `svelte-kit
 	// sync` is itself already fast and idempotent (it just regenerates the

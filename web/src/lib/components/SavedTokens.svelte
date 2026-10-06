@@ -9,16 +9,16 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from '$lib/components/ui/alert-dialog/index.js';
-import { Button } from '$lib/components/ui/button/index.js';
-import { Input } from '$lib/components/ui/input/index.js';
-import { Label } from '$lib/components/ui/label/index.js';
+} from '#lib/components/ui/alert-dialog/index.js';
+import { Button } from '#lib/components/ui/button/index.js';
+import { Input } from '#lib/components/ui/input/index.js';
+import { Label } from '#lib/components/ui/label/index.js';
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-} from '$lib/components/ui/select/index.js';
+} from '#lib/components/ui/select/index.js';
 import {
 	Table,
 	TableBody,
@@ -26,14 +26,14 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '$lib/components/ui/table/index.js';
+} from '#lib/components/ui/table/index.js';
 import {
 	deleteForgeToken,
 	listForgeTokens,
 	type SavedForgeToken,
 	savedTokenLabel,
 	saveForgeToken,
-} from '$lib/savedForgeTokens.js';
+} from '#lib/savedForgeTokens.js';
 
 const FORGE_LABELS = { github: 'GitHub', forgejo: 'Forgejo' } as const;
 
