@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -64,16 +65,22 @@ func NewClient(baseURL string) (*Client, error) {
 	return &Client{baseURL: u, httpClient: newHTTPClient()}, nil
 }
 
-// newHTTPClient returns an http.Client with its own copy of the default
-// transport: the same proxy, timeout and HTTP/2 settings, but its own
-// connection pool, which nothing else's CloseIdleConnections can reach.
+// newHTTPClient returns an http.Client with a transport of its own, so its
+// connection pool is out of reach of anyone else's CloseIdleConnections. The
+// settings are the standard library's own http.DefaultTransport ones.
 func newHTTPClient() *http.Client {
-	transport, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		return &http.Client{}
-	}
-
-	return &http.Client{Transport: transport.Clone()}
+	return &http.Client{Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: time.Second,
+	}}
 }
 
 // CreateWebhook implements ingestion.ForgeClient.
