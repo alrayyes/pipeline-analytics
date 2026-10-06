@@ -228,6 +228,18 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how it's put together and the
 [decision log](docs/adr/) behind the choices that would cost real rework
 to reverse.
 
+## Reports
+
+Every push to `main` that passes CI publishes its reports next to the API
+docs, so you can check the project's health without opening a pipeline run:
+
+- [Test results](https://apis.ryankes.eu/pipeline-analytics/reports/tests/):
+  JUnit XML for the Go, frontend and end-to-end suites.
+- [Coverage](https://apis.ryankes.eu/pipeline-analytics/reports/coverage/):
+  Cobertura XML, with the Go HTML view and the native Go and lcov files beside it.
+- [Lighthouse](https://apis.ryankes.eu/pipeline-analytics/reports/lighthouse/):
+  the audit of the login page.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).

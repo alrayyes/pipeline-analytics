@@ -48,3 +48,6 @@ Redocly
 Spectral
 ruleset
 ruleset's
+JUnit
+Cobertura
+lcov
