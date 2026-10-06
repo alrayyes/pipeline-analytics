@@ -272,3 +272,33 @@ func TestStore_RunStates(t *testing.T) {
 		require.Empty(t, states)
 	})
 }
+
+func TestStore_RunByID(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns what an action needs", func(t *testing.T) {
+		t.Parallel()
+
+		store := newTestStore(t)
+		repo, err := store.CreateRepo(context.Background(), ingestion.NewRepo{Forge: ingestion.ForgeGitHub, Identifier: "a/b", Token: "t"})
+		require.NoError(t, err)
+
+		saved, err := store.UpsertRun(context.Background(), ingestion.Run{
+			RepoID: repo.ID, ForgeRunID: "9", PipelineName: "CI", Status: "completed", Conclusion: "failure",
+		})
+		require.NoError(t, err)
+
+		got, err := store.RunByID(context.Background(), saved.ID)
+		require.NoError(t, err)
+		require.Equal(t, "failure", got.Conclusion)
+		require.Equal(t, "9", got.ForgeRunID)
+	})
+
+	t.Run("an unknown id is ErrRunNotFound", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := newTestStore(t).RunByID(context.Background(), "missing")
+
+		require.ErrorIs(t, err, ingestion.ErrRunNotFound)
+	})
+}
