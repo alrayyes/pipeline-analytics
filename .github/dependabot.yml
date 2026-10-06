@@ -53,6 +53,11 @@ updates:
       # prefix-development splits them the same way washy-washy-cli/web do.
       prefix: fix
       prefix-development: chore
+    ignore:
+      # @sveltejs/kit 3 peers typescript ^6, and TypeScript 7's native API
+      # breaks kit's tsconfig loading. Drop this once kit supports 7.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
     # Split by dependency type as well, so a group of dev-only bumps takes
     # prefix-development (chore) and a group that ships takes fix; one mixed
     # group would release or not for the wrong reason.
