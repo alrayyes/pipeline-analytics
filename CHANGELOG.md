@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.70.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.69.0...v0.70.0) (2026-10-06)
+
+
+### Features
+
+* **api:** bound request bodies and request fields ([#439](https://github.com/alrayyes/pipeline-analytics/issues/439)) ([8c863e3](https://github.com/alrayyes/pipeline-analytics/commit/8c863e37a24879b49a403d4b219e77ee00e53c31))
+* **api:** drain /readyz on shutdown and cache its result ([#428](https://github.com/alrayyes/pipeline-analytics/issues/428)) ([4f78103](https://github.com/alrayyes/pipeline-analytics/commit/4f78103bdc8fb2e24f46194c32c1b33725f85610))
+* **api:** include the job id on run steps ([#450](https://github.com/alrayyes/pipeline-analytics/issues/450)) ([0db96c3](https://github.com/alrayyes/pipeline-analytics/commit/0db96c3c8477175159b23b6b09b0f91d46573fb9))
+* **api:** list the actions a run offers ([#484](https://github.com/alrayyes/pipeline-analytics/issues/484)) ([799b9a3](https://github.com/alrayyes/pipeline-analytics/commit/799b9a3727cf2fbaeae783127acd054151b65ad1))
+* **api:** list the branches that have runs ([#459](https://github.com/alrayyes/pipeline-analytics/issues/459)) ([ae4e3b1](https://github.com/alrayyes/pipeline-analytics/commit/ae4e3b155da387ceb9b305dec84a2b0f29a40007))
+* **api:** re-run and cancel a run on GitHub ([#478](https://github.com/alrayyes/pipeline-analytics/issues/478)) ([534f498](https://github.com/alrayyes/pipeline-analytics/commit/534f498318132f7dcdccf0b87a5e4cb6bc7ba499))
+* **api:** return the settings defaults with the settings ([#453](https://github.com/alrayyes/pipeline-analytics/issues/453)) ([17aae1d](https://github.com/alrayyes/pipeline-analytics/commit/17aae1d756a0ad528b955d714eee067d0fa91843))
+* **api:** save forge tokens for registration ([#464](https://github.com/alrayyes/pipeline-analytics/issues/464)) ([b3d9126](https://github.com/alrayyes/pipeline-analytics/commit/b3d9126b7bb11dad23d11b6f9f6dfb4e37eec2b3))
+* **api:** scope the telemetry reads to one branch ([#458](https://github.com/alrayyes/pipeline-analytics/issues/458)) ([e8e5836](https://github.com/alrayyes/pipeline-analytics/commit/e8e583648141e3ffdcc93a039985ffa4b66083be))
+* **api:** serve a job's log tail ([#455](https://github.com/alrayyes/pipeline-analytics/issues/455)) ([8f90e62](https://github.com/alrayyes/pipeline-analytics/commit/8f90e62b9353232cbca048973b59ab43de361173))
+* **ingestion:** read a job's log tail from its forge ([#451](https://github.com/alrayyes/pipeline-analytics/issues/451)) ([e2b7181](https://github.com/alrayyes/pipeline-analytics/commit/e2b718138614e31a8ed1f42130b07eec958dd513))
+* **mcp:** add the get_job_log tool ([#456](https://github.com/alrayyes/pipeline-analytics/issues/456)) ([911a843](https://github.com/alrayyes/pipeline-analytics/commit/911a843cfb1665173b0b1e904e27ace779a97424))
+* **web:** cancel a queued or running run from the Runs view ([#489](https://github.com/alrayyes/pipeline-analytics/issues/489)) ([b7b1ef7](https://github.com/alrayyes/pipeline-analytics/commit/b7b1ef70f3e4f366b5ead399c6def923fa78f480))
+* **web:** re-run a concluded run from the Runs view ([#485](https://github.com/alrayyes/pipeline-analytics/issues/485)) ([ba12145](https://github.com/alrayyes/pipeline-analytics/commit/ba12145f49ccd6f42332d5ec374b7dc625d04c68))
+* **web:** save forge tokens in settings and use them to register ([#465](https://github.com/alrayyes/pipeline-analytics/issues/465)) ([0f56f0f](https://github.com/alrayyes/pipeline-analytics/commit/0f56f0ff89ea9998939e4dc8d5084f78262a4507))
+* **web:** say which token permissions a run action needs ([#505](https://github.com/alrayyes/pipeline-analytics/issues/505)) ([6bd7b17](https://github.com/alrayyes/pipeline-analytics/commit/6bd7b177e4bc47e59b3579464bf875631ff4d730))
+* **web:** say which token permissions a run action needs ([#505](https://github.com/alrayyes/pipeline-analytics/issues/505)) ([#509](https://github.com/alrayyes/pipeline-analytics/issues/509)) ([70e5d05](https://github.com/alrayyes/pipeline-analytics/commit/70e5d053e81b3ff5319b41890bd02bc7d29754a0))
+* **web:** scope the telemetry views to one branch ([#460](https://github.com/alrayyes/pipeline-analytics/issues/460)) ([deab211](https://github.com/alrayyes/pipeline-analytics/commit/deab2117162cb941e23d741ea817d3a6a39e17aa))
+* **web:** show a failed step's log on the run page ([#508](https://github.com/alrayyes/pipeline-analytics/issues/508)) ([c7b130c](https://github.com/alrayyes/pipeline-analytics/commit/c7b130cde3651e4ec52ed643444f8fbd4541d77a))
+
+
+### Bug Fixes
+
+* bump layerchart ([#474](https://github.com/alrayyes/pipeline-analytics/issues/474)) ([37a8ae9](https://github.com/alrayyes/pipeline-analytics/commit/37a8ae9f7cbdc507a6d1ede34860231d0054be11))
+* bump modernc.org/sqlite ([#435](https://github.com/alrayyes/pipeline-analytics/issues/435)) ([c63f098](https://github.com/alrayyes/pipeline-analytics/commit/c63f09869adc38c3a8173b6a037e15766e156597))
+* **ci:** read the frontend coverage from the folder the artifact keeps ([#491](https://github.com/alrayyes/pipeline-analytics/issues/491)) ([2cd7884](https://github.com/alrayyes/pipeline-analytics/commit/2cd788498948f8a17f7576d853fd0bb17cc37e80))
+* **forgejo:** skip a null run, job or step in a response ([#447](https://github.com/alrayyes/pipeline-analytics/issues/447)) ([4a395df](https://github.com/alrayyes/pipeline-analytics/commit/4a395df17f14a5c1bf0dc80991366a234da4fe69))
+* **github:** give each client a connection pool of its own ([#499](https://github.com/alrayyes/pipeline-analytics/issues/499)) ([f03c481](https://github.com/alrayyes/pipeline-analytics/commit/f03c4814f8fd7e1356cb54e8648131da9fce8f88))
+* **web:** clear the transitive audit advisories ([#487](https://github.com/alrayyes/pipeline-analytics/issues/487)) ([d74083d](https://github.com/alrayyes/pipeline-analytics/commit/d74083da9c21a8192644bbb288503b4b79809ddd))
+* **web:** honour prefers-reduced-motion ([#502](https://github.com/alrayyes/pipeline-analytics/issues/502)) ([782e8a7](https://github.com/alrayyes/pipeline-analytics/commit/782e8a7ffa6b4b6e4e7601c4743dba9be71fbed0))
+* **web:** move to SvelteKit 3 and adapter-static 4 ([#493](https://github.com/alrayyes/pipeline-analytics/issues/493)) ([1dc96d1](https://github.com/alrayyes/pipeline-analytics/commit/1dc96d18ca594015ab0949a223eac116a2a0a497))
+
 ## [0.69.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.68.0...v0.69.0) (2026-10-03)
 
 
