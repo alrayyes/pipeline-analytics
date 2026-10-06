@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,7 +38,9 @@ type Client struct {
 	// rather than http.DefaultClient -- see #305: sharing the global
 	// default client meant an unrelated parallel test's httptest.Server
 	// closing could break an in-flight request through this Client, since
-	// Server.Close calls http.DefaultTransport.CloseIdleConnections.
+	// Server.Close calls http.DefaultTransport.CloseIdleConnections. A
+	// zero http.Client still uses http.DefaultTransport, so it carries a
+	// transport of its own (newHTTPClient).
 	httpClient *http.Client
 
 	// rateLimitsMu guards rateLimits, keyed by token -- reconciliation
@@ -51,7 +54,7 @@ type Client struct {
 // (for tests against a fake server); pass "" to use the real GitHub API.
 func NewClient(baseURL string) (*Client, error) {
 	if baseURL == "" {
-		return &Client{httpClient: &http.Client{}}, nil
+		return &Client{httpClient: newHTTPClient()}, nil
 	}
 
 	u, err := url.Parse(baseURL)
@@ -59,7 +62,25 @@ func NewClient(baseURL string) (*Client, error) {
 		return nil, fmt.Errorf("parse base url: %w", err)
 	}
 
-	return &Client{baseURL: u, httpClient: &http.Client{}}, nil
+	return &Client{baseURL: u, httpClient: newHTTPClient()}, nil
+}
+
+// newHTTPClient returns an http.Client with a transport of its own, so its
+// connection pool is out of reach of anyone else's CloseIdleConnections. The
+// settings are the standard library's own http.DefaultTransport ones.
+func newHTTPClient() *http.Client {
+	return &http.Client{Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: time.Second,
+	}}
 }
 
 // CreateWebhook implements ingestion.ForgeClient.
