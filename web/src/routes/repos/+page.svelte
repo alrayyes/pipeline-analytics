@@ -1,6 +1,5 @@
 <script lang="ts">
-import { invalidateAll } from '$app/navigation';
-import ForgeFilter from '$lib/components/ForgeFilter.svelte';
+import ForgeFilter from '#lib/components/ForgeFilter.svelte';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -10,9 +9,9 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from '$lib/components/ui/alert-dialog/index.js';
-import { Badge } from '$lib/components/ui/badge/index.js';
-import { Button } from '$lib/components/ui/button/index.js';
+} from '#lib/components/ui/alert-dialog/index.js';
+import { Badge } from '#lib/components/ui/badge/index.js';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Dialog,
 	DialogContent,
@@ -21,15 +20,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
-} from '$lib/components/ui/dialog/index.js';
-import { Input } from '$lib/components/ui/input/index.js';
-import { Label } from '$lib/components/ui/label/index.js';
+} from '#lib/components/ui/dialog/index.js';
+import { Input } from '#lib/components/ui/input/index.js';
+import { Label } from '#lib/components/ui/label/index.js';
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-} from '$lib/components/ui/select/index.js';
+} from '#lib/components/ui/select/index.js';
 import {
 	Table,
 	TableBody,
@@ -37,17 +36,18 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '$lib/components/ui/table/index.js';
-import { getForgeFilter } from '$lib/forgeFilter.svelte.js';
+} from '#lib/components/ui/table/index.js';
+import { getForgeFilter } from '#lib/forgeFilter.svelte.js';
 import {
 	getRememberedForgeSelection,
 	rememberForgeSelection,
-} from '$lib/lastForgeSelection.js';
+} from '#lib/lastForgeSelection.js';
 import {
 	findSavedToken,
 	listForgeTokens,
 	type SavedForgeToken,
-} from '$lib/savedForgeTokens.js';
+} from '#lib/savedForgeTokens.js';
+import { invalidateAll } from '$app/navigation';
 
 interface Repo {
 	id: string;

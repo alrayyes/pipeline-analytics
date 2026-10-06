@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Component } from 'svelte';
-import { Card, CardContent } from '$lib/components/ui/card/index.js';
+import { Card, CardContent } from '#lib/components/ui/card/index.js';
 
 let {
 	label,

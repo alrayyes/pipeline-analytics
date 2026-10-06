@@ -3,6 +3,11 @@
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
+	"imports": {
+		"#lib/*.js": "./src/lib/*.ts",
+		"#lib/*.svelte": "./src/lib/*.svelte",
+		"#lib/*.svg": "./src/lib/*.svg"
+	},
 	"scripts": {
 		"prebuild": "bun scripts/generate-releases.ts",
 		"build": "vite build",

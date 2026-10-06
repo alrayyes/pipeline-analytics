@@ -3,20 +3,18 @@ import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 import HistoryIcon from '@lucide/svelte/icons/history';
 import { defaultChartPadding, LineChart } from 'layerchart';
 import { onMount } from 'svelte';
-import { goto } from '$app/navigation';
-import { page } from '$app/state';
-import { Badge } from '$lib/components/ui/badge/index.js';
+import { Badge } from '#lib/components/ui/badge/index.js';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
+} from '#lib/components/ui/card/index.js';
 import {
 	type ChartConfig,
 	ChartContainer,
 	ChartTooltip,
-} from '$lib/components/ui/chart/index.js';
+} from '#lib/components/ui/chart/index.js';
 import {
 	Table,
 	TableBody,
@@ -24,7 +22,7 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '$lib/components/ui/table/index.js';
+} from '#lib/components/ui/table/index.js';
 import {
 	ApiError,
 	fetchPipeline,
@@ -32,9 +30,11 @@ import {
 	type PipelineDetail,
 	type Step,
 	type Trend,
-} from '$lib/dashboardApi.js';
-import { flakyRunsHref } from '$lib/flakyRuns.js';
-import { formatRate, formatSeconds } from '$lib/format.js';
+} from '#lib/dashboardApi.js';
+import { flakyRunsHref } from '#lib/flakyRuns.js';
+import { formatRate, formatSeconds } from '#lib/format.js';
+import { goto } from '$app/navigation';
+import { page } from '$app/state';
 
 // Categorical slots 1/2/8 of the validated default data-viz palette
 // (light/dark both fully specified, adjacent pairs pre-validated for CVD

@@ -2,8 +2,8 @@
 import {
 	ToggleGroup,
 	ToggleGroupItem,
-} from '$lib/components/ui/toggle-group/index.js';
-import type { InsightsWindow } from '$lib/dashboardApi.js';
+} from '#lib/components/ui/toggle-group/index.js';
+import type { InsightsWindow } from '#lib/dashboardApi.js';
 
 let {
 	value,

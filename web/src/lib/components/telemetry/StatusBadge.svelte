@@ -4,8 +4,8 @@ import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
 import CircleXIcon from '@lucide/svelte/icons/circle-x';
 import FlaskConicalIcon from '@lucide/svelte/icons/flask-conical';
 import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-import { Badge, type BadgeVariant } from '$lib/components/ui/badge/index.js';
-import type { Tone } from '$lib/statusModel.js';
+import { Badge, type BadgeVariant } from '#lib/components/ui/badge/index.js';
+import type { Tone } from '#lib/statusModel.js';
 
 let { tone, label }: { tone: Tone; label: string } = $props();
 

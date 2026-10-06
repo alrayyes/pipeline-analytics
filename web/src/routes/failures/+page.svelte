@@ -1,18 +1,18 @@
 <script lang="ts">
-import { getBranch } from '$lib/branchFilter.svelte.js';
-import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
-import CategoryBreakdown from '$lib/components/telemetry/CategoryBreakdown.svelte';
-import FailureGroupCard from '$lib/components/telemetry/FailureGroupCard.svelte';
-import WindowToggle from '$lib/components/telemetry/WindowToggle.svelte';
+import { getBranch } from '#lib/branchFilter.svelte.js';
+import BranchSelect from '#lib/components/telemetry/BranchSelect.svelte';
+import CategoryBreakdown from '#lib/components/telemetry/CategoryBreakdown.svelte';
+import FailureGroupCard from '#lib/components/telemetry/FailureGroupCard.svelte';
+import WindowToggle from '#lib/components/telemetry/WindowToggle.svelte';
 import {
 	type FailureInsights,
 	fetchFailureInsights,
 	type InsightsWindow,
-} from '$lib/dashboardApi.js';
+} from '#lib/dashboardApi.js';
 import {
 	getTelemetryWindow,
 	setTelemetryWindow,
-} from '$lib/telemetryWindow.svelte.js';
+} from '#lib/telemetryWindow.svelte.js';
 
 let insights = $state<FailureInsights | null>(null);
 let error = $state(false);

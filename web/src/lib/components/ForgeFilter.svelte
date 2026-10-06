@@ -2,12 +2,12 @@
 import {
 	ToggleGroup,
 	ToggleGroupItem,
-} from '$lib/components/ui/toggle-group/index.js';
+} from '#lib/components/ui/toggle-group/index.js';
 import {
 	type ForgeFilter,
 	getForgeFilter,
 	setForgeFilter,
-} from '$lib/forgeFilter.svelte.js';
+} from '#lib/forgeFilter.svelte.js';
 
 const OPTIONS: { value: ForgeFilter; label: string }[] = [
 	{ value: 'all', label: 'All' },

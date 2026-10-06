@@ -1,7 +1,7 @@
 // Turns release-please's CHANGELOG.md into the release list the history page
 // shows, so the page can ship with the build instead of asking GitHub for
 // the same text on every visit (#368). Pure, so bun test covers it like the
-// rest of $lib; scripts/generate-releases.ts is the only caller that touches
+// rest of #lib; scripts/generate-releases.ts is the only caller that touches
 // the filesystem.
 
 export interface Release {

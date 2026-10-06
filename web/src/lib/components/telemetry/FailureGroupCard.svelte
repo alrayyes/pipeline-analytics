@@ -1,14 +1,14 @@
 <script lang="ts">
-import { Badge } from '$lib/components/ui/badge/index.js';
+import { Badge } from '#lib/components/ui/badge/index.js';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
-import type { FailureGroup } from '$lib/dashboardApi.js';
-import { categoryLabel } from '$lib/failureCategory.js';
-import { flakyRunsHref } from '$lib/flakyRuns.js';
+} from '#lib/components/ui/card/index.js';
+import type { FailureGroup } from '#lib/dashboardApi.js';
+import { categoryLabel } from '#lib/failureCategory.js';
+import { flakyRunsHref } from '#lib/flakyRuns.js';
 
 let { group }: { group: FailureGroup } = $props();
 
