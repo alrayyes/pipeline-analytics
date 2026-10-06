@@ -28,6 +28,10 @@ branch.
 
 ![Runs: each run's steps as a progress bar, with its commit, status and a link to the forge](docs/screenshot-runs.png)
 
+A concluded GitHub run has a **Re-run** button on the Runs view. It asks GitHub
+to re-run the failed jobs (every job if the run passed) and needs a saved token
+with Actions write permission. Forgejo runs don't get one.
+
 ![Root cause diagnostics: failure categories and the failing steps behind them](docs/screenshot-root-cause.png)
 
 ![Flaky tests: each flaky step's last 40 results, failure rate and run count](docs/screenshot-flaky.png)
