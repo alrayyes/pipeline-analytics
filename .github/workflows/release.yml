@@ -38,12 +38,10 @@ permissions:
 env:
   LEFTHOOK: "0"
 
-# Every step below that calls the GitHub API is wrapped in
-# Wandalen/wretry.action: a secondary rate limit or an abuse-detection response
-# clears in seconds, and nothing is watching a release run to rerun it by hand
-# (rules/release-publishing.md). It wraps another action's own `uses:`, which
-# nick-fields/retry can't, and exposes the wrapped action's outputs as one JSON
-# `outputs` map, hence the fromJSON below.
+# Not wrapped in Wandalen/wretry.action: under GitHub's forced Node 20 to 24
+# runtime the wrapper reports success with no output and never runs the action
+# it wraps (Wandalen/wretry.action#193, open), so no release was ever cut.
+# Re-run a failed job by hand if a secondary rate limit trips it.
 jobs:
   release-please:
     name: release-please
@@ -55,19 +53,15 @@ jobs:
     permissions:
       contents: read
     outputs:
-      release_created: ${{ fromJSON(steps.release.outputs.outputs).release_created }}
-      tag_name: ${{ fromJSON(steps.release.outputs.outputs).tag_name }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea # v3.8.0
-        id: release
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          attempt_limit: 3
-          attempt_delay: 10000
-          action: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
-          with: |
-            token: ${{ secrets.RELEASE_TOKEN }}
-            config-file: release-please-config.json
-            manifest-file: .release-please-manifest.json
+          token: ${{ secrets.RELEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+        id: release
 
   goreleaser:
     name: goreleaser
@@ -114,13 +108,9 @@ jobs:
       # already shipped without goreleaser re-uploading (and conflicting
       # with) them -- a push-triggered release always runs the full
       # `release --clean`.
-      - uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea # v3.8.0
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          attempt_limit: 3
-          attempt_delay: 10000
-          action: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
-          with: |
-            args: release --clean${{ github.event_name == 'workflow_dispatch' && inputs.skip && format(' --skip={0}', inputs.skip) || '' }}
+          args: release --clean${{ github.event_name == 'workflow_dispatch' && inputs.skip && format(' --skip={0}', inputs.skip) || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       # `--skip=archive` (or any skip that drops the tarball artifact)
@@ -136,13 +126,9 @@ jobs:
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.archives.outputs.found == 'true'
-        uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea # v3.8.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          attempt_limit: 3
-          attempt_delay: 10000
-          action: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-          with: |
-            subject-path: dist/*.tar.gz
+          subject-path: dist/*.tar.gz
       # dockers:/docker_manifests: build and push the multi-arch ghcr.io
       # image through buildx, a separate path attest-build-provenance's
       # subject-path glob doesn't reach -- goreleaser's docker_digest
@@ -152,13 +138,9 @@ jobs:
       # them in one call. https://goreleaser.com/customization/publish/attestations/
       # Unaffected by an archive skip -- dockers:/docker_manifests: aren't
       # gated by --skip=archive, only the archive/checksum pipes are.
-      - uses: Wandalen/wretry.action@e68c23e6309f2871ca8ae4763e7629b9c258e1ea # v3.8.0
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          attempt_limit: 3
-          attempt_delay: 10000
-          action: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-          with: |
-            subject-checksums: dist/digests.txt
+          subject-checksums: dist/digests.txt
 
   # Cheap enough (checkout + one git diff, no build/browser/server) to run
   # ahead of the real capture job and skip it outright when nothing under
