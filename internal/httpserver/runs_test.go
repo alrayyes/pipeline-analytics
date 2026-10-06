@@ -290,3 +290,54 @@ func TestListRuns(t *testing.T) {
 		require.True(t, parsed.Equal(*at(10)))
 	})
 }
+
+func TestListRunsActions(t *testing.T) {
+	t.Parallel()
+
+	actionsOf := func(t *testing.T, forgeRepo func(testServer) string, run ingestion.Run) any {
+		t.Helper()
+
+		srv := newTestServer(t, nil)
+		seedRunWith(t, srv, forgeRepo(srv), run)
+
+		_, body := getRuns(t, srv, "")
+		require.Len(t, body.Runs, 1)
+
+		return body.Runs[0]["actions"]
+	}
+
+	github := func(srv testServer) string { return seedRepo(t, srv) }
+	forgejo := func(srv testServer) string { return seedOtherRepo(t, srv) }
+
+	t.Run("a concluded GitHub run offers a re-run", func(t *testing.T) {
+		t.Parallel()
+
+		got := actionsOf(t, github, ingestion.Run{ForgeRunID: "1", Status: "completed", Conclusion: "failure", StartedAt: at(1), CompletedAt: at(2)})
+
+		require.Equal(t, []any{"rerun"}, got)
+	})
+
+	t.Run("a running GitHub run offers a cancel", func(t *testing.T) {
+		t.Parallel()
+
+		got := actionsOf(t, github, ingestion.Run{ForgeRunID: "2", Status: "in_progress", StartedAt: at(1)})
+
+		require.Equal(t, []any{"cancel"}, got)
+	})
+
+	t.Run("a queued GitHub run offers a cancel", func(t *testing.T) {
+		t.Parallel()
+
+		got := actionsOf(t, github, ingestion.Run{ForgeRunID: "3", Status: "queued", StartedAt: at(1)})
+
+		require.Equal(t, []any{"cancel"}, got)
+	})
+
+	t.Run("a Forgejo run offers nothing, as an empty list", func(t *testing.T) {
+		t.Parallel()
+
+		got := actionsOf(t, forgejo, ingestion.Run{ForgeRunID: "4", Status: "completed", Conclusion: "failure", StartedAt: at(1), CompletedAt: at(2)})
+
+		require.Equal(t, []any{}, got)
+	})
+}

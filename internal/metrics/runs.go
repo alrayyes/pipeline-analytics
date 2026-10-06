@@ -53,8 +53,10 @@ type RunListFilter struct {
 // RunEntry is one run in the run list: its pipeline, commit metadata (empty
 // where the forge or an older row lacks it), forge link and steps.
 type RunEntry struct {
-	ID          string
-	Pipeline    PipelineRef
+	ID       string
+	Pipeline PipelineRef
+	// Forge is the repo's forge, "github" or "forgejo".
+	Forge       string
 	Status      string
 	Conclusion  string
 	StartedAt   *time.Time

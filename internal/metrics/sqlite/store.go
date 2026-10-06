@@ -316,15 +316,11 @@ func appendRunScope(query string, args []any, repoID, forge, branch string) (str
 func runListQuery(filter metrics.RunListFilter) (string, []any) {
 	query := `
 		SELECT r.id, r.repo_id, r.pipeline_name, r.status, r.conclusion, r.started_at, r.completed_at,
-			r.branch, r.head_sha, r.head_message, r.actor, r.forge_url
-		FROM runs r`
+			r.branch, r.head_sha, r.head_message, r.actor, r.forge_url, p.forge
+		FROM runs r
+		JOIN repos p ON p.id = r.repo_id
+		WHERE 1 = 1`
 	args := []any{}
-
-	if filter.Forge != "" {
-		query += " JOIN repos p ON p.id = r.repo_id"
-	}
-
-	query += " WHERE 1 = 1"
 
 	query, args = appendRunScope(query, args, filter.RepoID, filter.Forge, filter.Branch)
 
@@ -397,7 +393,7 @@ func scanRunEntry(rows *sql.Rows) (metrics.RunEntry, error) {
 
 	err := rows.Scan(
 		&run.ID, &run.Pipeline.RepoID, &run.Pipeline.Name, &run.Status, &conclusion, &run.StartedAt, &run.CompletedAt,
-		&branch, &sha, &message, &actor, &run.ForgeURL,
+		&branch, &sha, &message, &actor, &run.ForgeURL, &run.Forge,
 	)
 	if err != nil {
 		return metrics.RunEntry{}, fmt.Errorf("scan run: %w", err)
