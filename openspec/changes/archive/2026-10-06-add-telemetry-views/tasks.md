@@ -30,7 +30,7 @@
 - [x] 4.2 `running` and `flaky` badge variants and `StatusBadge`, using the
       existing Tailwind palette like the `success` variant instead of new
       theme tokens; contrast is checked by the axe scan in light and dark
-- [ ] 4.3 Shared components, each landing with the first view that uses it
+- [x] 4.3 Shared components, each landing with the first view that uses it
       and covered by that view's Playwright journey, since this repo has no
       component-level test layer: `StageProgress` and `RunCard` (done, 5.2);
       `TabBar` (done, 5.1c); `FlakeMatrix` (done, 5.4c); `MetricCard` (done, 5.1b; the stage
@@ -63,4 +63,4 @@
 
 - [x] 6.1 README and screenshots (`docs/`) true again; `ARCHITECTURE.md`
       checked and unchanged, it names no view
-- [ ] 6.2 Archive this change
+- [x] 6.2 Archive this change
