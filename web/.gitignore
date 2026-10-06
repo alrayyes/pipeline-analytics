@@ -35,3 +35,4 @@ vite.config.ts.timestamp-*
 
 # Generated from ../CHANGELOG.md by scripts/generate-releases.ts
 /static/releases.json
+/playwright-results
