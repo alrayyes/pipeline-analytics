@@ -4,7 +4,9 @@
 	"private": true,
 	"type": "module",
 	"imports": {
-		"#lib/*": "./src/lib/*"
+		"#lib/*.js": "./src/lib/*.ts",
+		"#lib/*.svelte": "./src/lib/*.svelte",
+		"#lib/*.svg": "./src/lib/*.svg"
 	},
 	"scripts": {
 		"prebuild": "bun scripts/generate-releases.ts",
