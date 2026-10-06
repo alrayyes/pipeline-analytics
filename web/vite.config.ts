@@ -12,6 +12,9 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true,
 			},
+			// Kit 3 dropped the built-in `$lib` alias. Keeping it avoids rewriting
+			// every import (and the shadcn components) in the same change.
+			alias: { $lib: 'src/lib' },
 			// Output goes straight into the Go package that go:embeds it
 			// (internal/webassets/dist), rather than web/build -- go:embed
 			// can't reach outside its own package's directory tree.
