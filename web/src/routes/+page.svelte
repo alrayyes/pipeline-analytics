@@ -1,26 +1,26 @@
 <script lang="ts">
 import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-import { getBranch } from '$lib/branchFilter.svelte.js';
-import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
-import MetricCard from '$lib/components/telemetry/MetricCard.svelte';
-import WindowToggle from '$lib/components/telemetry/WindowToggle.svelte';
+import { getBranch } from '#lib/branchFilter.svelte.js';
+import BranchSelect from '#lib/components/telemetry/BranchSelect.svelte';
+import MetricCard from '#lib/components/telemetry/MetricCard.svelte';
+import WindowToggle from '#lib/components/telemetry/WindowToggle.svelte';
 import {
 	type FailureInsights,
 	fetchFailureInsights,
 	fetchRuns,
 	type InsightsWindow,
 	type RunSummary,
-} from '$lib/dashboardApi.js';
+} from '#lib/dashboardApi.js';
 import {
 	formatPercentagePoints,
 	formatRate,
 	formatSeconds,
-} from '$lib/format.js';
+} from '#lib/format.js';
 import {
 	getTelemetryWindow,
 	setTelemetryWindow,
-} from '$lib/telemetryWindow.svelte.js';
+} from '#lib/telemetryWindow.svelte.js';
 
 let { data }: { data: { hasRepos: boolean } } = $props();
 

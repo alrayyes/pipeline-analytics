@@ -1,17 +1,17 @@
 <script lang="ts">
-import { getBranch } from '$lib/branchFilter.svelte.js';
-import BranchSelect from '$lib/components/telemetry/BranchSelect.svelte';
-import RunCard from '$lib/components/telemetry/RunCard.svelte';
-import { Button } from '$lib/components/ui/button/index.js';
+import { getBranch } from '#lib/branchFilter.svelte.js';
+import BranchSelect from '#lib/components/telemetry/BranchSelect.svelte';
+import RunCard from '#lib/components/telemetry/RunCard.svelte';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	ToggleGroup,
 	ToggleGroupItem,
-} from '$lib/components/ui/toggle-group/index.js';
+} from '#lib/components/ui/toggle-group/index.js';
 import {
 	fetchRuns,
 	type RunStatusFilter,
 	type RunSummary,
-} from '$lib/dashboardApi.js';
+} from '#lib/dashboardApi.js';
 import {
 	backToFirstPage,
 	getOffset,
@@ -20,8 +20,8 @@ import {
 	previousPage,
 	RUNS_PAGE_SIZE,
 	setStatus,
-} from '$lib/runsFilters.svelte.js';
-import { isPending } from '$lib/statusModel.js';
+} from '#lib/runsFilters.svelte.js';
+import { isPending } from '#lib/statusModel.js';
 
 const REFRESH_MS = 15_000;
 

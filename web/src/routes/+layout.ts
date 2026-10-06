@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { fetchSettings } from '$lib/settingsSync.js';
+import { fetchSettings } from '#lib/settingsSync.js';
 import type { LayoutLoad } from './$types';
 
 // Embedded into the Go binary and served as static files with no Node

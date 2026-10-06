@@ -3,9 +3,9 @@ import GitBranchIcon from '@lucide/svelte/icons/git-branch';
 import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import PlayIcon from '@lucide/svelte/icons/play';
 import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+import { isActivePath } from '#lib/components/navActive.js';
+import { cn } from '#lib/utils.js';
 import { page } from '$app/state';
-import { isActivePath } from '$lib/components/navActive.js';
-import { cn } from '$lib/utils.js';
 
 let { hasRepos }: { hasRepos: boolean } = $props();
 

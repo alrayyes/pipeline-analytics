@@ -1,18 +1,18 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import '../app.css';
+import favicon from '#lib/assets/favicon.svg';
+import Footer from '#lib/components/Footer.svelte';
+import Nav from '#lib/components/Nav.svelte';
+import TabBar from '#lib/components/TabBar.svelte';
+import { initForgeFilter } from '#lib/forgeFilter.svelte.js';
+import { purgeRememberedTokens } from '#lib/lastForgeSelection.js';
+import { initPipelinesFilters } from '#lib/pipelinesFilters.svelte.js';
+import { registerServiceWorker } from '#lib/serviceWorker.js';
+import { initTelemetryWindow } from '#lib/telemetryWindow.svelte.js';
+import { initTheme } from '#lib/theme.svelte.js';
+import { registerWebMCPTools } from '#lib/webmcpTools.js';
 import { page } from '$app/state';
-import favicon from '$lib/assets/favicon.svg';
-import Footer from '$lib/components/Footer.svelte';
-import Nav from '$lib/components/Nav.svelte';
-import TabBar from '$lib/components/TabBar.svelte';
-import { initForgeFilter } from '$lib/forgeFilter.svelte.js';
-import { purgeRememberedTokens } from '$lib/lastForgeSelection.js';
-import { initPipelinesFilters } from '$lib/pipelinesFilters.svelte.js';
-import { registerServiceWorker } from '$lib/serviceWorker.js';
-import { initTelemetryWindow } from '$lib/telemetryWindow.svelte.js';
-import { initTheme } from '$lib/theme.svelte.js';
-import { registerWebMCPTools } from '$lib/webmcpTools.js';
 
 let { data, children } = $props();
 

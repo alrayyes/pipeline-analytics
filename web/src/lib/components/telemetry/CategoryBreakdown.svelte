@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { CategoryCount } from '$lib/dashboardApi.js';
-import { categoryLabel } from '$lib/failureCategory.js';
-import { formatRate } from '$lib/format.js';
+import type { CategoryCount } from '#lib/dashboardApi.js';
+import { categoryLabel } from '#lib/failureCategory.js';
+import { formatRate } from '#lib/format.js';
 
 let { categories }: { categories: CategoryCount[] } = $props();
 

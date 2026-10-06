@@ -1,12 +1,11 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import { page } from '$app/state';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
+} from '#lib/components/ui/card/index.js';
 import {
 	Table,
 	TableBody,
@@ -14,12 +13,13 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '$lib/components/ui/table/index.js';
+} from '#lib/components/ui/table/index.js';
 import {
 	ApiError,
 	fetchRepoUsage,
 	type UsageEntry,
-} from '$lib/dashboardApi.js';
+} from '#lib/dashboardApi.js';
+import { page } from '$app/state';
 
 let usage = $state<UsageEntry[] | null>(null);
 let notFound = $state(false);

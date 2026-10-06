@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { RunStep } from '$lib/dashboardApi.js';
-import { stageSegments, stageSummary } from '$lib/stageProgress.js';
-import type { Tone } from '$lib/statusModel.js';
+import type { RunStep } from '#lib/dashboardApi.js';
+import { stageSegments, stageSummary } from '#lib/stageProgress.js';
+import type { Tone } from '#lib/statusModel.js';
 
 let { steps }: { steps: RunStep[] } = $props();
 

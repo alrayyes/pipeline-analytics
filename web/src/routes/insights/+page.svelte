@@ -5,7 +5,7 @@ import {
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
+} from '#lib/components/ui/card/index.js';
 import {
 	Table,
 	TableBody,
@@ -13,8 +13,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '$lib/components/ui/table/index.js';
-import { formatRelativeTime } from '$lib/relativeTime.js';
+} from '#lib/components/ui/table/index.js';
+import { formatRelativeTime } from '#lib/relativeTime.js';
 
 interface RateLimitStatus {
 	limit: number;

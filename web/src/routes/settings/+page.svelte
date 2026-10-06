@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import SavedTokens from '$lib/components/SavedTokens.svelte';
+import SavedTokens from '#lib/components/SavedTokens.svelte';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -10,14 +10,14 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from '$lib/components/ui/alert-dialog/index.js';
-import { Button } from '$lib/components/ui/button/index.js';
+} from '#lib/components/ui/alert-dialog/index.js';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from '$lib/components/ui/card/index.js';
+} from '#lib/components/ui/card/index.js';
 import {
 	Dialog,
 	DialogContent,
@@ -26,9 +26,9 @@ import {
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
-} from '$lib/components/ui/dialog/index.js';
-import { Input } from '$lib/components/ui/input/index.js';
-import { Label } from '$lib/components/ui/label/index.js';
+} from '#lib/components/ui/dialog/index.js';
+import { Input } from '#lib/components/ui/input/index.js';
+import { Label } from '#lib/components/ui/label/index.js';
 import {
 	Table,
 	TableBody,
@@ -36,12 +36,12 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '$lib/components/ui/table/index.js';
+} from '#lib/components/ui/table/index.js';
 import {
 	ToggleGroup,
 	ToggleGroupItem,
-} from '$lib/components/ui/toggle-group/index.js';
-import { getTheme, setTheme, type Theme } from '$lib/theme.svelte.js';
+} from '#lib/components/ui/toggle-group/index.js';
+import { getTheme, setTheme, type Theme } from '#lib/theme.svelte.js';
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
 	{ value: 'light', label: 'Light' },
