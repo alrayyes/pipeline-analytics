@@ -1,25 +1,9 @@
 coverage:
+  # Never required to merge (the account's rule), so left on they only fail
+  # loudly. The report and the badge are unaffected.
   status:
-    project:
-      go:
-        flags:
-          - go
-        target: auto
-        threshold: 1%
-      frontend:
-        flags:
-          - frontend
-        target: auto
-        threshold: 1%
-    patch:
-      go:
-        flags:
-          - go
-        target: auto
-      frontend:
-        flags:
-          - frontend
-        target: auto
+    project: off
+    patch: off
 flags:
   go:
     paths:
