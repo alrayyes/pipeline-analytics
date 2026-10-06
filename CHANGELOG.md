@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.70.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.70.0...v0.70.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **scripts:** give the runs mock the actions the page now reads ([#514](https://github.com/alrayyes/pipeline-analytics/issues/514)) ([8b348e2](https://github.com/alrayyes/pipeline-analytics/commit/8b348e296deda9787062759091bb2f9af9f09b96)), closes [#513](https://github.com/alrayyes/pipeline-analytics/issues/513)
+
 ## [0.70.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.69.0...v0.70.0) (2026-10-06)
 
 
