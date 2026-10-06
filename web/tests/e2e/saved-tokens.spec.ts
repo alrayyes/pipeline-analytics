@@ -1,4 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test';
+import { expectNoViolations } from './axe.js';
 import { expect, test } from './fixtures.js';
 
 // A CDP virtual authenticator stands in for a passkey device, as in
@@ -42,6 +43,8 @@ test('a saved token is used by the register dialog, and no response carries it',
 	});
 
 	await page.goto('/repos');
+	await expectNoViolations(page);
+
 	await page.getByRole('button', { name: 'Register repository' }).click();
 	await expect(page.getByLabel('Access token')).toBeVisible();
 	// Read-only Actions tracks a repo; re-running and cancelling need write.
@@ -51,12 +54,17 @@ test('a saved token is used by the register dialog, and no response carries it',
 	await expect(page.getByRole('dialog')).toContainText(
 		'Actions write permission is also needed to re-run or cancel runs',
 	);
+	// The open dialog is the other state of this page worth scanning.
+	await expectNoViolations(page);
 	await page.keyboard.press('Escape');
 
 	await saveGitHubToken(page, 'ghp_secrettoken9999');
 	await expect(page.getByRole('row', { name: /GitHub/ })).toContainText(
 		'****9999',
 	);
+
+	// The settings page with a saved token listed.
+	await expectNoViolations(page);
 
 	// Nothing the API says contains the token, only its masked form.
 	const listed = await page.request.get('/api/forge-tokens');

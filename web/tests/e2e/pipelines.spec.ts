@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { expectNoViolations } from './axe.js';
 import { expect, test } from './fixtures.js';
 
 // A CDP virtual authenticator stands in for a passkey device, as in
@@ -81,6 +82,8 @@ test('a filter that matches nothing says so and keeps the controls, instead of c
 
 	await healthFilter.getByRole('radio', { name: 'All' }).click();
 	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
+
+	await expectNoViolations(page);
 });
 
 test('with no pipelines at all, it still says nothing has been ingested', async ({
