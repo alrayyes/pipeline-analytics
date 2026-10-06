@@ -29,6 +29,24 @@ const (
 	ActionCancel RunAction = "cancel"
 )
 
+// ActionsFor lists what a session may ask the forge to do to a run in the
+// given status: a re-run once it has concluded, a cancel before. Forgejo
+// has no API for either, so it gets nothing. It's the one rule behind the
+// run list's `actions` and the state check of the action endpoints.
+func ActionsFor(forge Forge, status string) []RunAction {
+	if forge != ForgeGitHub {
+		return []RunAction{}
+	}
+
+	if status == runCompleted {
+		return []RunAction{ActionRerun}
+	}
+
+	return []RunAction{ActionCancel}
+}
+
+const runCompleted = "completed"
+
 // RunActionRequest names one run on its forge and what to do to it.
 type RunActionRequest struct {
 	// InstanceURL is set for Forgejo, empty for GitHub.
@@ -94,8 +112,7 @@ func (s *RunActionService) act(ctx context.Context, runID string, action RunActi
 		slog.InfoContext(ctx, "run action", slog.String("run", runID), slog.String("action", string(action)), slog.String("outcome", outcome(err)))
 	}()
 
-	concluded := run.Status == "completed"
-	if concluded != (action == ActionRerun) {
+	if (run.Status == runCompleted) != (action == ActionRerun) {
 		return ErrNotActionable
 	}
 

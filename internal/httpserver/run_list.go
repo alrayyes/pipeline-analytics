@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
 )
 
@@ -28,6 +29,7 @@ type runSummaryDTO struct {
 	Message         string       `json:"message,omitempty"`
 	Actor           string       `json:"actor,omitempty"`
 	ForgeURL        string       `json:"forgeUrl,omitempty"`
+	Actions         []string     `json:"actions"`
 	Steps           []runStepDTO `json:"steps"`
 }
 
@@ -51,6 +53,7 @@ func toRunSummaryDTO(e metrics.RunEntry) runSummaryDTO {
 		Message:      e.Message,
 		Actor:        e.Actor,
 		ForgeURL:     e.ForgeURL,
+		Actions:      actionNames(ingestion.ActionsFor(ingestion.Forge(e.Forge), e.Status)),
 		Steps:        make([]runStepDTO, 0, len(e.Steps)),
 	}
 
@@ -63,6 +66,15 @@ func toRunSummaryDTO(e metrics.RunEntry) runSummaryDTO {
 	}
 
 	return dto
+}
+
+func actionNames(actions []ingestion.RunAction) []string {
+	names := make([]string, 0, len(actions))
+	for _, a := range actions {
+		names = append(names, string(a))
+	}
+
+	return names
 }
 
 type runListHandler struct {
