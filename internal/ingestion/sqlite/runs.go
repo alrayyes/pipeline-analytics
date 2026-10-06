@@ -179,3 +179,27 @@ func (s *Store) findID(ctx context.Context, query string, args ...any) (string, 
 
 	return id, nil
 }
+
+// RunByID implements ingestion.RunLookup. It returns what an action on the
+// run needs, not the whole row.
+func (s *Store) RunByID(ctx context.Context, id string) (ingestion.Run, error) {
+	var (
+		run        ingestion.Run
+		conclusion sql.NullString
+	)
+
+	err := s.db.QueryRowContext(ctx,
+		"SELECT id, repo_id, forge_run_id, status, conclusion, forge_url FROM runs WHERE id = ?", id,
+	).Scan(&run.ID, &run.RepoID, &run.ForgeRunID, &run.Status, &conclusion, &run.ForgeURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ingestion.Run{}, ingestion.ErrRunNotFound
+	}
+
+	if err != nil {
+		return ingestion.Run{}, fmt.Errorf("get run: %w", err)
+	}
+
+	run.Conclusion = conclusion.String
+
+	return run, nil
+}
