@@ -382,6 +382,7 @@ describe('fetchRuns', () => {
 			status: 'completed',
 			conclusion: 'failure',
 			outcome: 'failed',
+			actions: ['rerun'],
 			sha: 'c4d291a',
 			steps: [
 				{

@@ -105,6 +105,8 @@ export interface RunSummary {
 	message?: string;
 	actor?: string;
 	forgeUrl?: string;
+	// What a session may ask the forge to do to this run now.
+	actions: ('rerun' | 'cancel')[];
 	steps: RunStep[];
 }
 

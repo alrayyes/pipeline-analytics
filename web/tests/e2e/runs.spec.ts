@@ -40,6 +40,7 @@ const failedRun = {
 	message: 'fix(stripe): webhook retry',
 	actor: 'marcus-v',
 	forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/1',
+	actions: ['rerun'],
 	steps: [
 		{
 			name: 'checkout',
@@ -72,6 +73,7 @@ const runningRun = {
 	outcome: 'running',
 	startedAt: '2026-10-02T12:10:00Z',
 	forgeUrl: 'https://github.com/alrayyes/web/actions/runs/2',
+	actions: ['cancel'],
 	steps: [
 		{
 			name: 'install',
@@ -95,6 +97,7 @@ const passedRun = {
 	startedAt: '2026-10-02T11:00:00Z',
 	durationSeconds: 115,
 	forgeUrl: 'https://github.com/alrayyes/infra/actions/runs/3',
+	actions: [],
 	steps: [
 		{
 			name: 'init',
@@ -304,3 +307,42 @@ for (const scheme of ['light', 'dark'] as const) {
 		expect(scan.violations).toEqual([]);
 	});
 }
+
+test('re-runs a run the server offers it for, and says why when refused', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await mockOneRepo(page);
+	await mockRuns(page, () => ({ runs: [failedRun, runningRun, passedRun] }));
+
+	const answers = [
+		{ status: 403, json: { code: 'forbidden', message: 'read-only' } },
+		{ status: 202 },
+	];
+	const posted: string[] = [];
+	await page.route('**/api/runs/*/rerun', (route) => {
+		posted.push(new URL(route.request().url()).pathname);
+
+		return route.fulfill(answers.shift() ?? { status: 202 });
+	});
+
+	await page.goto('/runs');
+
+	// Only the run the server lists `rerun` for gets the button.
+	await expect(page.getByRole('button', { name: 'Re-run' })).toHaveCount(1);
+	const failed = page.getByRole('listitem').filter({ hasText: 'main-deploy' });
+
+	await failed.getByRole('button', { name: 'Re-run' }).click();
+	await expect(failed.getByRole('alert')).toContainText('Actions write');
+
+	await failed.getByRole('button', { name: 'Re-run' }).click();
+	await expect(failed.getByRole('status')).toContainText('Re-run requested');
+	expect(posted).toEqual([
+		'/api/runs/run-failed/rerun',
+		'/api/runs/run-failed/rerun',
+	]);
+
+	const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(scan.violations).toEqual([]);
+});
