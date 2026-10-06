@@ -166,6 +166,15 @@ func TestRerunRun(t *testing.T) {
 		require.Equal(t, "unsupported", errorCode(t, rec))
 	})
 
+	t.Run("an unexpected forge failure is a 500", func(t *testing.T) {
+		t.Parallel()
+
+		srv, repoID := actionTestServer(t, &stubRunActor{err: errStubReader})
+		run := seedRunWith(t, srv, repoID, ingestion.Run{ForgeRunID: "83", Status: "completed", Conclusion: "failure"})
+
+		require.Equal(t, http.StatusInternalServerError, postAction(srv, run.ID, "rerun").Code)
+	})
+
 	t.Run("an unknown run is a 404", func(t *testing.T) {
 		t.Parallel()
 

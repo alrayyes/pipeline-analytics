@@ -69,6 +69,32 @@ func TestClient_RerunRun(t *testing.T) {
 		require.ErrorIs(t, client.RerunRun(context.Background(), actionRequest(false)), ingestion.ErrActionForbidden)
 	})
 
+	t.Run("an unauthorized token is forbidden", func(t *testing.T) {
+		t.Parallel()
+
+		client, _ := answering(t, http.StatusUnauthorized)
+
+		require.ErrorIs(t, client.RerunRun(context.Background(), actionRequest(false)), ingestion.ErrActionForbidden)
+	})
+
+	t.Run("a 404 reads as forbidden, since GitHub hides repos a token can't write", func(t *testing.T) {
+		t.Parallel()
+
+		client, _ := answering(t, http.StatusNotFound)
+
+		require.ErrorIs(t, client.RerunRun(context.Background(), actionRequest(false)), ingestion.ErrActionForbidden)
+	})
+
+	t.Run("a malformed repo identifier is an error", func(t *testing.T) {
+		t.Parallel()
+
+		client, _ := answering(t, http.StatusCreated)
+		req := actionRequest(false)
+		req.Identifier = "not-a-repo"
+
+		require.Error(t, client.RerunRun(context.Background(), req))
+	})
+
 	t.Run("a run the forge won't re-run is not actionable", func(t *testing.T) {
 		t.Parallel()
 
