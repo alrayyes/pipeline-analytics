@@ -322,6 +322,7 @@ func buildHandler(cfg config.Config, conn *sql.DB, ingestionStore *ingestionsqli
 		Reconciler:       reconciler,
 		Metrics:          metrics.NewService(metricssqlite.NewStore(conn)),
 		JobLogs:          ingestion.NewJobLogService(ingestionStore, ingestionStore, jobLogReaders(forgeClients)),
+		RunActions:       ingestion.NewRunActionService(ingestionStore, ingestionStore, runActors(forgeClients)),
 		ForgeTokens:      ingestionStore,
 		Auth:             auth.NewService(webAuthn, authStore),
 		AuthStore:        authStore,
@@ -348,6 +349,19 @@ func jobLogReaders(forgeClients map[ingestion.Forge]ingestion.ForgeClient) map[i
 	}
 
 	return readers
+}
+
+// runActors picks out the forge clients that can re-run and cancel a run.
+func runActors(forgeClients map[ingestion.Forge]ingestion.ForgeClient) map[ingestion.Forge]ingestion.RunActor {
+	actors := make(map[ingestion.Forge]ingestion.RunActor, len(forgeClients))
+
+	for forge, client := range forgeClients {
+		if actor, ok := client.(ingestion.RunActor); ok {
+			actors[forge] = actor
+		}
+	}
+
+	return actors
 }
 
 func newWebAuthn(callbackURL string) (*webauthn.WebAuthn, error) {

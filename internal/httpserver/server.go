@@ -30,10 +30,13 @@ type Deps struct {
 	ForgeTokens ingestion.ForgeTokenStore
 	// JobLogs reads a job's log from its forge for GET /api/runs/{runId}/
 	// jobs/{jobId}/log. nil is fine: the route then answers 404.
-	JobLogs   *ingestion.JobLogService
-	Auth      *auth.Service
-	AuthStore auth.Store
-	Settings  *settings.Service
+	JobLogs *ingestion.JobLogService
+	// RunActions re-runs and cancels runs on their forge for POST
+	// /api/runs/{runId}/rerun and /cancel. Nil leaves both routes unmounted.
+	RunActions *ingestion.RunActionService
+	Auth       *auth.Service
+	AuthStore  auth.Store
+	Settings   *settings.Service
 	// GitHubRateLimits reports the rate-limit status last observed for a
 	// GitHub token, for GET /api/insights/github-rate-limit. nil is fine --
 	// the endpoint just reports every token with no status yet.
@@ -80,6 +83,18 @@ func mountForgeTokens(mux *http.ServeMux, store ingestion.ForgeTokenStore) {
 	mux.HandleFunc("DELETE /api/forge-tokens/{tokenId}", h.delete)
 }
 
+// mountRunActions registers the re-run and cancel routes, when there is a
+// service to do them.
+func mountRunActions(mux *http.ServeMux, service *ingestion.RunActionService) {
+	if service == nil {
+		return
+	}
+
+	h := &runActionsHandler{service: service}
+	mux.HandleFunc("POST /api/runs/{runId}/rerun", h.rerun)
+	mux.HandleFunc("POST /api/runs/{runId}/cancel", h.cancel)
+}
+
 // New returns the root HTTP handler.
 func New(deps Deps) http.Handler {
 	mux := http.NewServeMux()
@@ -110,6 +125,8 @@ func New(deps Deps) http.Handler {
 	if deps.JobLogs != nil {
 		mux.HandleFunc("GET /api/runs/{runId}/jobs/{jobId}/log", (&jobLogHandler{service: deps.JobLogs}).get)
 	}
+
+	mountRunActions(mux, deps.RunActions)
 
 	mux.HandleFunc("GET /api/steps/unhealthy", pipelines.unhealthySteps)
 
