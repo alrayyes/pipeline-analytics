@@ -30,7 +30,9 @@ branch.
 
 A concluded GitHub run has a **Re-run** button on the Runs view. It asks GitHub
 to re-run the failed jobs (every job if the run passed) and needs a saved token
-with Actions write permission. Forgejo runs don't get one.
+with Actions write permission. A queued or running GitHub run has a **Cancel
+run** button instead, which asks you to confirm first. Forgejo runs get
+neither.
 
 ![Root cause diagnostics: failure categories and the failing steps behind them](docs/screenshot-root-cause.png)
 

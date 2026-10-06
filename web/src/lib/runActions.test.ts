@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { actionMessage, offersRerun, rerunRun } from './runActions.js';
+import {
+	actionMessage,
+	cancelRun,
+	offersCancel,
+	offersRerun,
+	rerunRun,
+} from './runActions.js';
 
 function errorResponse(status: number, code: string): Response {
 	return new Response(JSON.stringify({ code, message: 'server text' }), {
@@ -56,5 +62,51 @@ describe('offersRerun', () => {
 		expect(offersRerun({ actions: ['rerun'] })).toBe(true);
 		expect(offersRerun({ actions: ['cancel'] })).toBe(false);
 		expect(offersRerun({ actions: [] })).toBe(false);
+	});
+});
+
+describe('cancelRun', () => {
+	test('posts to the run’s cancel endpoint and accepts a 202', async () => {
+		let url: string | undefined;
+		let method: string | undefined;
+		const fetchFn = (input: RequestInfo | URL, init?: RequestInit) => {
+			url = String(input);
+			method = init?.method;
+
+			return Promise.resolve(new Response(null, { status: 202 }));
+		};
+
+		const result = await cancelRun('run 1', fetchFn as unknown as typeof fetch);
+
+		expect(url).toBe('/api/runs/run%201/cancel');
+		expect(method).toBe('POST');
+		expect(result).toEqual({ ok: true });
+	});
+
+	test('a 409 says the run has already finished, not that it can’t be re-run', async () => {
+		const fetchFn = () => Promise.resolve(errorResponse(409, 'not_actionable'));
+
+		const result = await cancelRun('r', fetchFn as unknown as typeof fetch);
+
+		if (result.ok) throw new Error('expected a failure');
+		expect(actionMessage('cancel', result)).toContain('already finished');
+		expect(actionMessage('cancel', result)).not.toContain('re-run');
+	});
+
+	test('a 403 asks for Actions write permission', async () => {
+		const fetchFn = () => Promise.resolve(errorResponse(403, 'forbidden'));
+
+		const result = await cancelRun('r', fetchFn as unknown as typeof fetch);
+
+		if (result.ok) throw new Error('expected a failure');
+		expect(actionMessage('cancel', result)).toContain('Actions write');
+	});
+});
+
+describe('offersCancel', () => {
+	test('is true only when the server lists cancel', () => {
+		expect(offersCancel({ actions: ['cancel'] })).toBe(true);
+		expect(offersCancel({ actions: ['rerun'] })).toBe(false);
+		expect(offersCancel({ actions: [] })).toBe(false);
 	});
 });
