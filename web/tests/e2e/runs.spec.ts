@@ -346,3 +346,59 @@ test('re-runs a run the server offers it for, and says why when refused', async 
 	const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
 	expect(scan.violations).toEqual([]);
 });
+
+test('cancels a running run only after confirmation, and says why when refused', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await mockOneRepo(page);
+	await mockRuns(page, () => ({ runs: [failedRun, runningRun, passedRun] }));
+
+	const answers = [
+		{ status: 403, json: { code: 'forbidden', message: 'read-only' } },
+		{ status: 202 },
+	];
+	const posted: string[] = [];
+	await page.route('**/api/runs/*/cancel', (route) => {
+		posted.push(new URL(route.request().url()).pathname);
+
+		return route.fulfill(answers.shift() ?? { status: 202 });
+	});
+
+	await page.goto('/runs');
+
+	// Only the run the server lists `cancel` for gets the button.
+	await expect(page.getByRole('button', { name: 'Cancel run' })).toHaveCount(1);
+	const running = page
+		.getByRole('listitem')
+		.filter({ hasText: 'preview-build' });
+
+	// Backing out sends nothing.
+	await running.getByRole('button', { name: 'Cancel run' }).click();
+	await expect(page.getByRole('alertdialog')).toBeVisible();
+	await page.getByRole('button', { name: 'Keep running' }).click();
+	await expect(page.getByRole('alertdialog')).toBeHidden();
+	expect(posted).toEqual([]);
+
+	await running.getByRole('button', { name: 'Cancel run' }).click();
+	await page
+		.getByRole('alertdialog')
+		.getByRole('button', { name: 'Cancel run' })
+		.click();
+	await expect(running.getByRole('alert')).toContainText('Actions write');
+
+	await running.getByRole('button', { name: 'Cancel run' }).click();
+	await page
+		.getByRole('alertdialog')
+		.getByRole('button', { name: 'Cancel run' })
+		.click();
+	await expect(running.getByRole('status')).toContainText('Cancel requested');
+	expect(posted).toEqual([
+		'/api/runs/run-running/cancel',
+		'/api/runs/run-running/cancel',
+	]);
+
+	const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(scan.violations).toEqual([]);
+});

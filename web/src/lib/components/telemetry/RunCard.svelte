@@ -1,8 +1,19 @@
 <script lang="ts">
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+import XIcon from '@lucide/svelte/icons/x';
 import StageProgress from '$lib/components/telemetry/StageProgress.svelte';
 import StatusBadge from '$lib/components/telemetry/StatusBadge.svelte';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '$lib/components/ui/alert-dialog/index.js';
 import { Button } from '$lib/components/ui/button/index.js';
 import {
 	Card,
@@ -14,26 +25,41 @@ import {
 import type { RunSummary } from '$lib/dashboardApi.js';
 import { formatSeconds } from '$lib/format.js';
 import { formatRelativeTime } from '$lib/relativeTime.js';
-import { actionMessage, offersRerun, rerunRun } from '$lib/runActions.js';
+import {
+	actionMessage,
+	cancelRun,
+	offersCancel,
+	offersRerun,
+	type RunActionKind,
+	rerunRun,
+} from '$lib/runActions.js';
 import { outcomeLabel, outcomeTone } from '$lib/statusModel.js';
 
 let { run }: { run: RunSummary } = $props();
 
-let rerunning = $state(false);
-let rerunNote = $state<{ text: string; failed: boolean } | null>(null);
+let busy = $state(false);
+let confirmingCancel = $state(false);
+let note = $state<{ text: string; failed: boolean } | null>(null);
 
-async function rerun(): Promise<void> {
-	rerunning = true;
-	rerunNote = null;
+const ACCEPTED: Record<RunActionKind, string> = {
+	rerun: 'Re-run requested. The forge will start it shortly.',
+	cancel: 'Cancel requested. The forge will stop it shortly.',
+};
 
-	const result = await rerunRun(run.id);
-	rerunNote = result.ok
-		? {
-				text: 'Re-run requested. The forge will start it shortly.',
-				failed: false,
-			}
-		: { text: actionMessage('rerun', result), failed: true };
-	rerunning = false;
+async function act(kind: RunActionKind): Promise<void> {
+	busy = true;
+	note = null;
+
+	const result = await (kind === 'rerun' ? rerunRun : cancelRun)(run.id);
+	note = result.ok
+		? { text: ACCEPTED[kind], failed: false }
+		: { text: actionMessage(kind, result), failed: true };
+	busy = false;
+}
+
+async function confirmCancel(): Promise<void> {
+	confirmingCancel = false;
+	await act('cancel');
 }
 
 const hasCommit = $derived(Boolean(run.sha || run.message || run.actor));
@@ -88,18 +114,46 @@ const hasCommit = $derived(Boolean(run.sha || run.message || run.actor));
 				variant="outline"
 				size="sm"
 				class="ml-auto"
-				disabled={rerunning}
-				onclick={rerun}
+				disabled={busy}
+				onclick={() => act('rerun')}
 			>
 				<RotateCcwIcon aria-hidden="true" class="size-3" />
 				Re-run
 			</Button>
 		{/if}
+		{#if offersCancel(run)}
+			<Button
+				variant="outline"
+				size="sm"
+				class="ml-auto"
+				disabled={busy}
+				onclick={() => (confirmingCancel = true)}
+			>
+				<XIcon aria-hidden="true" class="size-3" />
+				Cancel run
+			</Button>
+		{/if}
 		<p
-			role={rerunNote?.failed ? 'alert' : 'status'}
-			class={['w-full', rerunNote?.failed && 'text-destructive']}
+			role={note?.failed ? 'alert' : 'status'}
+			class={['w-full', note?.failed && 'text-destructive']}
 		>
-			{rerunNote?.text ?? ''}
+			{note?.text ?? ''}
 		</p>
 	</CardFooter>
 </Card>
+
+<AlertDialog bind:open={confirmingCancel}>
+	<AlertDialogContent>
+		<AlertDialogHeader>
+			<AlertDialogTitle>Cancel {run.pipelineName}?</AlertDialogTitle>
+			<AlertDialogDescription>
+				The forge stops the run and its jobs. A cancelled run can be re-run
+				afterwards.
+			</AlertDialogDescription>
+		</AlertDialogHeader>
+		<AlertDialogFooter>
+			<AlertDialogCancel>Keep running</AlertDialogCancel>
+			<AlertDialogAction onclick={confirmCancel}>Cancel run</AlertDialogAction>
+		</AlertDialogFooter>
+	</AlertDialogContent>
+</AlertDialog>
