@@ -24,14 +24,16 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 artifacts="$tmp/artifacts"
-mkdir -p "$artifacts/reports-go" "$artifacts/reports-frontend" "$artifacts/reports-e2e" "$artifacts/lighthouse-report"
+# The frontend upload spans web/junit.xml and web/coverage/*, so upload-artifact
+# keeps the coverage/ folder; the other artifacts are flat.
+mkdir -p "$artifacts/reports-go" "$artifacts/reports-frontend/coverage" "$artifacts/reports-e2e" "$artifacts/lighthouse-report"
 echo '<testsuites name="go"/>' >"$artifacts/reports-go/junit.xml"
 echo '<coverage line-rate="1"/>' >"$artifacts/reports-go/coverage.xml"
 echo 'mode: atomic' >"$artifacts/reports-go/coverage.out"
 echo '<html>go</html>' >"$artifacts/reports-go/coverage.html"
 echo '<testsuites name="frontend"/>' >"$artifacts/reports-frontend/junit.xml"
-echo '<coverage line-rate="1"/>' >"$artifacts/reports-frontend/coverage.xml"
-echo 'TN:' >"$artifacts/reports-frontend/lcov.info"
+echo '<coverage line-rate="1"/>' >"$artifacts/reports-frontend/coverage/coverage.xml"
+echo 'TN:' >"$artifacts/reports-frontend/coverage/lcov.info"
 echo '<testsuites name="e2e"/>' >"$artifacts/reports-e2e/e2e.xml"
 echo '<html>lh</html>' >"$artifacts/lighthouse-report/lhr-1.html"
 echo '{}' >"$artifacts/lighthouse-report/lhr-1.json"

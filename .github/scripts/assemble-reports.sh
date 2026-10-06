@@ -47,8 +47,8 @@ take reports-e2e/e2e.xml tests/e2e.xml
 take reports-go/coverage.xml coverage/coverage.xml
 take reports-go/coverage.out coverage/coverage.out
 take reports-go/coverage.html coverage/go.html
-take reports-frontend/coverage.xml coverage/frontend/coverage.xml
-take reports-frontend/lcov.info coverage/frontend/lcov.info
+take reports-frontend/coverage/coverage.xml coverage/frontend/coverage.xml
+take reports-frontend/coverage/lcov.info coverage/frontend/lcov.info
 
 if [ ! -d "$artifacts/lighthouse-report" ]; then
 	echo "assemble-reports: missing lighthouse-report" >&2
