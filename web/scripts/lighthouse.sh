@@ -4,9 +4,11 @@
 # reasoning as web/scripts/capture-screenshots.sh and tests/e2e's
 # global-setup.ts/isolated-server.ts.
 #
-# /login is the only page audited here: it's the one page reachable without
-# a passkey (docs/adr/0002-webauthn-only-authentication.md), so it's the
-# only one lighthouse-ci's plain, unauthenticated fetch can reach.
+# /login is audited signed out. The pages behind the passkey
+# (docs/adr/0002-webauthn-only-authentication.md) are audited signed in:
+# scripts/lighthouse-auth.cjs registers a passkey through a virtual
+# authenticator first, and check-lighthouse-reports.ts fails the run if any
+# page was bounced to /login instead.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -33,4 +35,4 @@ for _ in $(seq 1 20); do
 	sleep 0.5
 done
 
-(cd web && bunx lhci autorun)
+(cd web && bunx lhci autorun && bun scripts/check-lighthouse-reports.ts)

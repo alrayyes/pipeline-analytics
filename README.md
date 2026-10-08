@@ -253,7 +253,7 @@ docs, so you can check the project's health without opening a pipeline run:
 - [Coverage](https://apis.ryankes.eu/pipeline-analytics/reports/coverage/):
   Cobertura XML, with the Go HTML view and the native Go and lcov files beside it.
 - [Lighthouse](https://apis.ryankes.eu/pipeline-analytics/reports/lighthouse/):
-  the audit of the login page.
+  the audit of the login page and the signed-in pages.
 
 ## Contributing
 
