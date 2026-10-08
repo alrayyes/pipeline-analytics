@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.0...v0.71.1) (2026-10-08)
+
+
+### Performance Improvements
+
+* **web:** serve the dashboard's assets cached and compressed ([#526](https://github.com/alrayyes/pipeline-analytics/issues/526)) ([96aa4d2](https://github.com/alrayyes/pipeline-analytics/commit/96aa4d20c74685bcb6c34474c8c0af01143b1a1c))
+
 ## [0.71.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.70.1...v0.71.0) (2026-10-08)
 
 
