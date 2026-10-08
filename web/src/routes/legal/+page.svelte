@@ -50,7 +50,8 @@
 			outbound calls with a repository's data. The release history page
 			makes none either: it shows this project's own changelog, bundled
 			into the app when it was built, so opening it contacts no outside
-			service.
+			service. The footer's GitHub and license links are plain links: they
+			load nothing from GitHub until you follow one.
 		</p>
 
 		<h2>Disclaimer</h2>

@@ -39,6 +39,44 @@ test('a release version links to the release history, with no second link to it'
 	).toBeVisible();
 });
 
+test('the footer links to the GitHub repo and the license (#516)', async ({
+	page,
+}) => {
+	await page.goto('/login');
+
+	const footer = page.getByRole('contentinfo');
+	await expect(footer.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+		'href',
+		'https://github.com/alrayyes/pipeline-analytics',
+	);
+	await expect(footer.getByRole('link', { name: 'AGPL-3.0' })).toHaveAttribute(
+		'href',
+		'https://github.com/alrayyes/pipeline-analytics/blob/main/LICENSE',
+	);
+	// The mark sits beside its own label, so it is decorative.
+	await expect(footer.locator('svg[aria-hidden="true"]')).toHaveCount(1);
+});
+
+test('the footer wraps on a narrow phone without scrolling sideways (#516)', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 360, height: 800 });
+	await page.route('**/api/version', (route) =>
+		route.fulfill({ json: { version: '0.56.1' } }),
+	);
+	await page.goto('/login');
+
+	await expect(page.getByRole('contentinfo')).toBeVisible();
+	const overflows = await page.evaluate(
+		() =>
+			document.documentElement.scrollWidth >
+			document.documentElement.clientWidth,
+	);
+	expect(overflows).toBe(false);
+	// Separators sit between links, so none can hang at the end of a row.
+	await expect(page.getByRole('contentinfo')).not.toContainText('·');
+});
+
 test('the login page passes axe', async ({ page }) => {
 	await page.goto('/login');
 
