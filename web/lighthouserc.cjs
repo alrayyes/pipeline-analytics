@@ -22,9 +22,6 @@ module.exports = {
 			puppeteerScript: './scripts/lighthouse-auth.cjs',
 			puppeteerLaunchOptions: { args: ['--no-sandbox'] },
 			settings: {
-				// Lighthouse clears cookies between runs by default, which
-				// would sign the browser out again.
-				disableStorageReset: true,
 				// /login deliberately probes POST /api/auth/login/options and
 				// treats a 404 as "no account registered yet, show the
 				// registration flow" (internal/httpserver/auth.go's
