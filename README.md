@@ -152,6 +152,14 @@ and unauthenticated.
 Put a reverse proxy (Caddy, Tailscale Funnel, your VPS's existing one) in
 front for TLS — the server itself speaks plain HTTP on `--addr`.
 
+The server sends the dashboard's hashed files with a one-year `immutable`
+cache lifetime and everything else with `no-cache` and an `ETag`, so a repeat
+visit revalidates the page and re-downloads nothing else. The build writes
+Brotli and gzip copies of its text files, and the server picks one by
+`Accept-Encoding`, so the dashboard needs no compression at the proxy. API
+responses are not compressed by the server; turn that on at the proxy if you
+want it.
+
 The server doesn't rate-limit itself; that's the proxy's job. The routes
 reachable without a session are the login ceremony (`/api/auth/`), the forge
 webhook receivers (`/webhooks/`) and the health, readiness and version

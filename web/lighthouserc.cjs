@@ -44,6 +44,14 @@ module.exports = {
 				// mutation-testing CI job reporting a score without gating
 				// on one.
 				'categories:performance': ['warn', { minScore: 0.8 }],
+				// The server-owned findings from rules/web-performance.md, by their
+				// Lighthouse 13 insight IDs, which @lhci/cli's bundled Lighthouse
+				// reports beside the audits they replaced. cache-insight has no
+				// score once nothing is left to cache, which counts as a pass.
+				'cache-insight': ['warn', { minScore: 0.9 }],
+				'document-latency-insight': ['warn', { minScore: 0.9 }],
+				'render-blocking-insight': ['warn', { minScore: 0.9 }],
+				'network-dependency-tree-insight': ['warn', { minScore: 0.9 }],
 			},
 		},
 		upload: {

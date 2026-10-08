@@ -19,6 +19,9 @@ export default defineConfig({
 				pages: '../internal/webassets/dist',
 				assets: '../internal/webassets/dist',
 				fallback: 'index.html',
+				// Writes .br and .gz beside each text file; the Go server
+				// picks one by Accept-Encoding (internal/httpserver/static.go).
+				precompress: true,
 			}),
 		}),
 	],
