@@ -51,3 +51,5 @@ ruleset's
 JUnit
 Cobertura
 lcov
+Brotli
+gzip
