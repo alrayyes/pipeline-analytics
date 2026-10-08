@@ -2,8 +2,9 @@
 // audited (#520). A Chrome virtual authenticator stands in for a passkey
 // device and the first-run registration signs the browser in, as in
 // tests/e2e/auth.ts. lhci runs this before every URL in the same browser, and
-// the session cookie outlives it (the config turns the storage reset off), so
-// only the first call has anything to do.
+// the session cookie outlives it (Lighthouse's storage reset keeps cookies
+// and empties the HTTP cache, so every page is still a cold load), so only
+// the first call has anything to do.
 //
 // Nothing here is logged: the session value stays in the browser.
 
