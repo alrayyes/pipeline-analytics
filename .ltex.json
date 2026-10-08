@@ -2,6 +2,8 @@
 	"ltex.dictionary": {
 		"en-US": [
 			"pipeline-analytics",
+			"Brotli",
+			"gzip",
 			"WebAuthn",
 			"goreleaser",
 			"release-please",
