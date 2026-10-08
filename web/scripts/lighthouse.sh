@@ -35,4 +35,12 @@ for _ in $(seq 1 20); do
 	sleep 0.5
 done
 
+# lhci finds Chrome through puppeteer, and puppeteer-core (all the
+# puppeteerScript needs) can't say where it is, so name it. CHROME_PATH
+# already set wins.
+if [ -z "${CHROME_PATH:-}" ]; then
+	CHROME_PATH="$(cd web && node -e "console.log(require('chrome-launcher').Launcher.getFirstInstallation() ?? '')")"
+	export CHROME_PATH
+fi
+
 (cd web && bunx lhci autorun && bun scripts/check-lighthouse-reports.ts)
