@@ -76,7 +76,7 @@ bun run test:mutation  # mutation testing (Stryker), fails on a surviving mutant
 bun run build
 bun audit --ignore GHSA-hp3w-g68c-fv3c
 bun run test:e2e        # Playwright, builds the real binary and runs against it
-./scripts/lighthouse.sh # Lighthouse CI against /login, builds the real binary too
+./scripts/lighthouse.sh # Lighthouse CI on /login and the signed-in pages, builds the real binary too
 ```
 
 `test:mutation` runs against
