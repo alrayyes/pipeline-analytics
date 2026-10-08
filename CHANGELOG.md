@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.70.1...v0.71.0) (2026-10-08)
+
+
+### Features
+
+* **web:** link the footer to the GitHub repo and the license ([#518](https://github.com/alrayyes/pipeline-analytics/issues/518)) ([86b6b15](https://github.com/alrayyes/pipeline-analytics/commit/86b6b15cd022cc191dc124c03c02e85e490f7aba))
+
 ## [0.70.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.70.0...v0.70.1) (2026-10-06)
 
 
