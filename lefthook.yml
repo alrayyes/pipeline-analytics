@@ -23,7 +23,7 @@ pre-commit:
         docker run --rm --user "$(id -u):$(id -g)"
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
-        golang:1.27.1-bookworm gofmt -w {staged_files}
+        golang:1.27.2-bookworm gofmt -w {staged_files}
       stage_fixed: true
     go-mod-fmt:
       glob: "go.mod"
@@ -33,7 +33,7 @@ pre-commit:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.1-bookworm go mod edit -fmt go.mod
+        golang:1.27.2-bookworm go mod edit -fmt go.mod
       stage_fixed: true
     biome:
       root: "web/"
@@ -91,7 +91,7 @@ pre-push:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.1-bookworm go vet ./...
+        golang:1.27.2-bookworm go vet ./...
     go-test:
       run: >
         mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
@@ -100,7 +100,7 @@ pre-push:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.1-bookworm go test -race -cover ./...
+        golang:1.27.2-bookworm go test -race -cover ./...
     go-mod-tidy:
       run: >
         mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
@@ -109,7 +109,7 @@ pre-push:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.1-bookworm go mod tidy -diff
+        golang:1.27.2-bookworm go mod tidy -diff
     go-mod-fmt-check:
       run: >
         mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/go-mod-docker" &&
@@ -118,7 +118,7 @@ pre-push:
         -v "$(pwd):/src" -w /src
         -e GOCACHE=/gocache -v "$HOME/.cache/go-build-docker:/gocache"
         -e GOMODCACHE=/gomod -v "$HOME/.cache/go-mod-docker:/gomod"
-        golang:1.27.1-bookworm sh -c 'go mod edit -fmt -print go.mod | diff -u go.mod -'
+        golang:1.27.2-bookworm sh -c 'go mod edit -fmt -print go.mod | diff -u go.mod -'
     golangci-lint:
       run: >
         mkdir -p "$HOME/.cache/go-build-docker" "$HOME/.cache/golangci-lint-docker" &&
