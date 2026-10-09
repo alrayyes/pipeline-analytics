@@ -50,8 +50,10 @@ module.exports = {
 				// score once nothing is left to cache, which counts as a pass.
 				'cache-insight': ['warn', { minScore: 0.9 }],
 				'document-latency-insight': ['warn', { minScore: 0.9 }],
-				'render-blocking-insight': ['warn', { minScore: 0.9 }],
-				'network-dependency-tree-insight': ['warn', { minScore: 0.9 }],
+				// Clean on every page since #527 (stylesheet inlined, Inter
+				// preloaded, manifest added after load), so a regression fails.
+				'render-blocking-insight': ['error', { minScore: 0.9 }],
+				'network-dependency-tree-insight': ['error', { minScore: 0.9 }],
 			},
 		},
 		upload: {
