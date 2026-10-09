@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.2...v0.71.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* **ci:** run Go 1.27.2 to clear the standard-library advisories ([#534](https://github.com/alrayyes/pipeline-analytics/issues/534)) ([05bcf6b](https://github.com/alrayyes/pipeline-analytics/commit/05bcf6b3d995d8303ae2dfac37a06ab36b2df3e1))
+
 ## [0.71.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.1...v0.71.2) (2026-10-09)
 
 
