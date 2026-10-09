@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.1...v0.71.2) (2026-10-09)
+
+
+### Performance Improvements
+
+* **web:** stop the stylesheet and font blocking first render ([#531](https://github.com/alrayyes/pipeline-analytics/issues/531)) ([e379479](https://github.com/alrayyes/pipeline-analytics/commit/e379479c90087a55267e3acd7d9d3b8021bd338e))
+
 ## [0.71.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.0...v0.71.1) (2026-10-08)
 
 
