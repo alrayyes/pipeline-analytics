@@ -2,6 +2,7 @@
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { onMount } from 'svelte';
+import { revealInBatches } from '#lib/batches.js';
 import type { Release } from '#lib/changelog.js';
 import {
 	Card,
@@ -19,8 +20,14 @@ const RELEASES_PAGE_URL =
 
 let releases = $state<Release[] | null>(null);
 let failed = $state(false);
+// How many of `releases` are rendered. Parsing and sanitising every body in
+// one go was a 660 ms task for 98 releases and dropped Lighthouse's
+// total-blocking-time score (#522), so they render a few at a time.
+let shown = $state(0);
 
 onMount(() => {
+	let cancel = () => {};
+
 	fetch(RELEASES_URL)
 		.then((res) => {
 			if (!res.ok) throw new Error(`releases.json returned ${res.status}`);
@@ -31,10 +38,15 @@ onMount(() => {
 		})
 		.then((data: Release[]) => {
 			releases = data;
+			cancel = revealInBatches(data.length, 5, 5, (n) => {
+				shown = n;
+			});
 		})
 		.catch(() => {
 			failed = true;
 		});
+
+	return () => cancel();
 });
 
 // release-please's own body opens with a "## [version](compare-link) (date)"
@@ -66,7 +78,7 @@ function renderBody(body: string): string {
 		<p class="mt-6 text-muted-foreground">No releases yet.</p>
 	{:else}
 		<ul class="mt-6 grid gap-3">
-			{#each releases as release (release.tag)}
+			{#each releases.slice(0, shown) as release (release.tag)}
 				<li>
 					<Card size="sm">
 						<CardHeader class="flex flex-row items-center justify-between">
