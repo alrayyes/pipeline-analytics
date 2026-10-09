@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.4](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.3...v0.71.4) (2026-10-09)
+
+
+### Performance Improvements
+
+* **web:** render the release history in slices ([#535](https://github.com/alrayyes/pipeline-analytics/issues/535)) ([5b7d6bc](https://github.com/alrayyes/pipeline-analytics/commit/5b7d6bc53e6479b68988751524400edd53e83551))
+
 ## [0.71.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.2...v0.71.3) (2026-10-09)
 
 
