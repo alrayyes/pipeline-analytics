@@ -5,7 +5,9 @@ usable if you want to run it locally, poke at the code, or send a fix.
 
 ## Toolchain
 
-- Go, version from [`go.mod`](go.mod) (currently 1.27+).
+- Go, version from [`go.mod`](go.mod) (currently 1.27+). CI, the release job and
+  the Go hooks run 1.27.2, one patch ahead of `go.mod`, until `golangci-lint`
+  ships a release built with it (see the comment in `ci.yml`).
 - [bun](https://bun.sh) 1.3.x — not 1.4+. Bun 1.4 defaults to a
   `bun.lock` format Dependabot's own bun updater can't read yet; see the
   comment in [`web/package.json`](web/package.json).
