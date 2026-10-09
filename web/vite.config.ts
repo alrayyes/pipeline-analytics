@@ -12,6 +12,11 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true,
 			},
+			// The global stylesheet (~82 kB, ~13 kB brotli) goes into index.html
+			// instead of blocking first render behind its own request. The
+			// default of 0 inlines nothing; the threshold only has to clear the
+			// sheet. See #527 and rules/web-performance.md.
+			inlineStyleThreshold: 100_000,
 			// Output goes straight into the Go package that go:embeds it
 			// (internal/webassets/dist), rather than web/build -- go:embed
 			// can't reach outside its own package's directory tree.

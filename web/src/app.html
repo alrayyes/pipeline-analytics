@@ -9,7 +9,6 @@
 			name="description"
 			content="Self-hosted pipeline analytics for GitHub Actions and Forgejo Actions"
 		/>
-		<link rel="manifest" href="/manifest.json" />
 		<script>
 			// Applied before the app hydrates so there's no flash of the
 			// wrong theme -- this is a client-only SPA (ssr: false), so
@@ -24,6 +23,18 @@
 					document.documentElement.classList.toggle('dark', dark);
 				} catch (_) {}
 			})();
+		</script>
+		<script>
+			// Not needed to paint, and a <link rel="manifest"> in the head is
+			// fetched with the page's critical requests, so
+			// network-dependency-tree-insight counts it as a chain (#527).
+			// Added once the page has loaded instead.
+			addEventListener('load', () => {
+				const link = document.createElement('link');
+				link.rel = 'manifest';
+				link.href = '/manifest.json';
+				document.head.append(link);
+			});
 		</script>
 		%sveltekit.head%
 	</head>
