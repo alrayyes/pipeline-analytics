@@ -6,6 +6,8 @@ output: [failure]
 # CI-only, on purpose: govulncheck. Its database changes without a commit,
 # so a pass here proves nothing the pipeline won't re-check.
 # CI-only, on purpose: bun audit. Advisories land overnight, same reason.
+# Builds (go build, docker build) run in pre-push and CI only: pre-commit
+# judges just what the commit contains, and a build reads the whole tree.
 #
 # pre-commit fixes and restages; pre-push checks the whole tree and never
 # writes -- go-lint.md/go-mod.md/linting.md's split. Go commands run
@@ -56,19 +58,16 @@ pre-commit:
       glob: "*.md"
       run: bunx markdownlint-cli2 --fix {staged_files}
       stage_fixed: true
-    # Style advice, not a gate -- reports, doesn't block a commit.
+    # The files CI's style job gates, not every staged *.md: a commit is
+    # judged on its own content, and Vale blocks here like it does in
+    # pre-push and CI (linting.md).
     vale:
-      glob: "*.md"
-      run: scripts/lint-prose.sh {staged_files} || true
-    # Scoped by the CI `docker` group (hook-guard.sh), so a commit touching
-    # nothing the image reads skips it -- containers.md.
-    docker-build:
-      run: >
-        .github/scripts/hook-guard.sh docker --
-        sh -c 'go build -o pipeline-analytics ./cmd/pipeline-analytics &&
-        docker build -t pipeline-analytics:pre-commit-check . &&
-        docker rmi pipeline-analytics:pre-commit-check &&
-        rm -f pipeline-analytics'
+      glob:
+        - "README.md"
+        - "CONTRIBUTING.md"
+        - "SECURITY.md"
+        - ".github/PULL_REQUEST_TEMPLATE.md"
+      run: scripts/lint-prose.sh {staged_files}
 
 commit-msg:
   commands:

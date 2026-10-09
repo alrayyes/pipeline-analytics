@@ -107,9 +107,9 @@ runs, straight from [`lefthook.yml`](lefthook.yml):
 
 - **`pre-commit`** (staged files only, fixes and restages): `gofmt`,
   `go mod edit -fmt go.mod`, `biome check --write` for `web/`,
-  `sort-package-json`, Prettier/`markdownlint` for Markdown, and a
-  `docker build` when the CI `docker` group changed. The fixers take a
-  file-type glob, since they act on the staged files themselves.
+  `sort-package-json`, Prettier/`markdownlint` for Markdown, and Vale on the
+  prose files CI gates. Every job takes the staged files, so an unrelated
+  dirty file can't fail a commit, and builds wait for `pre-push`.
 - **`commit-msg`**: [commitlint](https://commitlint.js.org) against
   `@commitlint/config-conventional`.
 - **`pre-push`** (whole tree, never writes): `go vet`, `go test -race -cover`,

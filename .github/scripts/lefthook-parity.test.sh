@@ -41,4 +41,23 @@ else
 	failures=$((failures + 1))
 fi
 
+# pre-commit judges only what the commit contains (rules/linting.md): every
+# job there takes the staged files, none builds the whole tree, and none
+# swallows its own failure. The section runs from `pre-commit:` to the next
+# top-level key.
+precommit=$(awk '/^pre-commit:/{f=1;next} /^[a-z]/{f=0} f' "$file")
+if printf '%s\n' "$precommit" | grep -Eq '^    docker-build:'; then
+	echo "FAIL: pre-commit has a docker-build job; builds belong in pre-push and CI"
+	failures=$((failures + 1))
+else
+	echo "ok:   pre-commit has no whole-tree docker-build"
+fi
+if printf '%s\n' "$precommit" | grep -Eq '\|\| true'; then
+	echo "FAIL: a pre-commit job ends in '|| true' and can never fail"
+	failures=$((failures + 1))
+else
+	echo "ok:   no pre-commit job swallows its failure"
+fi
+expect "pre-push keeps the docker build" 'hook-guard\.sh --push docker -- sh -c .go build'
+
 [ "$failures" -eq 0 ]
