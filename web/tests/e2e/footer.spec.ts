@@ -99,3 +99,45 @@ test('the privacy and release pages pass axe', async ({ page, context }) => {
 	await expect(page).toHaveURL('/releases');
 	await expectNoViolations(page);
 });
+
+// The two links that leave the app open in a new tab, so the dashboard stays
+// where it was (#554). The app's own pages stay in the same tab.
+test('the GitHub and license links open in a new tab, and say so', async ({
+	page,
+	context,
+}) => {
+	await page.route('**/api/version', (route) =>
+		route.fulfill({ json: { version: '0.56.1' } }),
+	);
+	await page.goto('/login');
+
+	const footer = page.getByRole('contentinfo');
+	for (const name of ['GitHub', 'AGPL-3.0']) {
+		const link = footer.getByRole('link', { name });
+		await expect(link).toHaveAttribute('target', '_blank');
+		await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+		// A screen reader hears it before following the link.
+		await expect(link).toHaveAccessibleName(
+			new RegExp(`${name}.*opens in a new tab`),
+		);
+	}
+
+	// Same-tab links keep their name and have no target.
+	for (const name of ['0.56.1', 'Privacy & disclaimer']) {
+		const link = footer.getByRole('link', { name, exact: true });
+		await expect(link).not.toHaveAttribute('target', /.*/);
+	}
+
+	await context.route('https://github.com/**', (route) =>
+		route.fulfill({ body: '<title>repo</title>', contentType: 'text/html' }),
+	);
+	const [opened] = await Promise.all([
+		context.waitForEvent('page'),
+		footer.getByRole('link', { name: 'GitHub' }).click(),
+	]);
+	await opened.waitForLoadState();
+	expect(opened.url()).toBe('https://github.com/alrayyes/pipeline-analytics');
+	expect(page.url()).toContain('/login');
+
+	await expectNoViolations(page);
+});
