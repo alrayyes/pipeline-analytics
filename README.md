@@ -245,7 +245,8 @@ flaky-step, usage, run and failure-insight data the dashboard and REST API do,
 as eleven read-only tools. Every read endpoint that serves pipeline data has a
 tool; a test fails when one doesn't, unless it's listed with a reason. It
 needs the same bearer API token as the REST API — issue one with a
-logged-in session: `curl -X POST https://<your-server>/api/auth/tokens
+logged-in session, either from Settings → API tokens (pick 30 days, 90 days
+or 1 year; the token is shown once) or with `curl -X POST https://<your-server>/api/auth/tokens
 --cookie "session=<your-session-cookie>"`. A token lasts 90 days unless you
 ask for another lifetime with `-d '{"ttlSeconds": 2592000}'` (30 days here);
 the longest is 365 days, and the response's `expiresAt` says when it ends.
