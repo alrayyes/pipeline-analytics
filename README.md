@@ -21,6 +21,13 @@ The overview, root-cause, flaky and runs views can be scoped to one branch
 with the branch selector beside the window; with none chosen they cover every
 branch.
 
+A flaky step you already know about can be **quarantined** (a signed-in session
+only: `PUT /api/pipelines/{pipelineId}/steps/{step}/quarantine`, `DELETE` to
+clear). It stays in the flaky list, labelled, with every figure unchanged, but
+it stops making its pipeline unhealthy and stops counting in the flaky-step
+ratio. The mark lasts 30 days unless renewed, lives in this server only, and
+never touches the forge. API tokens and the MCP tools can read it, not set it.
+
 <details>
 <summary>More screenshots</summary>
 

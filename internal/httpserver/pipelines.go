@@ -71,7 +71,11 @@ type stepDTO struct {
 	FailureRate                 float64 `json:"failureRate"`
 	FailureCount                int     `json:"failureCount"`
 	Flaky                       bool    `json:"flaky"`
-	ForgeURL                    string  `json:"forgeUrl,omitempty"`
+	// Quarantined is true when a person has marked this flaky step as known;
+	// Quarantine then holds the mark.
+	Quarantined bool           `json:"quarantined"`
+	Quarantine  *quarantineDTO `json:"quarantine,omitempty"`
+	ForgeURL    string         `json:"forgeUrl,omitempty"`
 }
 
 func toStepDTO(s metrics.Step) stepDTO {
@@ -84,6 +88,8 @@ func toStepDTO(s metrics.Step) stepDTO {
 		FailureRate:                 s.FailureRate,
 		FailureCount:                s.FailureCount,
 		Flaky:                       s.Flaky,
+		Quarantined:                 s.Quarantine != nil,
+		Quarantine:                  toQuarantineDTO(s.Quarantine),
 		ForgeURL:                    s.ForgeURL,
 	}
 }

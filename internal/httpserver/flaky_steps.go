@@ -17,6 +17,10 @@ type flakyStepDTO struct {
 	FlakeRate      float64  `json:"flakeRate"`
 	RunCount       int      `json:"runCount"`
 	RecentOutcomes []string `json:"recentOutcomes"`
+	// Quarantined is true when a person has marked this step as known; it is
+	// still listed, with these figures unchanged.
+	Quarantined bool           `json:"quarantined"`
+	Quarantine  *quarantineDTO `json:"quarantine,omitempty"`
 }
 
 type flakyStepListDTO struct {
@@ -42,6 +46,8 @@ func toFlakyStepListDTO(window metrics.InsightWindow, steps []metrics.FlakyStep,
 			FlakeRate:      s.FlakeRate,
 			RunCount:       s.RunCount,
 			RecentOutcomes: outcomes,
+			Quarantined:    s.Quarantine != nil,
+			Quarantine:     toQuarantineDTO(s.Quarantine),
 		})
 	}
 
