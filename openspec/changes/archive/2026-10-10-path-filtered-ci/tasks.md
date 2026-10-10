@@ -20,4 +20,4 @@
 
 - [x] 3.1 `CONTRIBUTING.md` says where to add a path
 - [x] 3.2 Follow-up issue: align `lefthook.yml`'s globs with these groups
-- [ ] 3.3 Archive this change once merged
+- [x] 3.3 Archive this change once merged
