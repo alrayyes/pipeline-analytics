@@ -24,4 +24,4 @@
 
 - [x] 4.1 Docs true again: the README doesn't mention where release notes
       come from; CONTRIBUTING documents the new build step
-- [ ] 4.2 Archive this change once merged
+- [x] 4.2 Archive this change once merged
