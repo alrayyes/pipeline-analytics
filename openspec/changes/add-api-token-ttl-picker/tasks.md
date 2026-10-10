@@ -45,9 +45,8 @@
 
 ## 5. Frontend
 
-- [ ] 5.1 The API tokens section on Settings (presets, expiry preview, token
-      shown once, axe scan, e2e journey) is its own ticket, tracked in
-      #562; it builds on this change's API
+- [x] 5.1 The API tokens section on Settings (presets, expiry preview, token
+      shown once, axe scan, e2e journey), tracked in #562
 
 ## 6. Verify and ship
 

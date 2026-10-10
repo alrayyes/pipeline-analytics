@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import ApiTokens from '#lib/components/ApiTokens.svelte';
 import SavedTokens from '#lib/components/SavedTokens.svelte';
 import {
 	AlertDialog,
@@ -317,6 +318,15 @@ async function handleRevoke(): Promise<void> {
 		</CardHeader>
 		<CardContent>
 			<SavedTokens />
+		</CardContent>
+	</Card>
+
+	<Card class="mt-6">
+		<CardHeader>
+			<CardTitle>API tokens</CardTitle>
+		</CardHeader>
+		<CardContent>
+			<ApiTokens />
 		</CardContent>
 	</Card>
 </main>
