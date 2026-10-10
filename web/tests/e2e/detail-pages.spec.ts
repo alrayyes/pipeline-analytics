@@ -53,6 +53,67 @@ test('a pipeline passes axe', async ({ page, context }) => {
 	await expectNoViolations(page);
 });
 
+test('a quarantined flaky step is labelled on the pipeline page, on a phone too', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await page.setViewportSize({ width: 390, height: 800 });
+	await page.route('**/api/pipelines/p1', (route) =>
+		route.fulfill({
+			json: {
+				id: 'p1',
+				repoId: 'r1',
+				name: 'CI',
+				healthStatus: 'healthy',
+				durationTrend: trend,
+				failureRateTrend: trend,
+			},
+		}),
+	);
+	const step = {
+		durationContributionSeconds: 90,
+		queueSeconds: 5,
+		execSeconds: 85,
+		failureRate: 0.2,
+		failureCount: 2,
+		flaky: true,
+	};
+	await page.route('**/api/pipelines/p1/steps*', (route) =>
+		route.fulfill({
+			json: [
+				{
+					...step,
+					id: 's1',
+					name: 'browser tests',
+					quarantined: true,
+					quarantine: {
+						note: 'Waiting on the vendor fix',
+						quarantinedAt: '2026-10-02T00:00:00Z',
+						expiresAt: '2026-11-01T00:00:00Z',
+					},
+				},
+				{ ...step, id: 's2', name: 'unit tests', quarantined: false },
+			],
+		}),
+	);
+
+	await page.goto('/pipelines/p1');
+
+	const quarantined = page.getByRole('row', { name: /browser tests/ });
+	await expect(quarantined).toContainText('flaky');
+	await expect(quarantined).toContainText('Quarantined');
+	await expect(page.getByRole('row', { name: /unit tests/ })).not.toContainText(
+		'Quarantined',
+	);
+
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - window.innerWidth,
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	await expectNoViolations(page);
+});
+
 test('a run passes axe', async ({ page, context }) => {
 	await signIn(page, context);
 	await page.route('**/api/runs/run-1/steps', (route) =>

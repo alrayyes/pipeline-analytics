@@ -1,6 +1,7 @@
 <script lang="ts">
 import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 import HistoryIcon from '@lucide/svelte/icons/history';
+import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 import { defaultChartPadding, LineChart } from 'layerchart';
 import { onMount } from 'svelte';
 import { Badge } from '#lib/components/ui/badge/index.js';
@@ -264,6 +265,12 @@ function failureRateSeries(trend: Trend) {
 												>
 													flaky
 												</Badge>
+												{#if step.quarantined}
+													<Badge variant="outline" class="ml-1 border-foreground">
+														<ShieldCheckIcon aria-hidden="true" class="size-3" />
+														Quarantined
+													</Badge>
+												{/if}
 											{:else if step.failureRate > 0}
 												<Badge variant="destructive" class="bg-destructive text-white">
 													failing
