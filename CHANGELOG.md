@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.74.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.74.0...v0.74.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **web:** wait for the page title and the service worker in e2e ([#553](https://github.com/alrayyes/pipeline-analytics/issues/553)) ([640b72c](https://github.com/alrayyes/pipeline-analytics/commit/640b72c7f664ad4281fb43ec7318fd86ebb295c4))
+
+## [0.74.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.73.0...v0.74.0) (2026-10-10)
+
+
+### Features
+
+* **web:** label quarantined flaky steps and quarantine them from the list ([#550](https://github.com/alrayyes/pipeline-analytics/issues/550)) ([c689a2e](https://github.com/alrayyes/pipeline-analytics/commit/c689a2e5b0a54c2812c2fb30373361a24ae06d30))
+
+
+### Bug Fixes
+
+* **ci:** stop merges to main cancelling each other's CI runs ([#548](https://github.com/alrayyes/pipeline-analytics/issues/548)) ([da7b7ba](https://github.com/alrayyes/pipeline-analytics/commit/da7b7bacf459c56aba9e4b0fb4ca37ea2c09da47))
+
 ## [0.73.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.72.0...v0.73.0) (2026-10-10)
 
 
