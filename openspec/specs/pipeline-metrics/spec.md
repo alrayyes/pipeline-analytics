@@ -149,3 +149,72 @@ recent runs, oldest first.
 
 - **WHEN** a flaky step has run 12 times
 - **THEN** its recent results hold those 12 outcomes, not 40
+
+### Requirement: Failure shares
+
+The system SHALL report, for the selected window, each failing step's share
+and each failure category's share of all failed-step occurrences, so that a
+client does not compute percentages from counts.
+
+#### Scenario: Shares add up
+
+- **WHEN** failed steps exist in the window
+- **THEN** the shares of the failing steps sum to 1, and so do the shares of
+  the failure categories
+
+#### Scenario: Nothing failed
+
+- **WHEN** no step failed in the window
+- **THEN** both lists are empty and no share is reported as zero for
+  something that did not happen
+
+#### Scenario: Categories are ordered by weight
+
+- **WHEN** the category breakdown is reported
+- **THEN** it lists the heaviest category first
+
+### Requirement: Failure insights report their window
+
+The system SHALL report the window the failure insights cover, and SHALL use
+its own default and report that when the request names none or names one it
+does not recognize, so a client does not need to know the default.
+
+#### Scenario: A requested window is echoed
+
+- **WHEN** failure insights are requested for a recognized window
+- **THEN** the response names that window
+
+#### Scenario: An omitted window reports the default
+
+- **WHEN** failure insights are requested with no window
+- **THEN** the response names the system's default window, whatever it is
+
+### Requirement: Run and step outcome
+
+The system SHALL report each run and each step with a normalized outcome
+(passed, failed, running, queued, cancelled, skipped or unknown) computed
+from the forge's status and conclusion, so that a client does not have to
+interpret forge status strings.
+
+#### Scenario: A timed-out step is failed
+
+- **WHEN** a step's conclusion is `timed_out`
+- **THEN** its outcome is failed
+
+#### Scenario: A conclusion wins over a stale status
+
+- **WHEN** a run's status is still `in_progress`, but its conclusion is
+  `success`
+- **THEN** its outcome is passed
+
+#### Scenario: Pending work is running or queued
+
+- **WHEN** a run has no conclusion and its status is `in_progress`
+- **THEN** its outcome is running
+- **AND WHEN** its status is `queued`
+- **THEN** its outcome is queued
+
+#### Scenario: An unrecognized state is never a pass
+
+- **WHEN** a run has a conclusion the system does not recognize
+- **THEN** its outcome is unknown, not passed
