@@ -150,7 +150,7 @@ async function handleDelete(): Promise<void> {
 {/if}
 
 <form class="mt-6 grid gap-4" onsubmit={handleSave}>
-	<h3 class="text-sm font-medium">Save a token</h3>
+	<h2 class="text-sm font-medium">Save a token</h2>
 
 	<div class="grid gap-2">
 		<Label for="saved-token-forge">Forge</Label>
