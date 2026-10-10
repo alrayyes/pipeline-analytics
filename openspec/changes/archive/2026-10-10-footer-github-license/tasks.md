@@ -4,4 +4,4 @@
       hrefs, the mark is decorative, no sideways scroll at 360px
 - [x] 1.2 Footer change with the vendored Simple Icons GitHub mark
 - [x] 1.3 Privacy page mentions the two outbound links
-- [ ] 1.4 Archive this change once merged
+- [x] 1.4 Archive this change once merged
