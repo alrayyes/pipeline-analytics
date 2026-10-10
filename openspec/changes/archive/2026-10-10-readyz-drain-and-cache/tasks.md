@@ -5,4 +5,4 @@
 - [x] 1.2 Cache and draining in `readyzHandler`; drain and timeout in
       `serveUntilDone`; two flags with validation
 - [x] 1.3 README, OpenAPI description true again
-- [ ] 1.4 Archive this change once merged
+- [x] 1.4 Archive this change once merged
