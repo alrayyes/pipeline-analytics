@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.72.0...v0.73.0) (2026-10-10)
+
+
+### Features
+
+* **api:** quarantine and un-quarantine a flaky step, and report it ([#544](https://github.com/alrayyes/pipeline-analytics/issues/544)) ([963ae6a](https://github.com/alrayyes/pipeline-analytics/commit/963ae6a7f060376e68eae8783dffd32d2796cd6b))
+
 ## [0.72.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.4...v0.72.0) (2026-10-10)
 
 
