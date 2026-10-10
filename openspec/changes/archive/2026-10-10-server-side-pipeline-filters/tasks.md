@@ -18,4 +18,4 @@
 
 ## 4. Wrap up
 
-- [ ] 4.1 Archive this change once merged; tick finding 2 on #376
+- [x] 4.1 Archive this change once merged; tick finding 2 on #376
