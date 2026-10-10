@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	"github.com/alrayyes/pipeline-analytics/internal/auth/sqlite"
@@ -158,7 +159,7 @@ func TestService_Token(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("issues a token that authenticates, then revokes it", func(t *testing.T) {
-		tok, raw, err := service.IssueToken(ctx, user.ID)
+		tok, raw, err := service.IssueToken(ctx, user.ID, 0)
 		require.NoError(t, err)
 		require.NotEmpty(t, raw)
 
@@ -170,6 +171,12 @@ func TestService_Token(t *testing.T) {
 
 		_, err = service.AuthenticateToken(ctx, raw)
 		require.ErrorIs(t, err, auth.ErrTokenNotFound)
+	})
+
+	t.Run("a requested lifetime reaches the store unchanged", func(t *testing.T) {
+		tok, _, err := service.IssueToken(ctx, user.ID, 30*24*time.Hour)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now().Add(30*24*time.Hour), tok.ExpiresAt, time.Minute)
 	})
 
 	t.Run("an unknown raw token does not authenticate", func(t *testing.T) {

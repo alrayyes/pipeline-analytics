@@ -240,8 +240,8 @@ func (s *Service) Logout(ctx context.Context, sessionID string) error {
 
 // IssueToken creates a new API token for userID, returning its metadata
 // and its raw secret -- the only time the raw secret is ever available.
-func (s *Service) IssueToken(ctx context.Context, userID string) (Token, string, error) {
-	tok, raw, err := s.store.CreateToken(ctx, userID)
+func (s *Service) IssueToken(ctx context.Context, userID string, requestedTTL time.Duration) (Token, string, error) {
+	tok, raw, err := s.store.CreateToken(ctx, userID, requestedTTL)
 	if err != nil {
 		return Token{}, "", fmt.Errorf("create token: %w", err)
 	}

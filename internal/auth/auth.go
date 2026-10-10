@@ -11,6 +11,16 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 )
 
+// TokenTTLCeiling is the longest an API token can last, whatever a client
+// asks for: long enough that a script need not babysit rotation, short enough
+// that a forgotten token does not stay valid forever. Revocation is the
+// mechanism for anything sooner.
+const TokenTTLCeiling = 365 * 24 * time.Hour
+
+// TokenTTLDefault is how long a token lasts when the client does not say. It is
+// also the Settings page's default preset, so the two stay one value.
+const TokenTTLDefault = 90 * 24 * time.Hour
+
 // Sentinel errors, so a caller can errors.Is against a specific condition
 // instead of matching on message text.
 var (
@@ -108,10 +118,11 @@ type Store interface {
 	// DeleteSession ends a session.
 	DeleteSession(ctx context.Context, sessionID string) error
 
-	// CreateToken creates a new API token for userID, returning its
-	// metadata and its raw secret -- the only time the raw secret is ever
-	// available.
-	CreateToken(ctx context.Context, userID string) (Token, string, error)
+	// CreateToken creates a new API token for userID that lasts
+	// requestedTTL, clamped to TokenTTLCeiling; a zero requestedTTL gets
+	// TokenTTLDefault. It returns the token's metadata and its raw secret --
+	// the only time the raw secret is ever available.
+	CreateToken(ctx context.Context, userID string, requestedTTL time.Duration) (Token, string, error)
 	// TokenUserID returns the userID a raw token belongs to. Returns
 	// ErrTokenNotFound if the token doesn't exist, has expired, or has
 	// been revoked.

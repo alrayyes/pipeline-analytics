@@ -191,7 +191,7 @@ func TestForgeTokens(t *testing.T) {
 		userID, err := authStore.Session(context.Background(), srv.sessionCookie.Value)
 		require.NoError(t, err)
 
-		_, raw, err := authStore.CreateToken(context.Background(), userID)
+		_, raw, err := authStore.CreateToken(context.Background(), userID, 0)
 		require.NoError(t, err)
 
 		for _, call := range []struct{ method, path, body string }{
