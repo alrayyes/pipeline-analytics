@@ -1,7 +1,7 @@
 # mcp-endpoint Specification
 
 ## Purpose
-TBD - created by archiving change mcp-tool-parity. Update Purpose after archive.
+Lets an agent read the same pipeline health, trend, flaky-step, usage, run and job-log data as the REST API through a read-only MCP server, so every read endpoint has a matching tool and the server never writes.
 
 ## Requirements
 

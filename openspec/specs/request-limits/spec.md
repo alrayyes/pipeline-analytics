@@ -1,7 +1,7 @@
 # request-limits Specification
 
 ## Purpose
-TBD - created by archiving change bound-request-bodies. Update Purpose after archive.
+Keeps the server from reading an unbounded request body, so one oversized request cannot exhaust memory: the API, the MCP endpoint and the forge webhook receivers each have a limit and answer an oversized body with a defined error.
 
 ## Requirements
 
