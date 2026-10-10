@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.76.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.75.0...v0.76.0) (2026-10-10)
+
+
+### Features
+
+* **web:** an API tokens section on Settings with a lifetime picker ([#565](https://github.com/alrayyes/pipeline-analytics/issues/565)) ([9f1469c](https://github.com/alrayyes/pipeline-analytics/commit/9f1469c73f60d6cc2f66ee84021a1bb7f356cdf7)), closes [#562](https://github.com/alrayyes/pipeline-analytics/issues/562) [#191](https://github.com/alrayyes/pipeline-analytics/issues/191)
+* **web:** label quarantined steps on the pipeline detail page ([#567](https://github.com/alrayyes/pipeline-analytics/issues/567)) ([4f8346f](https://github.com/alrayyes/pipeline-analytics/commit/4f8346f5e422190304be455bf54d7ba7862f523d)), closes [#551](https://github.com/alrayyes/pipeline-analytics/issues/551)
+
+
+### Bug Fixes
+
+* **web:** fix the label-in-name and heading-order Lighthouse audits ([#568](https://github.com/alrayyes/pipeline-analytics/issues/568)) ([26ef7ab](https://github.com/alrayyes/pipeline-analytics/commit/26ef7ab3ba4c9d62228f70a657ab1ff0ca854a5f))
+
 ## [0.75.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.74.1...v0.75.0) (2026-10-10)
 
 
