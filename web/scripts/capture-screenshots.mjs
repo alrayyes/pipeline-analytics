@@ -323,6 +323,7 @@ await page.route('**/api/steps/flaky*', (route) =>
 					flakeRate: 0.25,
 					runCount: 120,
 					recentOutcomes: flakyHistory([3, 17, 30, 39], 40),
+					quarantined: false,
 				},
 				{
 					pipelineId: 'deploy',
@@ -332,6 +333,12 @@ await page.route('**/api/steps/flaky*', (route) =>
 					flakeRate: 0.1,
 					runCount: 40,
 					recentOutcomes: flakyHistory([8, 22], 40),
+					quarantined: true,
+					quarantine: {
+						note: 'Waiting on the vendor fix',
+						quarantinedAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+						expiresAt: new Date(Date.now() + 28 * 86_400_000).toISOString(),
+					},
 				},
 			],
 		},

@@ -79,7 +79,21 @@ $effect(() => {
 		<ul class="mt-6 grid gap-4">
 			{#each list.steps as step (`${step.pipelineId}|${step.name}`)}
 				<li class="min-w-0">
-					<FlakyStepCard {step} />
+					<FlakyStepCard
+						{step}
+						onChange={(state) => {
+							if (list) {
+								list = {
+									...list,
+									steps: list.steps.map((s) =>
+										s === step
+											? { ...s, quarantined: state.quarantined, quarantine: state.quarantine }
+											: s,
+									),
+								};
+							}
+						}}
+					/>
 				</li>
 			{/each}
 		</ul>

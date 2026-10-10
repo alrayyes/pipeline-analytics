@@ -41,6 +41,7 @@ const flaky = {
 			flakeRate: 0.25,
 			runCount: 120,
 			recentOutcomes: history([3, 17, 30, 39], 40),
+			quarantined: false,
 		},
 		{
 			pipelineId: 'p-web',
@@ -50,9 +51,29 @@ const flaky = {
 			flakeRate: 0.1,
 			runCount: 5,
 			recentOutcomes: ['passed', 'failed', 'passed', 'passed', 'passed'],
+			quarantined: false,
 		},
 	],
 	hasMore: false,
+};
+
+// The same two steps with the second one quarantined two days ago, for 28
+// more days (quarantine-flaky-steps: still flaky, still listed).
+const day = 86_400_000;
+const withQuarantine = {
+	...flaky,
+	steps: [
+		flaky.steps[0],
+		{
+			...flaky.steps[1],
+			quarantined: true,
+			quarantine: {
+				note: 'Waiting on the vendor fix',
+				quarantinedAt: new Date(Date.now() - 2 * day).toISOString(),
+				expiresAt: new Date(Date.now() + 28 * day).toISOString(),
+			},
+		},
+	],
 };
 
 const empty = { window: '7d', steps: [], hasMore: false };
@@ -206,10 +227,11 @@ for (const scheme of ['light', 'dark'] as const) {
 		await signIn(page, context);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.emulateMedia({ colorScheme: scheme });
-		await mockFlaky(page, () => flaky);
+		await mockFlaky(page, () => withQuarantine);
 
 		await page.goto('/flaky');
 		await expect(page.getByText('Run unit tests').first()).toBeVisible();
+		await expect(page.getByText('Quarantined', { exact: true })).toBeVisible();
 
 		const overflow = await page.evaluate(
 			() => document.documentElement.scrollWidth - window.innerWidth,
@@ -220,3 +242,106 @@ for (const scheme of ['light', 'dark'] as const) {
 		expect(scan.violations).toEqual([]);
 	});
 }
+
+test('quarantines a flaky step with a note, and un-quarantines it again', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await mockOneRepo(page);
+	await mockFlaky(page, () => withQuarantine);
+
+	const writes: { method: string; url: string; body: string | null }[] = [];
+	await page.route(
+		/\/api\/pipelines\/[^/]+\/steps\/[^/]+\/quarantine$/,
+		(route) => {
+			const request = route.request();
+			writes.push({
+				method: request.method(),
+				url: new URL(request.url()).pathname,
+				body: request.postData(),
+			});
+
+			if (request.method() === 'DELETE') {
+				return route.fulfill({ json: { quarantined: false } });
+			}
+
+			return route.fulfill({
+				json: {
+					quarantined: true,
+					quarantine: {
+						note: 'Race in the lock',
+						quarantinedAt: new Date().toISOString(),
+						expiresAt: new Date(Date.now() + 30 * day).toISOString(),
+					},
+				},
+			});
+		},
+	);
+
+	await page.goto('/flaky');
+
+	const items = page
+		.getByRole('listitem')
+		.filter({ has: page.getByRole('img') });
+	const unit = items.filter({ hasText: 'Run unit tests' });
+	const browser = items.filter({ hasText: 'Browser tests' });
+
+	// A quarantined step says so in words, with its age, note and expiry, and
+	// is still listed as flaky.
+	await expect(browser.getByText('Quarantined', { exact: true })).toBeVisible();
+	await expect(browser.getByText('Flaky', { exact: true })).toBeVisible();
+	await expect(browser.getByText('2 days ago')).toBeVisible();
+	await expect(browser.getByText('in 4 weeks')).toBeVisible();
+	await expect(browser.getByText('Waiting on the vendor fix')).toBeVisible();
+	await expect(unit.getByText('Quarantined', { exact: true })).toHaveCount(0);
+
+	// Quarantine from the list, with a note: no reload, the label appears.
+	await unit.getByRole('button', { name: 'Quarantine', exact: true }).click();
+	await unit.getByLabel('Note (optional)').fill('Race in the lock');
+	await unit.getByRole('button', { name: 'Quarantine this step' }).click();
+
+	await expect(unit.getByText('Quarantined', { exact: true })).toBeVisible();
+	await expect(unit.getByText('Race in the lock')).toBeVisible();
+	await expect(
+		unit.getByRole('button', { name: 'Un-quarantine' }),
+	).toBeVisible();
+	expect(writes[0]).toEqual({
+		method: 'PUT',
+		url: '/api/pipelines/p-api/steps/Run%20unit%20tests/quarantine',
+		body: '{"note":"Race in the lock"}',
+	});
+
+	const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	expect(scan.violations).toEqual([]);
+
+	// And back out again.
+	await browser.getByRole('button', { name: 'Un-quarantine' }).click();
+	await expect(browser.getByText('Quarantined', { exact: true })).toHaveCount(
+		0,
+	);
+	await expect(browser.getByText('Flaky', { exact: true })).toBeVisible();
+	expect(writes[1]).toEqual({
+		method: 'DELETE',
+		url: '/api/pipelines/p-web/steps/Browser%20tests/quarantine',
+		body: null,
+	});
+});
+
+test('says so when the quarantine could not be saved', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await mockOneRepo(page);
+	await mockFlaky(page, () => flaky);
+	await page.route(/\/quarantine$/, (route) => route.fulfill({ status: 500 }));
+
+	await page.goto('/flaky');
+	const unit = page.getByRole('listitem').filter({ hasText: 'Run unit tests' });
+	await unit.getByRole('button', { name: 'Quarantine', exact: true }).click();
+	await unit.getByRole('button', { name: 'Quarantine this step' }).click();
+
+	await expect(unit.getByRole('alert')).toContainText("Couldn't update");
+	await expect(unit.getByText('Quarantined', { exact: true })).toHaveCount(0);
+});
