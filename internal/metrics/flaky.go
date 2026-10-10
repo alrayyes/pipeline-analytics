@@ -26,6 +26,9 @@ type FlakyStep struct {
 	// RecentOutcomes is the result in the step's most recent runs (at most
 	// FlakyMatrixRuns), oldest first.
 	RecentOutcomes []Outcome
+	// Quarantine is the active mark on this step, or nil. The step is listed
+	// either way, with the same figures.
+	Quarantine *Quarantine
 }
 
 // ListFlakySteps returns the flaky steps across every pipeline in the window
@@ -64,10 +67,19 @@ func (s *Service) ListFlakySteps(ctx context.Context, now time.Time, window Insi
 		byStep[k] = append(byStep[k], ws.Step)
 	}
 
+	active, err := s.activeQuarantines(ctx, now)
+	if err != nil {
+		return nil, false, err
+	}
+
 	var flaky []FlakyStep
 
 	for k, occurrences := range byStep {
 		if entry, ok := flakyStep(k.pipeline, k.name, occurrences); ok {
+			if q, marked := active[QuarantineKey{Pipeline: k.pipeline, Step: k.name}]; marked {
+				entry.Quarantine = &q
+			}
+
 			flaky = append(flaky, entry)
 		}
 	}
