@@ -1,5 +1,7 @@
 # Tasks
 
+Dropped, not built: see the note in proposal.md.
+
 ## 1. Shared pipeline-list component
 
 - [ ] 1.1 Extract today's homepage body (health filter, sort, pipeline
