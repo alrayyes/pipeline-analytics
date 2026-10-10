@@ -5,9 +5,12 @@ on:
   push:
     branches: [main]
 
+# A pull request's newer push cancels its older run. A push to main gets a
+# group of its own (the commit), so no merge cancels the run of the one before
+# it: a cancelled run on main is neither green nor red.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
