@@ -6,4 +6,4 @@
 - [x] 1.2 Failing tests: oversized bodies (declared, chunked, webhook, MCP,
       public ceremonies), field limits, the settings rule
 - [x] 1.3 `limitBodies` middleware, `readJSON`, the field checks
-- [ ] 1.4 Archive this change once merged
+- [x] 1.4 Archive this change once merged
