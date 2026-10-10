@@ -209,11 +209,14 @@ jobs:
       - working-directory: web
         run: bunx playwright install --with-deps chromium
       - run: ./web/scripts/capture-screenshots.sh
-      # Screenshots regenerate byte-identical when the UI hasn't changed
-      # since the last release -- only push a branch/PR when they did.
+      # capture-screenshots.sh also rewrites README.md's screenshot section
+      # from web/scripts/screenshot-routes.ts, so a page added since the last
+      # release shows up here with no hand edit. Screenshots and that section
+      # regenerate byte-identical when the UI hasn't changed -- only push a
+      # branch/PR when they did.
       - id: diff
         run: |
-          git add docs/
+          git add docs/ README.md
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -231,8 +234,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B docs/refresh-screenshots
           git commit -m "docs: refresh README screenshots"
+          # Replaces whatever the branch held: a branch left over from an
+          # earlier release is stale by definition.
           git push --force origin docs/refresh-screenshots
-          if ! gh pr view docs/refresh-screenshots >/dev/null 2>&1; then
+          # Open PRs only: `gh pr view` also finds the merged PR from an
+          # earlier release, which skipped this and left the pushed branch
+          # with no PR.
+          if [ "$(gh pr list --head docs/refresh-screenshots --state open --json number --jq length)" = "0" ]; then
             gh pr create --title "docs: refresh README screenshots" \
               --base main --head docs/refresh-screenshots \
               --body "Automated screenshot refresh after ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag_name }}. Review the diff before merging."

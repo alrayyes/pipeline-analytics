@@ -29,3 +29,4 @@ for _ in $(seq 1 20); do
 done
 
 (cd web && bun scripts/capture-screenshots.mjs)
+(cd web && bun scripts/update-readme-screenshots.ts)

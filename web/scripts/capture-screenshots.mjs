@@ -13,6 +13,10 @@ const OUT_DIR = fileURLToPath(new URL('../../docs/', import.meta.url));
 const browser = await chromium.launch();
 const context = await browser.newContext({
 	viewport: { width: 900, height: 520 },
+	// Dates and times print in the browser's locale and zone; pinned so the
+	// images come out the same on any machine, and in the release job.
+	locale: 'en-US',
+	timezoneId: 'UTC',
 });
 const page = await context.newPage();
 
@@ -30,9 +34,48 @@ await cdp.send('WebAuthn.addVirtualAuthenticator', {
 });
 
 await page.goto(BASE_URL);
+// /login on a fresh server: no account yet, so it offers the first-run
+// registration, which is what someone running the binary sees first.
+await page.getByRole('button', { name: 'Register your passkey' }).waitFor();
+await page.screenshot({ path: OUT_DIR + 'screenshot-login.png' });
 await page.getByRole('button', { name: 'Register your passkey' }).click();
 await page.waitForURL(BASE_URL + '/');
 
+// -- Repositories (every page below reads them, for the nav and the labels) --
+// A registered repo, so the views show data rather than the "register a
+// repository" empty state.
+await page.route('**/api/repos*', (route) =>
+	route.fulfill({
+		json: {
+			repos: [
+				{
+					id: 'repo-1',
+					forge: 'github',
+					identifier: 'acme/payments',
+					tokenMasked: 'ghp_••••••••a1b2',
+					ingestionStatus: 'active',
+				},
+				{
+					id: 'repo-2',
+					forge: 'github',
+					identifier: 'acme/storefront',
+					tokenMasked: 'ghp_••••••••a1b2',
+					ingestionStatus: 'active',
+				},
+				{
+					id: 'repo-3',
+					forge: 'forgejo',
+					identifier: 'acme/infra',
+					forgejoInstanceUrl: 'https://git.example.com',
+					tokenMasked: 'fgj_••••••••c3d4',
+					ingestionStatus: 'degraded',
+					ingestionStatusReason: 'The forge rate-limited the last poll',
+				},
+			],
+			hasMore: false,
+		},
+	}),
+);
 // -- Pipelines overview --
 // The trailing `*` matters: the real fetch is `/api/pipelines?${params}`
 // (see +page.svelte), and a glob with no wildcard after the literal path
@@ -117,6 +160,7 @@ await page.route('**/api/pipelines/deploy/steps', (route) =>
 				execSeconds: 390,
 				failureRate: 0,
 				flaky: false,
+				failureCount: 0,
 			},
 			{
 				id: 'step-2',
@@ -125,9 +169,9 @@ await page.route('**/api/pipelines/deploy/steps', (route) =>
 				queueSeconds: 5,
 				execSeconds: 115,
 				failureRate: 0.3,
+				failureCount: 12,
 				flaky: true,
-				forgeUrl:
-					'https://github.com/alrayyes/pipeline-analytics/actions/runs/1/job/2',
+				forgeUrl: 'https://github.com/acme/payments/actions/runs/1/job/2',
 			},
 			{
 				id: 'step-3',
@@ -136,6 +180,7 @@ await page.route('**/api/pipelines/deploy/steps', (route) =>
 				queueSeconds: 2,
 				execSeconds: 58,
 				failureRate: 1,
+				failureCount: 8,
 				flaky: false,
 			},
 		],
@@ -163,18 +208,6 @@ await page.waitForSelector('table');
 await page.screenshot({ path: OUT_DIR + 'screenshot-usage.png' });
 
 // -- Telemetry views (failure overview, runs, root cause, flaky) --
-// A registered repo, so the views show data rather than the "register a
-// repository" empty state.
-await page.route('**/api/repos*', (route) =>
-	route.fulfill({
-		json: {
-			repos: [
-				{ id: 'repo-1', forge: 'github', identifier: 'alrayyes/payments' },
-			],
-			hasMore: false,
-		},
-	}),
-);
 await page.route('**/api/insights/failures*', (route) =>
 	route.fulfill({
 		json: {
@@ -267,7 +300,7 @@ await page.route('**/api/runs*', (route) =>
 					sha: 'c4d291a0e2b34f56a7c8d9e0f1a2b3c4d5e6f7a8',
 					message: 'fix(stripe): webhook retry',
 					actor: 'marcus-v',
-					forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/1',
+					forgeUrl: 'https://github.com/acme/payments/actions/runs/1',
 					steps: runSteps([
 						['checkout', 'passed'],
 						['build', 'passed'],
@@ -290,7 +323,7 @@ await page.route('**/api/runs*', (route) =>
 					sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
 					message: 'chore: bump dependencies',
 					actor: 'renovate',
-					forgeUrl: 'https://github.com/alrayyes/payments/actions/runs/2',
+					forgeUrl: 'https://github.com/acme/payments/actions/runs/2',
 					steps: runSteps([
 						['checkout', 'passed'],
 						['test', 'passed'],
@@ -347,6 +380,122 @@ await page.route('**/api/steps/flaky*', (route) =>
 await page.goto(BASE_URL + '/flaky');
 await page.waitForSelector('text=Browser tests');
 await page.screenshot({ path: OUT_DIR + 'screenshot-flaky.png' });
+
+// -- Flaky runs and a single run --
+// Fixed dates: these print as absolute times, and a moving "now" would
+// change the image on every capture.
+const iso = (daysAgo) =>
+	new Date(Date.UTC(2026, 9, 10, 9, 30) - daysAgo * 86_400_000).toISOString();
+await page.route('**/api/pipelines/ci/flaky-runs*', (route) =>
+	route.fulfill({
+		json: [
+			{ runId: 'run-2', startedAt: iso(1) },
+			{ runId: 'run-7', startedAt: iso(3) },
+			{ runId: 'run-11', startedAt: iso(6) },
+		],
+	}),
+);
+await page.goto(
+	BASE_URL +
+		'/pipelines/ci/flaky-runs?step=' +
+		encodeURIComponent('Run unit tests'),
+);
+await page.waitForSelector('table');
+await page.screenshot({ path: OUT_DIR + 'screenshot-flaky-runs.png' });
+
+await page.route('**/api/runs/run-1/steps', (route) =>
+	route.fulfill({
+		json: {
+			runId: 'run-1',
+			startedAt: iso(1),
+			steps: [
+				{
+					jobId: '11',
+					name: 'checkout',
+					status: 'completed',
+					conclusion: 'success',
+					outcome: 'passed',
+				},
+				{
+					jobId: '12',
+					name: 'build',
+					status: 'completed',
+					conclusion: 'success',
+					outcome: 'passed',
+				},
+				{
+					jobId: '13',
+					name: 'canary',
+					status: 'completed',
+					conclusion: 'failure',
+					outcome: 'failed',
+				},
+				{ jobId: '14', name: 'promote', status: 'queued', outcome: 'queued' },
+			],
+		},
+	}),
+);
+await page.goto(BASE_URL + '/runs/run-1');
+await page.waitForSelector('text=canary');
+await page.screenshot({ path: OUT_DIR + 'screenshot-run-detail.png' });
+
+// -- Insights, repositories and settings --
+await page.route('**/api/insights/github-rate-limit', (route) =>
+	route.fulfill({
+		json: [
+			{
+				tokenMasked: 'ghp_••••••••a1b2',
+				repos: ['acme/payments', 'acme/storefront'],
+				status: {
+					limit: 5000,
+					remaining: 4210,
+					used: 790,
+					resetAt: new Date(Date.now() + 38 * 60_000).toISOString(),
+				},
+			},
+		],
+	}),
+);
+await page.goto(BASE_URL + '/insights');
+await page.waitForSelector('text=acme/payments');
+await page.screenshot({ path: OUT_DIR + 'screenshot-insights.png' });
+
+await page.route('**/api/forge-tokens', (route) =>
+	route.fulfill({
+		json: {
+			tokens: [
+				{ id: 'tok-1', forge: 'github', tokenMasked: 'ghp_••••••••a1b2' },
+				{
+					id: 'tok-2',
+					forge: 'forgejo',
+					forgejoInstanceUrl: 'https://git.example.com',
+					tokenMasked: 'fgj_••••••••c3d4',
+				},
+			],
+		},
+	}),
+);
+await page.goto(BASE_URL + '/repos');
+await page.waitForSelector('text=acme/infra');
+await page.screenshot({
+	path: OUT_DIR + 'screenshot-repos.png',
+	fullPage: true,
+});
+
+await page.route('**/api/auth/credentials', (route) =>
+	route.fulfill({
+		json: [
+			{ id: 'cred-1', label: 'Laptop', createdAt: iso(40), revocable: false },
+			{ id: 'cred-2', label: 'Phone', createdAt: iso(9), revocable: true },
+		],
+	}),
+);
+await page.goto(BASE_URL + '/settings');
+await page.waitForSelector('text=Phone');
+await page.screenshot({
+	path: OUT_DIR + 'screenshot-settings.png',
+	fullPage: true,
+});
 
 // -- Dark mode (overview + pipeline detail: cards/badges and charts/table,
 // the two most visually distinct surfaces) --
