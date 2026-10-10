@@ -1,5 +1,12 @@
 # Proposal
 
+> **Dropped (#195).** Never built. The proposal pull request closed the issue
+> by mistake, which hid that for three weeks. Since it was written the landing
+> page has become the failure overview and pipelines have their own page, so
+> the change as written no longer matches the app, and it would remove two
+> pages. Ryan chose to drop it on 2026-10-10. Archived without applying its
+> spec delta.
+
 ## Why
 
 The login landing page is a flat, cross-repo list of every pipeline,
