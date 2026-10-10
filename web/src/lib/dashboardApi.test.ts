@@ -15,7 +15,9 @@ import {
 	fetchRepoUsage,
 	fetchRuns,
 	type PipelineDetail,
+	quarantineStep,
 	type RunSummary,
+	unquarantineStep,
 } from './dashboardApi.js';
 
 type FetchMock = (input: RequestInfo | URL) => Promise<Response>;
@@ -432,6 +434,7 @@ describe('fetchFlakySteps', () => {
 				flakeRate: 0.25,
 				runCount: 4,
 				recentOutcomes: ['passed', 'failed', 'passed', 'passed'],
+				quarantined: false,
 			},
 		],
 		hasMore: false,
@@ -618,5 +621,90 @@ describe('fetchJobLog', () => {
 
 		expect(failure).toBeInstanceOf(ApiError);
 		expect((failure as ApiError).status).toBe(404);
+	});
+});
+
+describe('quarantineStep', () => {
+	const quarantine = {
+		note: 'known race',
+		quarantinedAt: '2026-10-10T08:00:00Z',
+		expiresAt: '2026-11-09T08:00:00Z',
+	};
+
+	test('PUTs the note to the step, with the step name percent-encoded', async () => {
+		let url: string | undefined;
+		let init: RequestInit | undefined;
+		const fetchFn = (input: RequestInfo | URL, options?: RequestInit) => {
+			url = String(input);
+			init = options;
+			return Promise.resolve(jsonResponse({ quarantined: true, quarantine }));
+		};
+
+		const result = await quarantineStep(
+			'p1',
+			'Run unit tests/ci',
+			'known race',
+			fetchFn as typeof fetch,
+		);
+
+		expect(url).toBe(
+			'/api/pipelines/p1/steps/Run%20unit%20tests%2Fci/quarantine',
+		);
+		expect(init?.method).toBe('PUT');
+		expect(JSON.parse(String(init?.body))).toEqual({ note: 'known race' });
+		expect(new Headers(init?.headers).get('content-type')).toBe(
+			'application/json',
+		);
+		expect(result).toEqual({ quarantined: true, quarantine });
+	});
+
+	test('sends no body when there is no note', async () => {
+		let init: RequestInit | undefined;
+		const fetchFn = (_input: RequestInfo | URL, options?: RequestInit) => {
+			init = options;
+			return Promise.resolve(jsonResponse({ quarantined: true, quarantine }));
+		};
+
+		await quarantineStep('p1', 'test', undefined, fetchFn as typeof fetch);
+
+		expect(init?.body).toBeUndefined();
+	});
+
+	test('throws an ApiError with the status when the server refuses', async () => {
+		const fetchFn = () => Promise.resolve(jsonResponse({}, 422));
+
+		await expect(
+			quarantineStep('p1', 'test', 'x', fetchFn as typeof fetch),
+		).rejects.toMatchObject({ status: 422 });
+	});
+});
+
+describe('unquarantineStep', () => {
+	test('DELETEs the same path', async () => {
+		let url: string | undefined;
+		let init: RequestInit | undefined;
+		const fetchFn = (input: RequestInfo | URL, options?: RequestInit) => {
+			url = String(input);
+			init = options;
+			return Promise.resolve(jsonResponse({ quarantined: false }));
+		};
+
+		const result = await unquarantineStep(
+			'p1',
+			'Run unit tests',
+			fetchFn as typeof fetch,
+		);
+
+		expect(url).toBe('/api/pipelines/p1/steps/Run%20unit%20tests/quarantine');
+		expect(init?.method).toBe('DELETE');
+		expect(result).toEqual({ quarantined: false });
+	});
+
+	test('throws an ApiError with the status on failure', async () => {
+		const fetchFn = () => Promise.resolve(jsonResponse({}, 401));
+
+		await expect(
+			unquarantineStep('p1', 'test', fetchFn as typeof fetch),
+		).rejects.toMatchObject({ status: 401 });
 	});
 });
