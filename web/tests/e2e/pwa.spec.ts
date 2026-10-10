@@ -30,10 +30,15 @@ test('serves a valid manifest and registers an active service worker', async ({
 		'/manifest.json',
 	);
 
-	const registration = await page.evaluate(async () => {
-		const reg = await navigator.serviceWorker.ready;
+	// `ready` resolves once a worker is active, which can still be
+	// "activating"; poll until it settles (#536).
+	await expect
+		.poll(() =>
+			page.evaluate(async () => {
+				const reg = await navigator.serviceWorker.ready;
 
-		return reg.active?.state ?? null;
-	});
-	expect(registration).toBe('activated');
+				return reg.active?.state ?? null;
+			}),
+		)
+		.toBe('activated');
 });
