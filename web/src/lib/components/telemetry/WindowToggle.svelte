@@ -11,10 +11,10 @@ let {
 }: { value: InsightsWindow | null; onChange: (next: InsightsWindow) => void } =
 	$props();
 
-const OPTIONS: { value: InsightsWindow; short: string; label: string }[] = [
-	{ value: '24h', short: '24h', label: '24 hours' },
-	{ value: '7d', short: '7d', label: '7 days' },
-	{ value: '30d', short: '30d', label: '30 days' },
+const OPTIONS: { value: InsightsWindow; label: string }[] = [
+	{ value: '24h', label: '24 hours' },
+	{ value: '7d', label: '7 days' },
+	{ value: '30d', label: '30 days' },
 ];
 </script>
 
@@ -29,8 +29,10 @@ const OPTIONS: { value: InsightsWindow; short: string; label: string }[] = [
 		}}
 	>
 		{#each OPTIONS as option (option.value)}
-			<ToggleGroupItem value={option.value} aria-label={option.label}>
-				{option.short}
+			<!-- Visible text is the accessible name: an aria-label that left out
+			the visible "24h" fails label-content-name-mismatch. -->
+			<ToggleGroupItem value={option.value}>
+				{option.label}
 			</ToggleGroupItem>
 		{/each}
 	</ToggleGroup>
