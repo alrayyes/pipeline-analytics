@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	authsqlite "github.com/alrayyes/pipeline-analytics/internal/auth/sqlite"
@@ -190,6 +192,66 @@ func TestAPITokenHTTPFlow(t *testing.T) {
 		srv.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	issue := func(body string) *httptest.ResponseRecorder {
+		var reader io.Reader
+		if body != "" {
+			reader = strings.NewReader(body)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/tokens", reader)
+		req.AddCookie(sessionCookie)
+
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		return rec
+	}
+
+	expiresIn := func(t *testing.T, rec *httptest.ResponseRecorder) time.Duration {
+		t.Helper()
+
+		var issued struct {
+			ExpiresAt time.Time `json:"expiresAt"`
+		}
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&issued))
+
+		return time.Until(issued.ExpiresAt)
+	}
+
+	t.Run("a requested lifetime sets the expiry the response reports", func(t *testing.T) {
+		t.Parallel()
+
+		rec := issue(`{"ttlSeconds": 2592000}`)
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		require.InDelta(t, (30 * 24 * time.Hour).Seconds(), expiresIn(t, rec).Seconds(), 60)
+	})
+
+	t.Run("a lifetime over the ceiling is clamped in the response", func(t *testing.T) {
+		t.Parallel()
+
+		rec := issue(`{"ttlSeconds": 99999999999}`)
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		require.InDelta(t, (365 * 24 * time.Hour).Seconds(), expiresIn(t, rec).Seconds(), 60)
+	})
+
+	t.Run("a zero or negative lifetime is rejected and issues no token", func(t *testing.T) {
+		t.Parallel()
+
+		for _, body := range []string{`{"ttlSeconds": 0}`, `{"ttlSeconds": -5}`} {
+			require.Equal(t, http.StatusBadRequest, issue(body).Code, body)
+		}
+	})
+
+	t.Run("no body, or no ttlSeconds, gets the 90 day default", func(t *testing.T) {
+		t.Parallel()
+
+		for _, body := range []string{"", `{}`} {
+			rec := issue(body)
+			require.Equal(t, http.StatusCreated, rec.Code, body)
+			require.InDelta(t, (90 * 24 * time.Hour).Seconds(), expiresIn(t, rec).Seconds(), 60, body)
+		}
 	})
 
 	t.Run("issuing, using, and revoking a token", func(t *testing.T) {

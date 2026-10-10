@@ -246,7 +246,9 @@ as eleven read-only tools. Every read endpoint that serves pipeline data has a
 tool; a test fails when one doesn't, unless it's listed with a reason. It
 needs the same bearer API token as the REST API — issue one with a
 logged-in session: `curl -X POST https://<your-server>/api/auth/tokens
---cookie "session=<your-session-cookie>"`.
+--cookie "session=<your-session-cookie>"`. A token lasts 90 days unless you
+ask for another lifetime with `-d '{"ttlSeconds": 2592000}'` (30 days here);
+the longest is 365 days, and the response's `expiresAt` says when it ends.
 
 Point an MCP-capable client at `https://<your-server>/api/mcp` with that
 token as a bearer `Authorization` header. For example, with `mcp-remote`

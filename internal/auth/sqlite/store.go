@@ -21,13 +21,6 @@ import (
 // lifetime over frequent re-authentication.
 const sessionTTL = 30 * 24 * time.Hour
 
-// apiTokenTTL is how long an API token lasts after creation, per
-// add-api-token-auth/design.md's "a long, fixed TTL rather than no expiry
-// at all" decision: long enough a script won't need to babysit rotation,
-// short enough a forgotten token doesn't stay valid forever. Revocation is
-// the mechanism for anything sooner; this is the backstop.
-const apiTokenTTL = 365 * 24 * time.Hour
-
 // Store implements auth.Store against a SQLite database.
 type Store struct {
 	db *sql.DB
@@ -313,7 +306,7 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 }
 
 // CreateToken implements auth.Store.
-func (s *Store) CreateToken(ctx context.Context, userID string) (auth.Token, string, error) {
+func (s *Store) CreateToken(ctx context.Context, userID string, requestedTTL time.Duration) (auth.Token, string, error) {
 	raw, err := crypto.RandomHex(32)
 	if err != nil {
 		return auth.Token{}, "", fmt.Errorf("generate token: %w", err)
@@ -322,11 +315,20 @@ func (s *Store) CreateToken(ctx context.Context, userID string) (auth.Token, str
 	hash := tokenHash(raw)
 	now := time.Now().UTC()
 
+	// The clamp lives here, nearest persistence, so no caller can get past the
+	// ceiling by skipping the service.
+	ttl := requestedTTL
+	if ttl <= 0 {
+		ttl = auth.TokenTTLDefault
+	}
+
+	ttl = min(ttl, auth.TokenTTLCeiling)
+
 	tok := auth.Token{
 		ID:        uuid.NewString(),
 		UserID:    userID,
 		CreatedAt: now,
-		ExpiresAt: now.Add(apiTokenTTL),
+		ExpiresAt: now.Add(ttl),
 	}
 
 	_, err = s.db.ExecContext(ctx,

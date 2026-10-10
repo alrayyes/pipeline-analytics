@@ -210,7 +210,7 @@ func TestStore_Token(t *testing.T) {
 	t.Run("round trips, is not recoverable from the row, and revokes", func(t *testing.T) {
 		t.Parallel()
 
-		tok, raw, err := store.CreateToken(ctx, user.ID)
+		tok, raw, err := store.CreateToken(ctx, user.ID, 0)
 		require.NoError(t, err)
 		require.NotEmpty(t, raw)
 		require.NotEmpty(t, tok.ID)
@@ -225,6 +225,32 @@ func TestStore_Token(t *testing.T) {
 
 		_, err = store.TokenUserID(ctx, raw)
 		require.ErrorIs(t, err, auth.ErrTokenNotFound)
+	})
+
+	t.Run("a requested lifetime under the ceiling sets the expiry", func(t *testing.T) {
+		t.Parallel()
+
+		tok, _, err := store.CreateToken(ctx, user.ID, 30*24*time.Hour)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now().Add(30*24*time.Hour), tok.ExpiresAt, time.Minute)
+	})
+
+	t.Run("a lifetime over the ceiling is clamped to it", func(t *testing.T) {
+		t.Parallel()
+
+		tok, _, err := store.CreateToken(ctx, user.ID, 10*auth.TokenTTLCeiling)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now().Add(auth.TokenTTLCeiling), tok.ExpiresAt, time.Minute)
+	})
+
+	t.Run("an unset lifetime gets the default, not the ceiling", func(t *testing.T) {
+		t.Parallel()
+
+		tok, _, err := store.CreateToken(ctx, user.ID, 0)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now().Add(auth.TokenTTLDefault), tok.ExpiresAt, time.Minute)
+		require.Equal(t, 90*24*time.Hour, auth.TokenTTLDefault)
+		require.Equal(t, 365*24*time.Hour, auth.TokenTTLCeiling)
 	})
 
 	t.Run("an unknown raw token is not found", func(t *testing.T) {

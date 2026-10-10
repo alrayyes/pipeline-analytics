@@ -97,6 +97,32 @@ func (h *authHandler) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// issueTokenRequest is the optional body of POST /api/auth/tokens.
+type issueTokenRequest struct {
+	// TTLSeconds is how long the token should last; unset means the default.
+	TTLSeconds *int64 `json:"ttlSeconds"`
+}
+
+// lifetime turns the request into a duration for the service: zero means
+// "use the default", and ok is false for a value of zero or less. It compares
+// in seconds against the ceiling first, so a huge value cannot overflow the
+// conversion to a Duration.
+func (r issueTokenRequest) lifetime() (ttl time.Duration, ok bool) {
+	if r.TTLSeconds == nil {
+		return 0, true
+	}
+
+	if *r.TTLSeconds <= 0 {
+		return 0, false
+	}
+
+	if *r.TTLSeconds >= int64(auth.TokenTTLCeiling/time.Second) {
+		return auth.TokenTTLCeiling, true
+	}
+
+	return time.Duration(*r.TTLSeconds) * time.Second, true
+}
+
 // issueToken creates a new API token. Session-only: see
 // add-api-token-auth/design.md's "session-only" decision -- a token can't
 // mint another token.
@@ -108,7 +134,19 @@ func (h *authHandler) issueToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, raw, err := h.service.IssueToken(r.Context(), info.UserID)
+	var in issueTokenRequest
+	if !readOptionalJSON(w, r, &in) {
+		return
+	}
+
+	ttl, ok := in.lifetime()
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid_body", "ttlSeconds must be a positive number of seconds")
+
+		return
+	}
+
+	tok, raw, err := h.service.IssueToken(r.Context(), info.UserID, ttl)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "issue token")
 

@@ -198,7 +198,7 @@ func TestRerunRun(t *testing.T) {
 		userID, err := authStore.Session(context.Background(), srv.sessionCookie.Value)
 		require.NoError(t, err)
 
-		_, raw, err := authStore.CreateToken(context.Background(), userID)
+		_, raw, err := authStore.CreateToken(context.Background(), userID, 0)
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/runs/x/rerun", nil)
@@ -254,7 +254,7 @@ func TestCancelRun(t *testing.T) {
 		userID, err := authStore.Session(context.Background(), srv.sessionCookie.Value)
 		require.NoError(t, err)
 
-		_, raw, err := authStore.CreateToken(context.Background(), userID)
+		_, raw, err := authStore.CreateToken(context.Background(), userID, 0)
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/runs/x/cancel", nil)
