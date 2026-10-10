@@ -6,4 +6,4 @@
 - [x] 1.3 Filter case for the config first, then the pattern
 - [x] 1.4 CI job and pre-push hook
 - [x] 1.5 `CONTRIBUTING.md` true again
-- [ ] 1.6 Archive this change once merged
+- [x] 1.6 Archive this change once merged
