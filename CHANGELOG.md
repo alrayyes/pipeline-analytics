@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.4...v0.72.0) (2026-10-10)
+
+
+### Features
+
+* **metrics:** a quarantined flaky step stops raising the health signal ([#543](https://github.com/alrayyes/pipeline-analytics/issues/543)) ([53da89f](https://github.com/alrayyes/pipeline-analytics/commit/53da89f9540bb266777bb08d21cc06254bd924ec))
+
 ## [0.71.4](https://github.com/alrayyes/pipeline-analytics/compare/v0.71.3...v0.71.4) (2026-10-09)
 
 
