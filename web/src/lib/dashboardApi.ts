@@ -177,6 +177,22 @@ export interface FlakyStep {
 	runCount: number;
 	// The step's most recent results (at most 40), oldest first.
 	recentOutcomes: Outcome[];
+	// A quarantined step is still flaky and listed with the same figures; it
+	// just no longer counts toward its pipeline's health.
+	quarantined: boolean;
+	// Present only while the quarantine is in force.
+	quarantine?: Quarantine;
+}
+
+export interface Quarantine {
+	note?: string;
+	quarantinedAt: string;
+	expiresAt: string;
+}
+
+export interface QuarantineState {
+	quarantined: boolean;
+	quarantine?: Quarantine;
 }
 
 export interface FlakyStepList {
@@ -431,4 +447,44 @@ export async function fetchBranches(
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as BranchList;
+}
+
+function quarantineUrl(pipelineId: string, step: string): string {
+	return `/api/pipelines/${encodeURIComponent(pipelineId)}/steps/${encodeURIComponent(step)}/quarantine`;
+}
+
+// Marking an already quarantined step renews it. The note is optional and
+// capped at 500 characters by the server (422 beyond that).
+export async function quarantineStep(
+	pipelineId: string,
+	step: string,
+	note?: string,
+	fetchFn: typeof fetch = fetch,
+): Promise<QuarantineState> {
+	const res = await fetchFn(
+		quarantineUrl(pipelineId, step),
+		note
+			? {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ note }),
+				}
+			: { method: 'PUT' },
+	);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as QuarantineState;
+}
+
+export async function unquarantineStep(
+	pipelineId: string,
+	step: string,
+	fetchFn: typeof fetch = fetch,
+): Promise<QuarantineState> {
+	const res = await fetchFn(quarantineUrl(pipelineId, step), {
+		method: 'DELETE',
+	});
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as QuarantineState;
 }

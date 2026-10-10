@@ -5,7 +5,7 @@
       counting toward the health signal or the ratio (#539)
 - [x] 3 API and MCP: the session-only write route, `quarantined` on the flaky
       responses and tools, `openapi.yaml` (#540)
-- [ ] 4 UI: the label, the quarantine and un-quarantine action, the health
+- [x] 4 UI: the label, the quarantine and un-quarantine action, the health
       status updating (#541)
 - [x] 5 README and the `dashboard-ui` spec say what a quarantine does and
       doesn't change
