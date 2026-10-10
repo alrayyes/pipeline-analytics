@@ -17,4 +17,4 @@
 
 ## 3. Wrap up
 
-- [ ] 3.1 Archive this change once merged
+- [x] 3.1 Archive this change once merged
