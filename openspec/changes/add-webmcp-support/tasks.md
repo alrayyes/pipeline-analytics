@@ -121,4 +121,4 @@ guidance for `.svelte` files.
       `bun run test:coverage`, and `bun run build` (from `web/`);
       verify all clean
 - [x] 6.2 Run `bun audit` and verify no new advisory
-- [ ] 6.3 Open a pull request with `Closes #296` and verify CI passes
+- [x] 6.3 Open a pull request with `Closes #296` and verify CI passes
