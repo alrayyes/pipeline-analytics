@@ -5,4 +5,4 @@
       a dev build has no link
 - [x] 1.2 Footer change
 - [x] 1.3 Correct the privacy page's claim about the release history page
-- [ ] 1.4 Archive this change once merged
+- [x] 1.4 Archive this change once merged
