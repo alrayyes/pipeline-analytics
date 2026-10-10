@@ -120,6 +120,7 @@ func New(deps Deps) http.Handler {
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}", pipelines.get)
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}/steps", pipelines.steps)
 	mux.HandleFunc("GET /api/pipelines/{pipelineId}/flaky-runs", pipelines.flakyRuns)
+	mountQuarantine(mux, deps.Metrics)
 	mux.HandleFunc("GET /api/runs/{runId}/steps", pipelines.runSteps)
 
 	if deps.JobLogs != nil {

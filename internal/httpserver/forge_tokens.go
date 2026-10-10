@@ -38,9 +38,15 @@ type forgeTokensHandler struct {
 
 // requireSessionAuth answers 401 unless the request came from a session.
 func requireSessionAuth(w http.ResponseWriter, r *http.Request) bool {
+	return requireViaSession(w, r, "manage saved tokens")
+}
+
+// requireViaSession answers 401 unless the request came from a session, saying
+// what the session is needed to do.
+func requireViaSession(w http.ResponseWriter, r *http.Request, to string) bool {
 	info, ok := authInfoFromContext(r)
 	if !ok || !info.ViaSession {
-		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to manage saved tokens")
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to "+to)
 
 		return false
 	}

@@ -65,7 +65,7 @@ func newMCPHandler(deps Deps) http.Handler {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_pipeline_steps",
-		Description: "List a pipeline's steps ranked by duration contribution, with queue/exec split, failure rate, and flaky flag. Matches GET /api/pipelines/{pipelineId}/steps.",
+		Description: "List a pipeline's steps ranked by duration contribution, with queue/exec split, failure rate, flaky flag, and whether it is quarantined. Matches GET /api/pipelines/{pipelineId}/steps.",
 	}, h.listPipelineSteps)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -114,7 +114,7 @@ func (h *mcpHandler) addRunTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_flaky_steps",
-		Description: "List flaky steps across every pipeline, ranked by flake rate, each with its run count and up to 40 recent outcomes, oldest first. Matches GET /api/steps/flaky.",
+		Description: "List flaky steps across every pipeline, ranked by flake rate, each with its run count, up to 40 recent outcomes (oldest first) and whether it is quarantined. Matches GET /api/steps/flaky.",
 	}, h.listFlakySteps)
 
 	mcp.AddTool(server, &mcp.Tool{
