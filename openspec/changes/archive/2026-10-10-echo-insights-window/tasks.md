@@ -7,4 +7,4 @@
 - [x] 1.4 Failing frontend tests: the store has no default, the toggle follows
       the response
 - [x] 1.5 Store, API types and the two pages; the `7d` constant is deleted
-- [ ] 1.6 Archive this change once merged; tick finding 4 on #376
+- [x] 1.6 Archive this change once merged; tick finding 4 on #376
