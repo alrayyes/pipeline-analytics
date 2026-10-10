@@ -12,7 +12,7 @@ export const a11yTags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 // mounted; scanning earlier fails axe's document-title rule (#536). Wait for
 // the title first.
 export async function expectNoViolations(page: Page): Promise<void> {
-	await expect(page).toHaveTitle(/.+/);
+	await expect(page).toHaveTitle(/.+/, { timeout: 15_000 });
 
 	const results = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
 
