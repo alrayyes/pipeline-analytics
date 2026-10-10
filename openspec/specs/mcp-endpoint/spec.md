@@ -14,7 +14,7 @@ for having none.
 
 #### Scenario: A run an agent finds can be opened
 
-- **WHEN** an agent has a run id from `list_runs` or
+- **WHEN** an agent has a run ID from `list_runs` or
   `list_pipeline_flaky_runs`
 - **THEN** `get_run_steps` returns that run's steps with their outcomes
 

@@ -177,11 +177,11 @@ client does not compute percentages from counts.
 
 The system SHALL report the window the failure insights cover, and SHALL use
 its own default and report that when the request names none or names one it
-does not recognise, so a client does not need to know the default.
+does not recognize, so a client does not need to know the default.
 
 #### Scenario: A requested window is echoed
 
-- **WHEN** failure insights are requested for a recognised window
+- **WHEN** failure insights are requested for a recognized window
 - **THEN** the response names that window
 
 #### Scenario: An omitted window reports the default
@@ -203,7 +203,7 @@ interpret forge status strings.
 
 #### Scenario: A conclusion wins over a stale status
 
-- **WHEN** a run's status is still `in_progress` but its conclusion is
+- **WHEN** a run's status is still `in_progress`, but its conclusion is
   `success`
 - **THEN** its outcome is passed
 
@@ -214,7 +214,7 @@ interpret forge status strings.
 - **AND WHEN** its status is `queued`
 - **THEN** its outcome is queued
 
-#### Scenario: An unrecognised state is never a pass
+#### Scenario: An unrecognized state is never a pass
 
-- **WHEN** a run has a conclusion the system does not recognise
+- **WHEN** a run has a conclusion the system does not recognize
 - **THEN** its outcome is unknown, not passed

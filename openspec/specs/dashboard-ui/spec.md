@@ -295,7 +295,7 @@ and the sort order applied across every tracked pipeline.
   appears on its page in order, every page but the last is full, and
   whether another page exists is accurate
 
-#### Scenario: An unrecognised filter or sort is rejected
+#### Scenario: An unrecognized filter or sort is rejected
 
 - **WHEN** a request names a health status or sort order the system does
   not know

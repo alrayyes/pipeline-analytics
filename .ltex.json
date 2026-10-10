@@ -41,7 +41,16 @@
 			"dashboard-auth",
 			"ETag",
 			"radiogroup",
-			"WebMCP"
+			"WebMCP",
+			"WebMCP-capable",
+			"mcp-endpoint",
+			"webmcp-support",
+			"untracks",
+			"mergeable",
+			"linted",
+			"precompressed",
+			"MiB",
+			"KiB"
 		]
 	},
 	"ltex.disabledRules": {

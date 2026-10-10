@@ -31,7 +31,7 @@ precompressed copy of a text file to a client that accepts its encoding.
 #### Scenario: The page and unhashed files
 
 - **WHEN** the page, a client route or an unhashed file is requested
-- **THEN** the response has `Cache-Control: no-cache` and an `ETag`, and a
+- **THEN** the response has `Cache-Control: no-cache` plus `ETag`, and a
   matching `If-None-Match` gets a 304
 
 #### Scenario: A client that accepts Brotli or gzip

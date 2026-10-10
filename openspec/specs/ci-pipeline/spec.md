@@ -160,7 +160,7 @@ SHALL skip it otherwise without failing the pull request.
 
 The system SHALL run the release, pull-request title lint and merge
 automation workflows regardless of which files changed, and SHALL keep at
-least one always-running job so every pull request has a status.
+least one always-running job, so every pull request has a status.
 
 #### Scenario: A docs-only push to main still releases
 

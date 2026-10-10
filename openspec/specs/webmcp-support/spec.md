@@ -20,7 +20,7 @@ absent.
 
 - **WHEN** the dashboard loads in a browser exposing
   `document.modelContext`
-- **THEN** the system registers its tools and they're discoverable by
+- **THEN** the system registers its tools, and they're discoverable by
   that browser's agent
 
 #### Scenario: A browser without WebMCP support loads the dashboard
