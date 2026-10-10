@@ -522,18 +522,7 @@ func (s *Service) ListUnhealthySteps(ctx context.Context, window Window, limit, 
 			return nil, false, fmt.Errorf("load steps for %s: %w", ref.Name, err)
 		}
 
-		var unhealthy []Step
-		for _, step := range withQuarantines(aggregateSteps(occurrences), ref, active) {
-			// A quarantined flaky step is a known flake: it stays out of the
-			// overview even though its failures give it a failure rate.
-			if step.Flaky && step.Quarantine != nil {
-				continue
-			}
-
-			if step.Flaky || step.FailureRate > 0 {
-				unhealthy = append(unhealthy, step)
-			}
-		}
+		unhealthy := unhealthyOf(withQuarantines(aggregateSteps(occurrences), ref, active))
 
 		if len(unhealthy) == 0 {
 			continue
@@ -641,13 +630,26 @@ func lastRunAt(runs []RunRecord) *time.Time {
 }
 
 func anyFlaky(steps []Step) bool {
-	for _, s := range steps {
-		if countsAsFlaky(s) {
-			return true
+	return slices.ContainsFunc(steps, countsAsFlaky)
+}
+
+// unhealthyOf keeps the steps that are flaky or failing. A quarantined flaky
+// step is a known flake: it stays out even though its failures give it a
+// failure rate.
+func unhealthyOf(steps []Step) []Step {
+	var unhealthy []Step
+
+	for _, step := range steps {
+		if step.Flaky && step.Quarantine != nil {
+			continue
+		}
+
+		if step.Flaky || step.FailureRate > 0 {
+			unhealthy = append(unhealthy, step)
 		}
 	}
 
-	return false
+	return unhealthy
 }
 
 // splitWindow divides runsMostRecentFirst into the current window (the

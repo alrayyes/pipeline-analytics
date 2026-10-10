@@ -149,7 +149,7 @@ func TestService_Quarantine_FlakyList(t *testing.T) {
 	require.Len(t, got, 1)
 
 	t.Run("a quarantined step stays listed with every figure unchanged", func(t *testing.T) {
-		require.Equal(t, plain[0].FlakeRate, got[0].FlakeRate)
+		require.InDelta(t, plain[0].FlakeRate, got[0].FlakeRate, 1e-9)
 		require.Equal(t, plain[0].RunCount, got[0].RunCount)
 		require.Equal(t, plain[0].RecentOutcomes, got[0].RecentOutcomes)
 	})

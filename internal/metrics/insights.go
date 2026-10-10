@@ -159,6 +159,23 @@ type FailureInsights struct {
 	FailureGroups     []FailureGroup
 }
 
+// windowSteps lists the step occurrences of runs that started in [since, until)
+// and match filter.
+func (s *Service) windowSteps(ctx context.Context, filter InsightFilter, since, until time.Time) ([]WindowStep, error) {
+	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
+		RepoID: filter.RepoID,
+		Forge:  filter.Forge,
+		Branch: filter.Branch,
+		Since:  since,
+		Until:  until,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list window steps: %w", err)
+	}
+
+	return steps, nil
+}
+
 // GetFailureInsights computes the failure overview for the window ending at
 // now. now is a parameter, not read from the clock, so the preceding-window
 // comparison is testable.
@@ -190,15 +207,9 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 		}
 	}
 
-	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
-		RepoID: filter.RepoID,
-		Forge:  filter.Forge,
-		Branch: filter.Branch,
-		Since:  boundary,
-		Until:  now,
-	})
+	steps, err := s.windowSteps(ctx, filter, boundary, now)
 	if err != nil {
-		return FailureInsights{}, fmt.Errorf("list window steps: %w", err)
+		return FailureInsights{}, err
 	}
 
 	active, err := s.activeQuarantines(ctx, now)

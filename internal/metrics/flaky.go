@@ -3,7 +3,6 @@ package metrics
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"slices"
 	"time"
 )
@@ -40,15 +39,9 @@ type FlakyStep struct {
 // it completed with both a success and a failure in the window, and a step
 // is one name within one pipeline.
 func (s *Service) ListFlakySteps(ctx context.Context, now time.Time, window InsightWindow, filter InsightFilter, limit, offset int) ([]FlakyStep, bool, error) {
-	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
-		RepoID: filter.RepoID,
-		Forge:  filter.Forge,
-		Branch: filter.Branch,
-		Since:  now.Add(-window.Duration),
-		Until:  now,
-	})
+	steps, err := s.windowSteps(ctx, filter, now.Add(-window.Duration), now)
 	if err != nil {
-		return nil, false, fmt.Errorf("list window steps: %w", err)
+		return nil, false, err
 	}
 
 	type key struct {
