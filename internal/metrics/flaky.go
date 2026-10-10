@@ -3,7 +3,6 @@ package metrics
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"slices"
 	"time"
 )
@@ -26,6 +25,9 @@ type FlakyStep struct {
 	// RecentOutcomes is the result in the step's most recent runs (at most
 	// FlakyMatrixRuns), oldest first.
 	RecentOutcomes []Outcome
+	// Quarantine is the active mark on this step, or nil. The step is listed
+	// either way, with the same figures.
+	Quarantine *Quarantine
 }
 
 // ListFlakySteps returns the flaky steps across every pipeline in the window
@@ -37,15 +39,9 @@ type FlakyStep struct {
 // it completed with both a success and a failure in the window, and a step
 // is one name within one pipeline.
 func (s *Service) ListFlakySteps(ctx context.Context, now time.Time, window InsightWindow, filter InsightFilter, limit, offset int) ([]FlakyStep, bool, error) {
-	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
-		RepoID: filter.RepoID,
-		Forge:  filter.Forge,
-		Branch: filter.Branch,
-		Since:  now.Add(-window.Duration),
-		Until:  now,
-	})
+	steps, err := s.windowSteps(ctx, filter, now.Add(-window.Duration), now)
 	if err != nil {
-		return nil, false, fmt.Errorf("list window steps: %w", err)
+		return nil, false, err
 	}
 
 	type key struct {
@@ -64,10 +60,19 @@ func (s *Service) ListFlakySteps(ctx context.Context, now time.Time, window Insi
 		byStep[k] = append(byStep[k], ws.Step)
 	}
 
+	active, err := s.activeQuarantines(ctx, now)
+	if err != nil {
+		return nil, false, err
+	}
+
 	var flaky []FlakyStep
 
 	for k, occurrences := range byStep {
 		if entry, ok := flakyStep(k.pipeline, k.name, occurrences); ok {
+			if q, marked := active[QuarantineKey{Pipeline: k.pipeline, Step: k.name}]; marked {
+				entry.Quarantine = &q
+			}
+
 			flaky = append(flaky, entry)
 		}
 	}

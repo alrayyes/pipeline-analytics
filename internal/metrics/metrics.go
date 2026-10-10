@@ -155,7 +155,10 @@ type Step struct {
 	FailureRate                 float64
 	FailureCount                int
 	Flaky                       bool
-	ForgeURL                    string
+	// Quarantine is the active mark on this step, or nil. A quarantined step
+	// is still Flaky; it just stops counting toward health (countsAsFlaky).
+	Quarantine *Quarantine
+	ForgeURL   string
 }
 
 // FlakyRun is one run in which a specific step failed -- the step-scoped
@@ -284,6 +287,14 @@ type Store interface {
 	// RunSteps returns every step occurrence recorded within one run's
 	// jobs, in recorded order. Empty for an unknown runID.
 	RunSteps(ctx context.Context, runID string) ([]StepOccurrence, error)
+	// ActiveQuarantines returns the quarantines in force at now: those whose
+	// expiry is after it. An expired one is as if it was never set.
+	ActiveQuarantines(ctx context.Context, now time.Time) (map[QuarantineKey]Quarantine, error)
+	// QuarantineStep marks a step quarantined from now for QuarantineDuration,
+	// replacing any earlier mark (and its note), and returns the mark.
+	QuarantineStep(ctx context.Context, key QuarantineKey, note string, now time.Time) (Quarantine, error)
+	// UnquarantineStep removes a step's mark. It is not an error to have none.
+	UnquarantineStep(ctx context.Context, key QuarantineKey) error
 }
 
 // ErrPipelineNotFound is returned when a PipelineID resolves to no
@@ -296,6 +307,17 @@ var ErrRunNotFound = errors.New("run not found")
 // Service computes health, trends, step rankings, and usage from a Store.
 type Service struct {
 	store Store
+}
+
+// activeQuarantines loads the quarantines in force at now, once per request, so
+// every health figure it feeds agrees on which steps are muted.
+func (s *Service) activeQuarantines(ctx context.Context, now time.Time) (map[QuarantineKey]Quarantine, error) {
+	active, err := s.store.ActiveQuarantines(ctx, now)
+	if err != nil {
+		return nil, fmt.Errorf("load quarantines: %w", err)
+	}
+
+	return active, nil
 }
 
 // NewService returns a Service.
@@ -376,7 +398,12 @@ func (s *Service) GetPipelineSteps(ctx context.Context, id PipelineID, window Wi
 		return nil, fmt.Errorf("load pipeline steps: %w", err)
 	}
 
-	return aggregateSteps(occurrences), nil
+	active, err := s.activeQuarantines(ctx, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	return withQuarantines(aggregateSteps(occurrences), ref, active), nil
 }
 
 // ListFlakyRuns returns every run in which the named step failed within
@@ -482,6 +509,11 @@ func (s *Service) ListUnhealthySteps(ctx context.Context, window Window, limit, 
 		return nil, false, fmt.Errorf("list pipelines: %w", err)
 	}
 
+	active, err := s.activeQuarantines(ctx, time.Now())
+	if err != nil {
+		return nil, false, err
+	}
+
 	var groups []PipelineStepsGroup
 
 	for _, ref := range refs {
@@ -490,12 +522,7 @@ func (s *Service) ListUnhealthySteps(ctx context.Context, window Window, limit, 
 			return nil, false, fmt.Errorf("load steps for %s: %w", ref.Name, err)
 		}
 
-		var unhealthy []Step
-		for _, step := range aggregateSteps(occurrences) {
-			if step.Flaky || step.FailureRate > 0 {
-				unhealthy = append(unhealthy, step)
-			}
-		}
+		unhealthy := unhealthyOf(withQuarantines(aggregateSteps(occurrences), ref, active))
 
 		if len(unhealthy) == 0 {
 			continue
@@ -569,7 +596,12 @@ func (s *Service) summarizeFromRuns(ctx context.Context, ref PipelineRef, window
 		return Pipeline{}, fmt.Errorf("load steps for %s: %w", ref.Name, err)
 	}
 
-	status, signals := computeHealth(current, prior, anyFlaky(aggregateSteps(occurrences)))
+	active, err := s.activeQuarantines(ctx, time.Now())
+	if err != nil {
+		return Pipeline{}, err
+	}
+
+	status, signals := computeHealth(current, prior, anyFlaky(withQuarantines(aggregateSteps(occurrences), ref, active)))
 
 	return Pipeline{
 		ID:               ref.ID(),
@@ -598,13 +630,26 @@ func lastRunAt(runs []RunRecord) *time.Time {
 }
 
 func anyFlaky(steps []Step) bool {
-	for _, s := range steps {
-		if s.Flaky {
-			return true
+	return slices.ContainsFunc(steps, countsAsFlaky)
+}
+
+// unhealthyOf keeps the steps that are flaky or failing. A quarantined flaky
+// step is a known flake: it stays out even though its failures give it a
+// failure rate.
+func unhealthyOf(steps []Step) []Step {
+	var unhealthy []Step
+
+	for _, step := range steps {
+		if step.Flaky && step.Quarantine != nil {
+			continue
+		}
+
+		if step.Flaky || step.FailureRate > 0 {
+			unhealthy = append(unhealthy, step)
 		}
 	}
 
-	return false
+	return unhealthy
 }
 
 // splitWindow divides runsMostRecentFirst into the current window (the

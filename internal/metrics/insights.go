@@ -159,6 +159,23 @@ type FailureInsights struct {
 	FailureGroups     []FailureGroup
 }
 
+// windowSteps lists the step occurrences of runs that started in [since, until)
+// and match filter.
+func (s *Service) windowSteps(ctx context.Context, filter InsightFilter, since, until time.Time) ([]WindowStep, error) {
+	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
+		RepoID: filter.RepoID,
+		Forge:  filter.Forge,
+		Branch: filter.Branch,
+		Since:  since,
+		Until:  until,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list window steps: %w", err)
+	}
+
+	return steps, nil
+}
+
 // GetFailureInsights computes the failure overview for the window ending at
 // now. now is a parameter, not read from the clock, so the preceding-window
 // comparison is testable.
@@ -190,15 +207,14 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 		}
 	}
 
-	steps, err := s.store.WindowSteps(ctx, RunWindowFilter{
-		RepoID: filter.RepoID,
-		Forge:  filter.Forge,
-		Branch: filter.Branch,
-		Since:  boundary,
-		Until:  now,
-	})
+	steps, err := s.windowSteps(ctx, filter, boundary, now)
 	if err != nil {
-		return FailureInsights{}, fmt.Errorf("list window steps: %w", err)
+		return FailureInsights{}, err
+	}
+
+	active, err := s.activeQuarantines(ctx, now)
+	if err != nil {
+		return FailureInsights{}, err
 	}
 
 	currentRate, currentFailed := passRate(current)
@@ -211,7 +227,7 @@ func (s *Service) GetFailureInsights(ctx context.Context, now time.Time, window 
 		PassRate:            currentRate,
 		MTTR:                meanTimeToRecovery(current),
 		TopFailingPipelines: topFailingPipelines(current),
-		FlakyStepRatio:      flakyStepRatio(steps),
+		FlakyStepRatio:      flakyStepRatio(steps, active),
 		StageDistribution:   stageDistribution(steps),
 		CategoryBreakdown:   categoryBreakdown(steps),
 		FailureGroups:       failureGroups(steps),
@@ -462,7 +478,7 @@ func mostCommon(counts map[string]int) string {
 // within one pipeline: "test" flaking in web says nothing about "test" in
 // api. Flakiness is the existing definition (it both passed and failed), via
 // aggregateSteps.
-func flakyStepRatio(steps []WindowStep) float64 {
+func flakyStepRatio(steps []WindowStep, active map[QuarantineKey]Quarantine) float64 {
 	byPipeline := make(map[PipelineRef][]StepOccurrence)
 	for _, ws := range steps {
 		byPipeline[ws.Pipeline] = append(byPipeline[ws.Pipeline], ws.Step)
@@ -470,11 +486,13 @@ func flakyStepRatio(steps []WindowStep) float64 {
 
 	var total, flaky int
 
-	for _, occurrences := range byPipeline {
-		for _, step := range aggregateSteps(occurrences) {
+	for pipeline, occurrences := range byPipeline {
+		// A quarantined step still counts among the distinct steps; only its
+		// flakiness stops counting.
+		for _, step := range withQuarantines(aggregateSteps(occurrences), pipeline, active) {
 			total++
 
-			if step.Flaky {
+			if countsAsFlaky(step) {
 				flaky++
 			}
 		}

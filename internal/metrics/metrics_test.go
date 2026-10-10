@@ -64,6 +64,7 @@ type fakeStore struct {
 	branchesErr      error
 	gotBranchFilter  metrics.RunWindowFilter
 	gotRunListFilter metrics.RunListFilter
+	quarantines      map[metrics.QuarantineKey]metrics.Quarantine
 }
 
 // ListPipelines applies filter.RepoID and pagination the same way the real
@@ -92,6 +93,18 @@ func (f *fakeStore) ListPipelines(_ context.Context, filter metrics.PipelineList
 
 	return matching[offset:end], hasMore, nil
 }
+
+// ActiveQuarantines returns the marks as given, expired or not: expiry is the
+// real store's, tested at the sqlite layer.
+func (f *fakeStore) ActiveQuarantines(context.Context, time.Time) (map[metrics.QuarantineKey]metrics.Quarantine, error) {
+	return f.quarantines, nil
+}
+
+func (f *fakeStore) QuarantineStep(context.Context, metrics.QuarantineKey, string, time.Time) (metrics.Quarantine, error) {
+	return metrics.Quarantine{}, nil
+}
+
+func (f *fakeStore) UnquarantineStep(context.Context, metrics.QuarantineKey) error { return nil }
 
 func (f *fakeStore) PipelineRuns(_ context.Context, ref metrics.PipelineRef, window metrics.Window) ([]metrics.RunRecord, error) {
 	runs := f.runs[ref]
