@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.75.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.74.1...v0.75.0) (2026-10-10)
+
+
+### Features
+
+* **auth:** let an API token pick its lifetime ([#563](https://github.com/alrayyes/pipeline-analytics/issues/563)) ([ed945de](https://github.com/alrayyes/pipeline-analytics/commit/ed945de6c4e5d4d93fc9aaaa58b7e68aa88406c9))
+
+
+### Bug Fixes
+
+* **web:** open the footer's GitHub and license links in a new tab ([#555](https://github.com/alrayyes/pipeline-analytics/issues/555)) ([57d1083](https://github.com/alrayyes/pipeline-analytics/commit/57d10836acd4bceeac5601b620276b9293d1b467))
+
 ## [0.74.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.74.0...v0.74.1) (2026-10-10)
 
 
