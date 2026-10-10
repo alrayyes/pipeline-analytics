@@ -56,6 +56,7 @@ export interface Step {
 	failureRate: number;
 	failureCount: number;
 	flaky: boolean;
+	quarantined: boolean;
 	forgeUrl?: string;
 }
 
