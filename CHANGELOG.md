@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.74.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.74.0...v0.74.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **web:** wait for the page title and the service worker in e2e ([#553](https://github.com/alrayyes/pipeline-analytics/issues/553)) ([640b72c](https://github.com/alrayyes/pipeline-analytics/commit/640b72c7f664ad4281fb43ec7318fd86ebb295c4))
+
 ## [0.74.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.73.0...v0.74.0) (2026-10-10)
 
 
