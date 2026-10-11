@@ -57,7 +57,9 @@ interface Credential {
 	revocable: boolean;
 }
 
-let credentials = $state<Credential[]>([]);
+// null until the first load lands, so the table can hold the height of the
+// row that is about to arrive instead of pushing the cards below it (#584).
+let credentials = $state<Credential[] | null>(null);
 let credentialsError = $state<string | null>(null);
 
 async function loadCredentials(): Promise<void> {
@@ -224,7 +226,14 @@ async function handleRevoke(): Promise<void> {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{#each credentials as credential (credential.id)}
+						{#if credentials === null}
+							<TableRow>
+								<TableCell colspan={3} class="h-12 text-muted-foreground">
+									Loading&hellip;
+								</TableCell>
+							</TableRow>
+						{/if}
+						{#each credentials ?? [] as credential (credential.id)}
 							<TableRow>
 								<TableCell class="font-medium">
 									{credential.label || '(unlabeled)'}

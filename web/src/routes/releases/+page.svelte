@@ -73,7 +73,9 @@ function renderBody(body: string): string {
 			<a href={RELEASES_PAGE_URL} class="underline hover:text-foreground">GitHub</a>.
 		</p>
 	{:else if releases === null}
-		<p class="mt-6 text-muted-foreground">Loading&hellip;</p>
+		<!-- A screen tall, so the footer starts below the fold and the list
+		     arriving doesn't push it across the screen (#584). -->
+		<p class="mt-6 min-h-dvh text-muted-foreground">Loading&hellip;</p>
 	{:else if releases.length === 0}
 		<p class="mt-6 text-muted-foreground">No releases yet.</p>
 	{:else}
