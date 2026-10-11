@@ -277,6 +277,13 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how it's put together and the
 [decision log](docs/adr/) behind the choices that would cost real rework
 to reverse.
 
+An unknown path or a failure while loading shows a "Page not found" or
+"Something went wrong" view inside the dashboard's own layout, with a link
+back to the overview. Neither view shows what broke; the detail goes to the
+browser console. The build also writes self-contained `404.html` and
+`500.html` pages for the server to fall back on when the app can't render
+one itself.
+
 ## Reports
 
 Every push to `main` that passes CI publishes its reports next to the API
