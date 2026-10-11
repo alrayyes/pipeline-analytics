@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.76.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.76.0...v0.76.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **web:** keep a hovered primary button at AA contrast ([#571](https://github.com/alrayyes/pipeline-analytics/issues/571)) ([9d6f2af](https://github.com/alrayyes/pipeline-analytics/commit/9d6f2af90d18d34121b53025727b155a7dec7765))
+* **web:** treat a cancelled animation as settled in the axe scan ([#574](https://github.com/alrayyes/pipeline-analytics/issues/574)) ([7f70307](https://github.com/alrayyes/pipeline-analytics/commit/7f70307da0b13f74e7d5aebeabe64be8505bf105))
+
 ## [0.76.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.75.0...v0.76.0) (2026-10-10)
 
 
