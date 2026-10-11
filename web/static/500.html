@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="light dark" />
+		<title>Something went wrong · pipeline-analytics</title>
+		<style>
+			:root { --bg: #fff; --fg: #0a0a0a; --muted: #52525b; --accent: #0e7c86; --on-accent: #fff; }
+			@media (prefers-color-scheme: dark) {
+				:root { --bg: #0a0a0a; --fg: #fafafa; --muted: #a1a1aa; --accent: #5cc7d1; --on-accent: #0a0a0a; }
+			}
+			body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+			main { max-width: 36rem; margin: 0 auto; padding: 4rem 1rem; }
+			.chip { display: inline-block; border: 1px solid var(--fg); border-radius: 0.375rem; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 500; }
+			h1 { font-size: 1.875rem; margin: 1rem 0 0.5rem; }
+			p { color: var(--muted); margin: 0 0 1.5rem; }
+			a { display: block; box-sizing: border-box; width: 100%; padding: 0.625rem 1rem; border-radius: 0.5rem; background: var(--accent); color: var(--on-accent); text-align: center; font-weight: 500; text-decoration: none; }
+			a:hover { filter: brightness(0.9); }
+			a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+		</style>
+	</head>
+	<body>
+		<main>
+			<span class="chip">Server error</span>
+			<h1>Something went wrong</h1>
+			<p>We couldn't load this page. Try again, or head back to the overview.</p>
+			<a href="/">Back to the overview</a>
+		</main>
+	</body>
+</html>

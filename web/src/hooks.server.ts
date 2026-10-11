@@ -1,4 +1,5 @@
-import type { Handle, ResolveOptions } from '@sveltejs/kit';
+import type { Handle, HandleServerError, ResolveOptions } from '@sveltejs/kit';
+import { shapeError } from '#lib/errors.js';
 
 // The sheet is inlined into index.html (inlineStyleThreshold, vite.config.ts),
 // so the only request left behind it is the font it names. Fetched on
@@ -17,3 +18,5 @@ export const preload: NonNullable<ResolveOptions['preload']> = ({
 
 export const handle: Handle = ({ event, resolve }) =>
 	resolve(event, { preload });
+
+export const handleError: HandleServerError = shapeError;
