@@ -183,6 +183,14 @@ Brotli and gzip copies of its text files, and the server picks one by
 responses are not compressed by the server; turn that on at the proxy if you
 want it.
 
+A path that is neither a file nor one of the dashboard's routes answers `404`
+with the app, which renders its not-found view, and a failure to read the page answers
+`500` with its error page, both with `no-cache` or `no-store` so a cache can't
+keep showing the error. The web build writes the route list (`routes.json`)
+that tells the server which paths are routes. An unknown `/api/` path keeps the JSON `404` the
+API already sends. Behind your proxy, a `502`, `503` or `504` is the proxy's own
+response and needs its own page.
+
 The server doesn't rate-limit itself; that's the proxy's job. The routes
 reachable without a session are the login ceremony (`/api/auth/`), the forge
 webhook receivers (`/webhooks/`) and the health, readiness and version

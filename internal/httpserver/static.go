@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io/fs"
+	"log/slog"
 	"mime"
 	"net/http"
 	"path"
@@ -34,27 +36,56 @@ type staticFile struct {
 	etag string
 }
 
-// staticHandler serves assets from an embedded SPA build, falling back to
-// index.html for any path that isn't a real file -- the SvelteKit client
-// router then handles it, the same shape as any other SPA fallback server.
+// staticHandler serves assets from an embedded SPA build. A path that isn't a
+// file but is one of the dashboard's routes (routes.json) gets index.html, and
+// the SvelteKit client router takes over. Anything else answers 404, so a
+// mistyped URL isn't a soft 404 (rules/error-pages.md), but still with the app
+// shell: the router finds no route and renders the not-found view inside the
+// dashboard's own layout, which a static page couldn't. A file the server can't
+// read answers 500.
 //
 // Hashed assets are cached for a year and the rest revalidated, and a file
 // with a .br or .gz copy next to it is served that way to a client that
 // accepts it, so nothing is compressed at request time.
 func staticHandler(assets fs.FS) http.HandlerFunc {
 	load := assetLoader(assets)
+	routes := loadRoutes(assets)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Only reached when no API route matched, so this is a typo, and an
+		// API client expects the API's error shape, not a page.
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			writeError(w, http.StatusNotFound, "not_found", "no such endpoint")
+
+			return
+		}
+
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		if info, err := fs.Stat(assets, name); err != nil || info.IsDir() {
+			// The app's own files never fall back: a deleted hashed asset is
+			// a plain 404, not an HTML page the browser then fails to run.
+			if strings.HasPrefix(name, "_app/") {
+				w.Header().Set("Cache-Control", revalidateCache)
+				http.NotFound(w, r)
+
+				return
+			}
+
+			if routes != nil && !routes.match(name) {
+				serveError(w, r, assets, load, http.StatusNotFound)
+
+				return
+			}
+
 			name = "index.html"
 		}
 
 		served, encoding := negotiate(assets, name, r.Header.Get("Accept-Encoding"))
 
-		file, ok := load(served)
-		if !ok {
-			http.NotFound(w, r)
+		file, err := load(served)
+		if err != nil {
+			slog.ErrorContext(r.Context(), "read embedded asset", "asset", served, "error", err)
+			serveError(w, r, assets, load, http.StatusInternalServerError)
 
 			return
 		}
@@ -64,28 +95,73 @@ func staticHandler(assets fs.FS) http.HandlerFunc {
 	}
 }
 
+// errorPage is how the handler answers one error status: the files to try in
+// order (the first it can read wins), the plain-text body for a build with
+// none of them, and the cache policy. The static pages are the ones the web
+// build writes, self-contained so they still render when the app can't.
+type errorPage struct {
+	files []string
+	text  string
+	cache string
+}
+
+var errorPages = map[int]errorPage{
+	// The shell first, so the not-found view renders in the dashboard layout.
+	http.StatusNotFound:            {[]string{"index.html", "404.html"}, "Page not found", revalidateCache},
+	http.StatusInternalServerError: {[]string{"500.html"}, "Something went wrong", "no-store"},
+}
+
+// serveError answers with status and its page. Nothing about the failure is
+// sent: the caller logged it.
+func serveError(w http.ResponseWriter, r *http.Request, assets fs.FS, load func(string) (staticFile, error), status int) {
+	page := errorPages[status]
+
+	for _, name := range page.files {
+		served, encoding := negotiate(assets, name, r.Header.Get("Accept-Encoding"))
+
+		file, err := load(served)
+		if err != nil {
+			continue
+		}
+
+		setAssetHeaders(w.Header(), name, encoding, file.etag)
+		w.Header().Del("ETag")
+		w.Header().Set("Cache-Control", page.cache)
+		w.WriteHeader(status)
+
+		if r.Method != http.MethodHead {
+			_, _ = w.Write(file.data)
+		}
+
+		return
+	}
+
+	w.Header().Set("Cache-Control", page.cache)
+	http.Error(w, page.text, status)
+}
+
 // assetLoader reads an asset once and keeps it with its ETag, since the
 // embedded files can't change while the process runs.
-func assetLoader(assets fs.FS) func(name string) (staticFile, bool) {
+func assetLoader(assets fs.FS) func(name string) (staticFile, error) {
 	var cache sync.Map // asset name -> staticFile
 
-	return func(name string) (staticFile, bool) {
+	return func(name string) (staticFile, error) {
 		if cached, ok := cache.Load(name); ok {
 			file, _ := cached.(staticFile)
 
-			return file, true
+			return file, nil
 		}
 
 		data, err := fs.ReadFile(assets, name)
 		if err != nil {
-			return staticFile{}, false
+			return staticFile{}, fmt.Errorf("read %s: %w", name, err)
 		}
 
 		sum := sha256.Sum256(data)
 		file := staticFile{data: data, etag: `"` + hex.EncodeToString(sum[:8]) + `"`}
 		cache.Store(name, file)
 
-		return file, true
+		return file, nil
 	}
 }
 

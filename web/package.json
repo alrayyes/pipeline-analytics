@@ -9,11 +9,11 @@
 		"#lib/*.svg": "./src/lib/*.svg"
 	},
 	"scripts": {
-		"prebuild": "bun scripts/generate-releases.ts",
+		"prebuild": "bun scripts/generate-releases.ts && bun scripts/generate-routes.ts",
 		"build": "vite build",
 		"check": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json --watch",
-		"predev": "bun scripts/generate-releases.ts",
+		"predev": "bun scripts/generate-releases.ts && bun scripts/generate-routes.ts",
 		"dev": "vite dev",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",

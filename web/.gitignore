@@ -35,4 +35,6 @@ vite.config.ts.timestamp-*
 
 # Generated from ../CHANGELOG.md by scripts/generate-releases.ts
 /static/releases.json
+# Generated from src/routes by scripts/generate-routes.ts
+/static/routes.json
 /playwright-results
