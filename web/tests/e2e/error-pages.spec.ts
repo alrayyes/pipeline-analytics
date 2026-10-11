@@ -13,8 +13,11 @@ test('a path no route matches shows a not-found view in the dashboard layout', a
 }) => {
 	await signIn(page, context);
 
-	await page.goto('/no-such-page');
+	const response = await page.goto('/no-such-page');
 
+	// A real 404, not a soft one (rules/error-pages.md): the server answers
+	// with the app shell and the status, and this view renders in it.
+	expect(response?.status()).toBe(404);
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Page not found' }),
 	).toBeVisible();

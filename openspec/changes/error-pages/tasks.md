@@ -7,6 +7,6 @@
 - [x] 1.4 `src/error.html` and `static/404.html`, `static/500.html` (the
       first equals the second, checked by a test)
 - [x] 1.5 README true
-- [ ] 1.6 The server serves `404.html` / `500.html` with real status codes
+- [x] 1.6 The server serves the app shell, or `404.html` / `500.html`, with real status codes
       (#577)
 - [ ] 1.7 Archive this change once merged
