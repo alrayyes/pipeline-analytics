@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.77.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.76.1...v0.77.0) (2026-10-11)
+
+
+### Features
+
+* **web:** 404 and 500 views in the dashboard's own layout ([#578](https://github.com/alrayyes/pipeline-analytics/issues/578)) ([849344d](https://github.com/alrayyes/pipeline-analytics/commit/849344d440498c7b3749c69b470ed2c61e155208)), closes [#576](https://github.com/alrayyes/pipeline-analytics/issues/576)
+
+
+### Bug Fixes
+
+* **server:** answer 404 and 500 with their pages instead of the app shell ([#579](https://github.com/alrayyes/pipeline-analytics/issues/579)) ([6fbea61](https://github.com/alrayyes/pipeline-analytics/commit/6fbea6121f925930093c0774b0d578be596030a4))
+
 ## [0.76.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.76.0...v0.76.1) (2026-10-11)
 
 
