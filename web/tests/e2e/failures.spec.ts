@@ -1,8 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
 import type { BrowserContext, Page, Route } from '@playwright/test';
+import { scanSettled } from './axe.js';
 import { expect, test } from './fixtures.js';
-
-const a11yTags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
 // A CDP virtual authenticator stands in for a passkey device, as in
 // dashboard.spec.ts, then the first-run registration signs the test in.
@@ -240,7 +238,7 @@ for (const scheme of ['light', 'dark'] as const) {
 		);
 		expect(overflow).toBeLessThanOrEqual(0);
 
-		const scan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+		const scan = await scanSettled(page);
 		expect(scan.violations).toEqual([]);
 	});
 }
