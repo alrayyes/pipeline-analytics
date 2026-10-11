@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.77.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.77.0...v0.77.1) (2026-10-11)
+
+
+### Performance Improvements
+
+* **web:** hold the space for content that loads after first paint ([#585](https://github.com/alrayyes/pipeline-analytics/issues/585)) ([368fd1a](https://github.com/alrayyes/pipeline-analytics/commit/368fd1adf111b03b8c126f303afbb8fb54ee01fe))
+
 ## [0.77.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.76.1...v0.77.0) (2026-10-11)
 
 
