@@ -2,18 +2,16 @@
 
 ### Requirement: Errors answer with their real status
 
-The system SHALL answer a request for a path that is neither a file nor a route
-of the dashboard with `404` and the not-found page, and a failure to read an
-embedded asset with `500` and the error page, never with `200` and the app
-shell. The pages SHALL be sent with `Cache-Control: no-cache` (404) or
-`no-store` (500), without `noindex`, and without any detail of the failure.
-Paths under `/api/` SHALL keep the JSON error shape.
+The system SHALL answer a path that is neither a file nor a route of the
+dashboard with status `404`, and a failure to read an embedded asset with
+`500`, never with `200`. Error responses SHALL carry `Cache-Control: no-cache`
+(404) or `no-store` (500), no `noindex`, and no detail of the failure.
 
 #### Scenario: A path no route matches
 
 - **WHEN** `/no/such/page` is requested
-- **THEN** the response is `404` with the not-found page's HTML and
-  `Cache-Control: no-cache`
+- **THEN** the response is `404` with the app shell and
+  `Cache-Control: no-cache`, and the client renders "Page not found"
 
 #### Scenario: A route of the dashboard
 
@@ -24,7 +22,12 @@ Paths under `/api/` SHALL keep the JSON error shape.
 #### Scenario: A file that doesn't exist
 
 - **WHEN** `/_app/immutable/gone.js` is requested
-- **THEN** the response is `404`, not the app shell
+- **THEN** the response is a plain `404`, not the app shell
+
+#### Scenario: The shell can't be read for a 404
+
+- **WHEN** a path no route matches is requested and the app shell is unreadable
+- **THEN** the response is `404` with the static `404.html`
 
 #### Scenario: An unknown API path
 

@@ -38,9 +38,11 @@ type staticFile struct {
 
 // staticHandler serves assets from an embedded SPA build. A path that isn't a
 // file but is one of the dashboard's routes (routes.json) gets index.html, and
-// the SvelteKit client router takes over. Anything else answers 404 with the
-// not-found page rather than the app shell, so a mistyped URL isn't a soft 404
-// (rules/error-pages.md); a file the server can't read answers 500.
+// the SvelteKit client router takes over. Anything else answers 404, so a
+// mistyped URL isn't a soft 404 (rules/error-pages.md), but still with the app
+// shell: the router finds no route and renders the not-found view inside the
+// dashboard's own layout, which a static page couldn't. A file the server can't
+// read answers 500.
 //
 // Hashed assets are cached for a year and the rest revalidated, and a file
 // with a .br or .gz copy next to it is served that way to a client that
@@ -60,9 +62,16 @@ func staticHandler(assets fs.FS) http.HandlerFunc {
 
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		if info, err := fs.Stat(assets, name); err != nil || info.IsDir() {
-			// The app's own files never fall back: a deleted hashed asset
-			// must not come back as HTML that the browser then fails to run.
-			if strings.HasPrefix(name, "_app/") || (routes != nil && !routes.match(name)) {
+			// The app's own files never fall back: a deleted hashed asset is
+			// a plain 404, not an HTML page the browser then fails to run.
+			if strings.HasPrefix(name, "_app/") {
+				w.Header().Set("Cache-Control", revalidateCache)
+				http.NotFound(w, r)
+
+				return
+			}
+
+			if routes != nil && !routes.match(name) {
 				serveError(w, r, assets, load, http.StatusNotFound)
 
 				return
@@ -86,37 +95,49 @@ func staticHandler(assets fs.FS) http.HandlerFunc {
 	}
 }
 
-// errorPages names the page and the plain-text fallback for each error the
-// handler answers. The words match the pages the web build writes.
-var errorPages = map[int]struct{ file, text, cache string }{
-	http.StatusNotFound:            {"404.html", "Page not found", revalidateCache},
-	http.StatusInternalServerError: {"500.html", "Something went wrong", "no-store"},
+// errorPage is how the handler answers one error status: the files to try in
+// order (the first it can read wins), the plain-text body for a build with
+// none of them, and the cache policy. The static pages are the ones the web
+// build writes, self-contained so they still render when the app can't.
+type errorPage struct {
+	files []string
+	text  string
+	cache string
 }
 
-// serveError answers with status and its page. The page is the one the web
-// build wrote, so it carries the dashboard's wording; a build without it gets
-// a plain-text body, still with the right status. Nothing about the failure
-// is sent: it was logged by the caller.
+var errorPages = map[int]errorPage{
+	// The shell first, so the not-found view renders in the dashboard layout.
+	http.StatusNotFound:            {[]string{"index.html", "404.html"}, "Page not found", revalidateCache},
+	http.StatusInternalServerError: {[]string{"500.html"}, "Something went wrong", "no-store"},
+}
+
+// serveError answers with status and its page. Nothing about the failure is
+// sent: the caller logged it.
 func serveError(w http.ResponseWriter, r *http.Request, assets fs.FS, load func(string) (staticFile, error), status int) {
 	page := errorPages[status]
-	served, encoding := negotiate(assets, page.file, r.Header.Get("Accept-Encoding"))
 
-	file, err := load(served)
-	if err != nil {
+	for _, name := range page.files {
+		served, encoding := negotiate(assets, name, r.Header.Get("Accept-Encoding"))
+
+		file, err := load(served)
+		if err != nil {
+			continue
+		}
+
+		setAssetHeaders(w.Header(), name, encoding, file.etag)
+		w.Header().Del("ETag")
 		w.Header().Set("Cache-Control", page.cache)
-		http.Error(w, page.text, status)
+		w.WriteHeader(status)
+
+		if r.Method != http.MethodHead {
+			_, _ = w.Write(file.data)
+		}
 
 		return
 	}
 
-	setAssetHeaders(w.Header(), page.file, encoding, file.etag)
-	w.Header().Del("ETag")
 	w.Header().Set("Cache-Control", page.cache)
-	w.WriteHeader(status)
-
-	if r.Method != http.MethodHead {
-		_, _ = w.Write(file.data)
-	}
+	http.Error(w, page.text, status)
 }
 
 // assetLoader reads an asset once and keeps it with its ETag, since the

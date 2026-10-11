@@ -243,13 +243,13 @@ func TestStaticErrorStatus(t *testing.T) {
 		return rec
 	}
 
-	t.Run("a path no route matches answers 404 with the not-found page", func(t *testing.T) {
+	t.Run("a path no route matches answers 404 with the app shell, which renders the not-found view", func(t *testing.T) {
 		t.Parallel()
 
 		rec := get(t, errorAssets(), "/no/such/page")
 
 		require.Equal(t, http.StatusNotFound, rec.Code)
-		require.Equal(t, "<html>Page not found</html>", rec.Body.String())
+		require.Equal(t, "<html>shell</html>", rec.Body.String())
 		require.Equal(t, "no-cache", rec.Header().Get("Cache-Control"))
 		require.NotContains(t, rec.Header().Get("X-Robots-Tag"), "noindex")
 		require.Contains(t, rec.Header().Get("Content-Type"), "text/html")
@@ -295,10 +295,23 @@ func TestStaticErrorStatus(t *testing.T) {
 		require.JSONEq(t, `{"code":"not_found","message":"no such endpoint"}`, rec.Body.String())
 	})
 
-	t.Run("a 404 with no 404 page still answers 404", func(t *testing.T) {
+	t.Run("a 404 with no app shell falls back to the static not-found page", func(t *testing.T) {
 		t.Parallel()
 
 		assets := errorAssets()
+		delete(assets, "index.html")
+
+		rec := get(t, assets, "/no/such/page")
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		require.Equal(t, "<html>Page not found</html>", rec.Body.String())
+	})
+
+	t.Run("a 404 with neither page still answers 404", func(t *testing.T) {
+		t.Parallel()
+
+		assets := errorAssets()
+		delete(assets, "index.html")
 		delete(assets, "404.html")
 
 		rec := get(t, assets, "/no/such/page")

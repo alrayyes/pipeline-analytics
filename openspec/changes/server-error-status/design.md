@@ -19,6 +19,12 @@ Dynamic routes (`/runs/[id]`) rule out prerendering every path.
 - **Missing `routes.json` means "serve the shell".** A checkout without a
   frontend build has no `index.html` either; the Go tests use their own
   in-memory assets and shouldn't need `bun run build`.
+- **A `404` carries the app shell, not the static page.** The not-found view
+  belongs in the shared layout (navigation, theme), which only the app can
+  render, and the router already shows it for a path no route matches. The
+  status is the server's to fix; the body stays the shell. `404.html` remains
+  for when the shell can't be read. A missing `_app/` file gets a plain `404`,
+  since HTML there only fails to run.
 - **`500` is for the server's own failure** (an unreadable asset), not for the
   app's runtime errors, which `+error.svelte` renders (#576). If `500.html`
   itself is unreadable the body is plain text with the status.

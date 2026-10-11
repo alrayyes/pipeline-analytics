@@ -9,10 +9,11 @@ own layout. The pages are #576; the status codes and cache headers are #577.
 ## What Changes
 
 - The server knows the dashboard's routes from a `routes.json` the web build
-  writes next to the pages, and answers `404` with `404.html` for a path that
-  matches none of them and isn't a file.
-- A request for a file that doesn't exist (a deleted hashed asset, for example)
-  answers `404`, not the app shell.
+  writes next to the pages, and answers `404` for a path that matches none of
+  them and isn't a file. The body is the app shell, so the router renders the
+  not-found view in the dashboard's layout; `404.html` is the fallback.
+- A request for a missing file under `_app/` (a deleted hashed asset, for
+  example) answers a plain `404`, not the app shell.
 - A failure to read an embedded asset answers `500` with `500.html` and logs the
   detail without sending it.
 - Error pages are sent with `Cache-Control: no-cache` (404) or `no-store` (500).
