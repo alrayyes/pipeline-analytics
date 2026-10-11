@@ -16,7 +16,9 @@ export async function scanSettled(page: Page) {
 				.getAnimations()
 				// A spinner never finishes; waiting on it would hang the scan.
 				.filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-				.map((a) => a.finished),
+				// finished rejects with an AbortError when the animation is
+				// cancelled mid-wait; a cancelled animation is settled too.
+				.map((a) => a.finished.catch(() => undefined)),
 		),
 	);
 
