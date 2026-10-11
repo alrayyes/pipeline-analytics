@@ -71,9 +71,6 @@ test('the API tokens section defaults to 90 days, previews the expiry, and shows
 	await expect(status).toContainText('shown once');
 	await expect(status.locator('code')).not.toBeEmpty();
 	await expect(status).toContainText(expiryText(30));
-	// The pointer is still over the button, whose hover shade is the one
-	// colour pair axe rejects; scan the resting state.
-	await page.mouse.move(0, 0);
 	await expect(
 		page.getByRole('button', { name: 'Create token' }),
 	).toBeEnabled();

@@ -1,8 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
 import type { Route } from '@playwright/test';
+import { scanSettled } from './axe.js';
 import { expect, test } from './fixtures.js';
-
-const a11yTags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
 interface PipelineFixture {
 	id: string;
@@ -99,9 +97,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	});
 	await expect(registerButton).toBeVisible();
 
-	const loginPageScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const loginPageScan = await scanSettled(page);
 	expect(loginPageScan.violations).toEqual([]);
 
 	await registerButton.click();
@@ -128,9 +124,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		page.getByRole('link', { name: 'Register a repository' }),
 	).toBeVisible();
 
-	const dashboardScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const dashboardScan = await scanSettled(page);
 	expect(dashboardScan.violations).toEqual([]);
 
 	// The header's mobile menu (#171): a phone-width viewport can't fit the
@@ -168,9 +162,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		mobileNav.getByRole('link', { name: 'Register a repository' }),
 	).toBeVisible();
 
-	const mobileNavScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const mobileNavScan = await scanSettled(page);
 	expect(mobileNavScan.violations).toEqual([]);
 
 	await nav.getByRole('button', { name: 'Close menu' }).click();
@@ -189,9 +181,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.getByRole('link', { name: 'Settings' }).click();
 	await expect(page).toHaveURL('/settings');
 
-	const settingsScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const settingsScan = await scanSettled(page);
 	expect(settingsScan.violations).toEqual([]);
 
 	await page.getByRole('radio', { name: 'Dark' }).click();
@@ -199,9 +189,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await page.reload();
 	await expect(page.locator('html')).toHaveClass('dark');
 
-	const darkModeScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const darkModeScan = await scanSettled(page);
 	expect(darkModeScan.violations).toEqual([]);
 
 	await page.getByRole('radio', { name: 'Light' }).click();
@@ -231,9 +219,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		page.getByRole('dialog', { name: 'Add a passkey' }),
 	).not.toBeVisible();
 
-	const passkeysScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const passkeysScan = await scanSettled(page);
 	expect(passkeysScan.violations).toEqual([]);
 
 	// Revokes the original (unlabeled) credential, listed first --
@@ -294,7 +280,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		page.getByText('Select repositories to follow'),
 	).not.toBeVisible();
 
-	const reposScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	const reposScan = await scanSettled(page);
 	expect(reposScan.violations).toEqual([]);
 
 	// Empty states by repo-registration status (#71), the other half: a repo
@@ -342,9 +328,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		}),
 	).toContainText('****5678');
 
-	const savedTokensScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const savedTokensScan = await scanSettled(page);
 	expect(savedTokensScan.violations).toEqual([]);
 
 	// Token reuse (#72, #262, #462): the saved token is used automatically
@@ -433,9 +417,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		page.getByText('Select repositories to follow'),
 	).not.toBeVisible();
 
-	const groupedReposScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const groupedReposScan = await scanSettled(page);
 	expect(groupedReposScan.violations).toEqual([]);
 
 	// Restoring the last-used forge (#262): reopening the dialog after the
@@ -638,9 +620,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(deployItem).toContainText('elevated failure rate, flaky step');
 	await expect(deployItem).toContainText('Last run');
 
-	const filteredOverviewScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const filteredOverviewScan = await scanSettled(page);
 	expect(filteredOverviewScan.violations).toEqual([]);
 
 	await healthFilter.getByRole('radio', { name: 'All' }).click();
@@ -661,9 +641,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// contrast failure if axe catches it mid-transition.
 	await expect(page.getByRole('listbox')).not.toBeVisible();
 
-	const overviewWithDataScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const overviewWithDataScan = await scanSettled(page);
 	expect(overviewWithDataScan.violations).toEqual([]);
 
 	// Pagination (#243): a mocked page-and-a-bit of pipelines so
@@ -764,9 +742,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	// persists across navigation too now), so both badge colors are already
 	// on screen.
 	await expect(page.getByRole('heading', { name: 'CI' })).toBeVisible();
-	const overviewDarkScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const overviewDarkScan = await scanSettled(page);
 	expect(overviewDarkScan.violations).toEqual([]);
 	await page.getByRole('link', { name: 'Settings' }).click();
 	await page.getByRole('radio', { name: 'Light' }).click();
@@ -876,9 +852,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		page.getByRole('heading', { name: 'alrayyes/demo-repo' }),
 	).toBeVisible();
 
-	const groupingScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const groupingScan = await scanSettled(page);
 	expect(groupingScan.violations).toEqual([]);
 
 	// Restore the original two-pipeline fixture the rest of this journey
@@ -1028,9 +1002,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		0,
 	);
 
-	const detailScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const detailScan = await scanSettled(page);
 	expect(detailScan.violations).toEqual([]);
 
 	// Flaky-run drill-down (#216): the flaky step's own failed occurrences,
@@ -1050,9 +1022,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByRole('heading', { name: 'Flaky runs' })).toBeVisible();
 	await expect(page.getByText(stepName)).toBeVisible();
 
-	const flakyRunsScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const flakyRunsScan = await scanSettled(page);
 	expect(flakyRunsScan.violations).toEqual([]);
 
 	// The run it drills into: that run's own steps, so the forge link there
@@ -1085,7 +1055,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		'https://forge.example/owner/repo/actions/runs/1/job/2',
 	);
 
-	const runScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	const runScan = await scanSettled(page);
 	expect(runScan.violations).toEqual([]);
 
 	// Breadcrumb navigation back up (#216) -- each level actually returns to
@@ -1110,7 +1080,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(usageRows.filter({ hasText: 'CI' })).toContainText('842.5');
 	await expect(usageRows.filter({ hasText: 'Deploy' })).toContainText('120.2');
 
-	const usageScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	const usageScan = await scanSettled(page);
 	expect(usageScan.violations).toEqual([]);
 
 	await page.unroute('**/api/repos/repo-1/usage');
@@ -1148,9 +1118,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByText(/in \d+ minutes?/)).toBeVisible();
 	await expect(page.getByText('Not observed yet')).toBeVisible();
 
-	const insightsScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const insightsScan = await scanSettled(page);
 	expect(insightsScan.violations).toEqual([]);
 
 	await page.unroute('**/api/insights/github-rate-limit');
@@ -1187,9 +1155,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByText('flaky integration test')).toBeVisible();
 	await expect(page.getByText('Deploy')).toBeVisible();
 
-	const flakyOverviewScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const flakyOverviewScan = await scanSettled(page);
 	expect(flakyOverviewScan.violations).toEqual([]);
 
 	await page.route('**/api/pipelines/unhealthy-1/flaky-runs**', (route) =>
@@ -1248,9 +1214,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(page.getByText('September 16, 2026').first()).toBeVisible();
 	expect(githubRequests).toEqual([]);
 
-	const releasesScan = await new AxeBuilder({ page })
-		.withTags(a11yTags)
-		.analyze();
+	const releasesScan = await scanSettled(page);
 	expect(releasesScan.violations).toEqual([]);
 
 	await page.unroute('https://api.github.com/**');
@@ -1265,7 +1229,7 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 		page.getByRole('heading', { name: 'Disclaimer', exact: true }),
 	).toBeVisible();
 
-	const legalScan = await new AxeBuilder({ page }).withTags(a11yTags).analyze();
+	const legalScan = await scanSettled(page);
 	expect(legalScan.violations).toEqual([]);
 
 	await page.getByRole('link', { name: 'Pipelines' }).click();
