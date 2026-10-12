@@ -251,7 +251,7 @@ func TestStaticErrorStatus(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, rec.Code)
 		require.Equal(t, "<html>shell</html>", rec.Body.String())
 		require.Equal(t, "no-cache", rec.Header().Get("Cache-Control"))
-		require.NotContains(t, rec.Header().Get("X-Robots-Tag"), "noindex")
+		require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
 		require.Contains(t, rec.Header().Get("Content-Type"), "text/html")
 	})
 

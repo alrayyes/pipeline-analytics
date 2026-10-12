@@ -97,6 +97,14 @@ neither.
 Login is [WebAuthn](https://webauthn.io/) (passkey) only, no password path.
 The dashboard supports exactly one account.
 
+This is an internal tool, so it asks search engines to stay away: every
+response, API and static files included, carries `X-Robots-Tag: noindex,
+nofollow`, and the pages carry the same instruction as a `robots` meta tag.
+`/robots.txt` doesn't disallow anything, since a crawler has to be allowed to
+fetch a page before it can read that. Who gets in is decided by the passkey
+login above and the session or API token checks described under
+[Configuration](#configuration).
+
 ## Installation
 
 **Docker** (recommended):

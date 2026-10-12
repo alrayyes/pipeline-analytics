@@ -1,0 +1,3 @@
+- [x] 1.1 Failing tests: header on every response, none disallowing in robots.txt
+- [x] 1.2 noindex middleware, outermost
+- [x] 1.3 README
