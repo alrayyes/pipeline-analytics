@@ -155,7 +155,7 @@ func New(deps Deps) http.Handler {
 
 	mux.Handle("/", staticHandler(deps.Assets))
 
-	return requestLogger(limitBodies(requireSession(deps.AuthStore, mux)))
+	return noindex(requestLogger(limitBodies(requireSession(deps.AuthStore, mux))))
 }
 
 // registerAuthRoutes wires every WebAuthn, token, and credential route --
