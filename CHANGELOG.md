@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.77.1...v0.78.0) (2026-10-12)
+
+
+### Features
+
+* keep pipeline-analytics out of search engines ([#590](https://github.com/alrayyes/pipeline-analytics/issues/590)) ([0849f5a](https://github.com/alrayyes/pipeline-analytics/commit/0849f5a14e4939f53d099d2bbe209328b0cfaf2f))
+
 ## [0.77.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.77.0...v0.77.1) (2026-10-11)
 
 
