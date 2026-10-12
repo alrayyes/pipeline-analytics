@@ -31,7 +31,12 @@ module.exports = {
 				// request to the console regardless of whether JS handles
 				// it, and errors-in-console has no way to tell the two
 				// apart. Skipped rather than thresholded around.
-				skipAudits: ['errors-in-console'],
+				skipAudits: [
+					'errors-in-console',
+					// Every page is noindex on purpose: an internal tool stays out of
+					// search engines (#589), which is the one thing this audit fails.
+					'is-crawlable',
+				],
 			},
 		},
 		assert: {
