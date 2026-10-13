@@ -117,12 +117,14 @@ jobs:
       # makes Codecov reject an unauthenticated upload outright, failing
       # this job on every Dependabot PR regardless of what it bumps.
       # A version-bump PR has no coverage story of its own to report.
+      # fail_ci_if_error is false on all four Codecov steps: its API 403s now
+      # and then (#602), and an upload error says nothing about the code.
       - if: github.actor != 'dependabot[bot]'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: go
-          fail_ci_if_error: true
+          fail_ci_if_error: false
       # Test results go up even when a test failed: a red run is what Test
       # Analytics exists to explain, and the coverage step above never runs then.
       - if: ${{ !cancelled() && github.actor != 'dependabot[bot]' }}
@@ -132,7 +134,7 @@ jobs:
           report_type: test_results
           files: junit.xml
           flags: go
-          fail_ci_if_error: true
+          fail_ci_if_error: false
       - name: go mod tidy -diff
         run: go mod tidy -diff
       - name: go.mod formatting
@@ -243,7 +245,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: web/coverage/lcov.info
           flags: frontend
-          fail_ci_if_error: true
+          fail_ci_if_error: false
       - if: ${{ !cancelled() && github.actor != 'dependabot[bot]' }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
@@ -251,7 +253,7 @@ jobs:
           report_type: test_results
           files: web/junit.xml
           flags: frontend
-          fail_ci_if_error: true
+          fail_ci_if_error: false
       - run: bun run build
       - run: bun audit
 
