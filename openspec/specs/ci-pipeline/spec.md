@@ -222,4 +222,4 @@ it as settled, so that a dialog closing mid-scan doesn't fail the build.
 #### Scenario: An animation is cancelled mid-wait
 
 - **WHEN** an animation is cancelled while the scan waits for it to finish
-- **THEN** the scan carries on instead of failing with an AbortError
+- **THEN** the scan carries on instead of failing on the rejected wait
