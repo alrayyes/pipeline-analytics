@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.2...v0.78.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ci:** wait for the Pages artifact before deploying it ([#607](https://github.com/alrayyes/pipeline-analytics/issues/607)) ([57c817d](https://github.com/alrayyes/pipeline-analytics/commit/57c817db9c3f5a83fec7b838634159e35949a056))
+
 ## [0.78.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.1...v0.78.2) (2026-10-13)
 
 
