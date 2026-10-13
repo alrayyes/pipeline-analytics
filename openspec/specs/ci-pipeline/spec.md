@@ -240,7 +240,7 @@ test and coverage steps keep failing the job when the code is wrong.
 - **WHEN** a test fails
 - **THEN** the job fails at the test step, and the test results still upload
 
-### Requirement: The docs deployment waits for its artifact
+### Requirement: The API docs deployment waits for its artifact
 
 The system SHALL wait until the run's artifact list names the `github-pages`
 artifact before it deploys. A list that trails the upload then doesn't fail the
