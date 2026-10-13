@@ -240,16 +240,16 @@ test and coverage steps keep failing the job when the code is wrong.
 - **WHEN** a test fails
 - **THEN** the job fails at the test step, and the test results still upload
 
-### Requirement: The Pages deploy waits for its artifact
+### Requirement: The docs deployment waits for its artifact
 
-The system SHALL wait until the run's artifact list names the Pages artifact
-before it deploys, so that a list that trails the upload doesn't fail the
-deploy.
+The system SHALL wait until the run's artifact list names the `github-pages`
+artifact before it deploys. A list that trails the upload then doesn't fail the
+deployment.
 
 #### Scenario: The list trails the upload
 
-- **WHEN** the deploy job starts and the artifact list doesn't name
-  `github-pages` yet
+- **WHEN** the deployment job starts while the artifact list omits
+  `github-pages`
 - **THEN** the job looks again for up to a minute, then deploys once it shows
 
 #### Scenario: The artifact never shows
