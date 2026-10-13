@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.1...v0.78.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ci:** don't fail the build when a Codecov upload errors ([#603](https://github.com/alrayyes/pipeline-analytics/issues/603)) ([296c1e1](https://github.com/alrayyes/pipeline-analytics/commit/296c1e1d6bcef39932ed7da226eb939da18e82c3))
+
 ## [0.78.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.0...v0.78.1) (2026-10-13)
 
 
