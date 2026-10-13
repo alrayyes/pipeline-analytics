@@ -11,7 +11,7 @@ test and coverage steps keep failing the job when the code is wrong.
 #### Scenario: Codecov refuses an upload
 
 - **WHEN** Codecov answers an upload with a 403 or a 5xx
-- **THEN** the job still passes and the log shows the error
+- **THEN** the job still passes, and the log shows the error
 
 #### Scenario: A test fails while Codecov is down
 
