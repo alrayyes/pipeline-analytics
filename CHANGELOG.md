@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.0...v0.78.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **web:** override js-yaml so the audit needs no ignore ([#595](https://github.com/alrayyes/pipeline-analytics/issues/595)) ([0b24762](https://github.com/alrayyes/pipeline-analytics/commit/0b24762fc6914f2ca6242709157af73e37514883))
+
 ## [0.78.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.77.1...v0.78.0) (2026-10-12)
 
 
