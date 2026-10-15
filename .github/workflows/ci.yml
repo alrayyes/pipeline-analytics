@@ -142,8 +142,14 @@ jobs:
         run: |
           go mod edit -fmt go.mod
           git diff --exit-code go.mod
-      - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      # Fails only on an advisory this change introduces over its base; the
+      # rest live in the "Dependency advisories (Go)" ticket that
+      # advisory-scan.yml keeps (#657).
+      - name: govulncheck (gate)
+        uses: alrayyes/advisory-scan@425418a63e80eb10142fbd2e82127b7ef3a51d68 # post v0.1.0
+        with:
+          mode: gate
+          command: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
   lint:
     name: golangci-lint
@@ -256,7 +262,13 @@ jobs:
           flags: frontend
           fail_ci_if_error: false
       - run: bun run build
-      - run: bun audit
+      # Same gate as the Go job's; see advisory-scan.yml for the ticket.
+      - name: bun audit (gate)
+        uses: alrayyes/advisory-scan@425418a63e80eb10142fbd2e82127b7ef3a51d68 # post v0.1.0
+        with:
+          mode: gate
+          command: bun audit
+          working-directory: web
 
   # A surviving mutant fails the job (thresholds.break is 100 in
   # stryker.conf.mjs, rules/javascript.md). Scoped to the handful of modules the unit-
