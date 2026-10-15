@@ -182,6 +182,9 @@ func TestMCPToolsList(t *testing.T) {
 		"get_job_log",
 		"list_flaky_steps",
 		"list_branches",
+		"get_version",
+		"list_repos",
+		"list_repo_identifiers",
 	}, names, "tool list must be exactly the read tools, no write tool")
 }
 
@@ -547,4 +550,127 @@ func TestMCPListFlakySteps(t *testing.T) {
 	require.Equal(t, "test", got.Steps[0].Name)
 	require.Equal(t, 3, got.Steps[0].RunCount)
 	require.Equal(t, []string{"passed", "failed", "passed"}, got.Steps[0].RecentOutcomes)
+}
+
+func TestMCPGetVersion(t *testing.T) {
+	t.Parallel()
+
+	session := connectMCP(t, newTestServer(t, nil))
+
+	got := callTool[map[string]any](t, session, "get_version", nil)
+
+	require.Equal(t, "test-version", got["version"])
+}
+
+func TestMCPListRepos(t *testing.T) {
+	t.Parallel()
+
+	type repoList struct {
+		Repos   []map[string]any `json:"repos"`
+		HasMore bool             `json:"hasMore"`
+	}
+
+	srv := newTestServer(t, nil)
+	firstID := seedRepoWithToken(t, srv, "alrayyes/first", "ghp_supersecrettoken1234")
+	secondID := seedRepoWithToken(t, srv, "alrayyes/second", "ghp_anothersecret5678")
+	session := connectMCP(t, srv)
+
+	t.Run("lists the tracked repos with the token masked", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[repoList](t, session, "list_repos", nil)
+
+		require.Len(t, got.Repos, 2)
+		require.Equal(t, firstID, got.Repos[0]["id"])
+		require.NotContains(t, got.Repos[0]["tokenMasked"], "supersecret")
+	})
+
+	t.Run("a forge filter keeps that forge's repos", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[repoList](t, session, "list_repos", map[string]any{"forge": "github"})
+
+		require.Len(t, got.Repos, 2)
+	})
+
+	t.Run("a forge filter that matches nothing returns no repos", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[repoList](t, session, "list_repos", map[string]any{"forge": "forgejo"})
+
+		require.Empty(t, got.Repos)
+	})
+
+	t.Run("limit pages the list and reports that more follow", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[repoList](t, session, "list_repos", map[string]any{"limit": 1})
+
+		require.Len(t, got.Repos, 1)
+		require.True(t, got.HasMore)
+	})
+
+	t.Run("offset skips to the next repo", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[repoList](t, session, "list_repos", map[string]any{"limit": 1, "offset": 1})
+
+		require.Len(t, got.Repos, 1)
+		require.Equal(t, secondID, got.Repos[0]["id"])
+		require.False(t, got.HasMore)
+	})
+}
+
+func TestMCPListRepoIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	seedRepo(t, srv)
+	session := connectMCP(t, srv)
+
+	t.Run("lists a forge's tracked identifiers", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[struct {
+			Identifiers []string `json:"identifiers"`
+		}](t, session, "list_repo_identifiers", map[string]any{"forge": "github"})
+
+		require.Equal(t, []string{"alrayyes/pipeline-analytics"}, got.Identifiers)
+	})
+
+	t.Run("no forge at all is refused by the tool's schema", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "list_repo_identifiers", Arguments: map[string]any{}})
+
+		require.NoError(t, err)
+		require.True(t, res.IsError)
+		require.Contains(t, toolErrorText(t, res), "forge")
+	})
+
+	// Both of these pass the schema, so only the handler's own check, shared
+	// with the endpoint, refuses them.
+	for _, forge := range []string{"", "gitlab"} {
+		t.Run("a forge of "+forge+" is refused as on the endpoint", func(t *testing.T) {
+			t.Parallel()
+
+			res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "list_repo_identifiers", Arguments: map[string]any{"forge": forge}})
+
+			require.NoError(t, err)
+			require.True(t, res.IsError)
+			require.Contains(t, toolErrorText(t, res), "forge is required")
+		})
+	}
+}
+
+// toolErrorText is the message of a tool call that reported an error.
+func toolErrorText(t *testing.T, res *mcp.CallToolResult) string {
+	t.Helper()
+
+	require.NotEmpty(t, res.Content)
+
+	text, ok := res.Content[0].(*mcp.TextContent)
+	require.True(t, ok, "error content is %T, want text", res.Content[0])
+
+	return text.Text
 }
