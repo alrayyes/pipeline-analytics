@@ -31,19 +31,17 @@ module.exports = {
 				// request to the console regardless of whether JS handles
 				// it, and errors-in-console has no way to tell the two
 				// apart. Skipped rather than thresholded around.
-				skipAudits: [
-					'errors-in-console',
-					// Every page is noindex on purpose: an internal tool stays out of
-					// search engines (#589), which is the one thing this audit fails.
-					'is-crawlable',
-				],
+				skipAudits: ['errors-in-console'],
+				// No SEO category: this is an internal tool, every page is
+				// noindex on purpose (#589), and a search ranking means
+				// nothing for it (#617).
+				onlyCategories: ['accessibility', 'best-practices', 'performance'],
 			},
 		},
 		assert: {
 			assertions: {
 				'categories:accessibility': ['error', { minScore: 0.95 }],
 				'categories:best-practices': ['error', { minScore: 0.95 }],
-				'categories:seo': ['error', { minScore: 0.9 }],
 				// Performance is warn-only: shared CI runners make strict
 				// performance gating flaky, same reasoning as this repo's
 				// mutation-testing CI job reporting a score without gating
