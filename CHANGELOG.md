@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.81.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.80.0...v0.81.0) (2026-10-15)
+
+
+### Features
+
+* **mcp:** add tools to re-run and cancel a run ([#646](https://github.com/alrayyes/pipeline-analytics/issues/646)) ([f8675ff](https://github.com/alrayyes/pipeline-analytics/commit/f8675ff5f1606da9a33fc4dd31aac8d35dd4ba38))
+
 ## [0.80.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.79.0...v0.80.0) (2026-10-15)
 
 
