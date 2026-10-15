@@ -19,3 +19,10 @@ same validation.
 - **WHEN** an agent calls `list_repo_identifiers` with no forge or an unknown
   one
 - **THEN** the tool reports an error, as the endpoint answers 400
+
+#### Scenario: Paging the repo list
+
+- **WHEN** an agent calls `list_repos` with a limit smaller than the number of
+  tracked repos
+- **THEN** it gets that many repos and `hasMore` is true, and an offset
+  continues from where the page ended
