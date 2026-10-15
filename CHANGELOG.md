@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.78.5](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.4...v0.78.5) (2026-10-15)
+
+
+### Bug Fixes
+
+* bump github.com/pressly/goose/v3 ([#627](https://github.com/alrayyes/pipeline-analytics/issues/627)) ([726906e](https://github.com/alrayyes/pipeline-analytics/commit/726906e84afda168a942ec7e270858c9e3573ac2))
+* **ci:** pin stryker-bun-runner to 1.4.0, the last release that runs in CI ([#621](https://github.com/alrayyes/pipeline-analytics/issues/621)) ([12b0dc2](https://github.com/alrayyes/pipeline-analytics/commit/12b0dc2db46605a0356ac02ac0f735a3695b45f8))
+
 ## [0.78.4](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.3...v0.78.4) (2026-10-15)
 
 
