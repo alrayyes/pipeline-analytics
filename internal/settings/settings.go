@@ -7,6 +7,7 @@ package settings
 import (
 	"context"
 	"errors"
+	"slices"
 )
 
 // The setting keys, as stored in the JSON blob and used as PATCH request
@@ -66,6 +67,13 @@ var enumValues = map[string][]string{
 	KeyPipelinesHealthFilter: {"all", "healthy", "unhealthy"},
 	KeyPipelinesSortOrder:    {"name", "lastRun"},
 	KeyTelemetryWindow:       {"24h", "7d", "30d"},
+}
+
+// AllowedValues lists the values a closed setting accepts, in a stable order,
+// or none for a setting with no closed set. The slice is a copy, so a caller
+// cannot change what the package accepts.
+func AllowedValues(key string) []string {
+	return slices.Clone(enumValues[key])
 }
 
 // MaxRepoSelectorLength bounds the one free-text setting, a repo id or "all",
