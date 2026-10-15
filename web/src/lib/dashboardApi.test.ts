@@ -193,9 +193,21 @@ describe('fetchPipelineSteps', () => {
 		};
 
 		await expect(
-			fetchPipelineSteps('1', fetchFn as typeof fetch),
+			fetchPipelineSteps('1', {}, fetchFn as typeof fetch),
 		).resolves.toEqual(steps);
 		expect(requestedUrl).toBe('/api/pipelines/1/steps');
+	});
+
+	test('sends the window when one is given', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+			return Promise.resolve(jsonResponse([]));
+		};
+
+		await fetchPipelineSteps('1', { window: '30d' }, fetchFn as typeof fetch);
+
+		expect(requestedUrl).toBe('/api/pipelines/1/steps?window=30d');
 	});
 
 	test('throws an ApiError on a non-OK response', async () => {
@@ -203,7 +215,7 @@ describe('fetchPipelineSteps', () => {
 			Promise.resolve(new Response(null, { status: 500 }));
 
 		await expect(
-			fetchPipelineSteps('1', fetchFn as typeof fetch),
+			fetchPipelineSteps('1', {}, fetchFn as typeof fetch),
 		).rejects.toThrow(ApiError);
 	});
 });
@@ -588,10 +600,35 @@ describe('fetchJobLog', () => {
 			);
 		};
 
-		const log = await fetchJobLog('run 1', 'job/2', fetchFn as typeof fetch);
+		const log = await fetchJobLog(
+			'run 1',
+			'job/2',
+			{},
+			fetchFn as typeof fetch,
+		);
 
 		expect(requestedUrl).toBe('/api/runs/run%201/jobs/job%2F2/log?lines=200');
 		expect(log.lines).toEqual(['a']);
+	});
+
+	test('asks for as many lines as it is given', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+
+			return Promise.resolve(
+				jsonResponse({
+					available: true,
+					lines: [],
+					truncated: false,
+					forgeUrl: 'u',
+				}),
+			);
+		};
+
+		await fetchJobLog('r', 'j', { lines: 500 }, fetchFn as typeof fetch);
+
+		expect(requestedUrl).toBe('/api/runs/r/jobs/j/log?lines=500');
 	});
 
 	test('an unavailable log is a normal answer that carries its reason', async () => {
@@ -606,7 +643,7 @@ describe('fetchJobLog', () => {
 				}),
 			);
 
-		const log = await fetchJobLog('r', 'j', fetchFn as typeof fetch);
+		const log = await fetchJobLog('r', 'j', {}, fetchFn as typeof fetch);
 
 		expect(log).toMatchObject({ available: false, reason: 'unsupported' });
 	});
@@ -615,9 +652,12 @@ describe('fetchJobLog', () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(jsonResponse({ code: 'not_found' }, 404));
 
-		const failure = await fetchJobLog('r', 'j', fetchFn as typeof fetch).catch(
-			(e) => e,
-		);
+		const failure = await fetchJobLog(
+			'r',
+			'j',
+			{},
+			fetchFn as typeof fetch,
+		).catch((e) => e);
 
 		expect(failure).toBeInstanceOf(ApiError);
 		expect((failure as ApiError).status).toBe(404);

@@ -8,10 +8,28 @@ const fetchRepoUsageMock = mock(() =>
 	Promise.resolve([{ workflow: 'CI', runnerMinutes: 1 }]),
 );
 
+const fetchPipelineStepsMock = mock(() => Promise.resolve([{ name: 'unit' }]));
+const fetchJobLogMock = mock(() => Promise.resolve({ available: true }));
+const fetchFailureInsightsMock = mock((_params: { window?: string }) =>
+	Promise.resolve({ window: '7d' }),
+);
+const fetchRunsMock = mock(() => Promise.resolve({ runs: [], hasMore: false }));
+const fetchFlakyStepsMock = mock(
+	(_params: { limit?: number; offset?: number }) =>
+		Promise.resolve({ steps: [] }),
+);
+const fetchBranchesMock = mock(() => Promise.resolve({ branches: [] }));
+
 mock.module('./dashboardApi.js', () => ({
 	fetchPipelines: fetchPipelinesMock,
 	fetchPipeline: fetchPipelineMock,
 	fetchRepoUsage: fetchRepoUsageMock,
+	fetchPipelineSteps: fetchPipelineStepsMock,
+	fetchJobLog: fetchJobLogMock,
+	fetchFailureInsights: fetchFailureInsightsMock,
+	fetchRuns: fetchRunsMock,
+	fetchFlakySteps: fetchFlakyStepsMock,
+	fetchBranches: fetchBranchesMock,
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
@@ -27,6 +45,12 @@ beforeEach(() => {
 	fetchPipelinesMock.mockClear();
 	fetchPipelineMock.mockClear();
 	fetchRepoUsageMock.mockClear();
+	fetchPipelineStepsMock.mockClear();
+	fetchJobLogMock.mockClear();
+	fetchFailureInsightsMock.mockClear();
+	fetchRunsMock.mockClear();
+	fetchFlakyStepsMock.mockClear();
+	fetchBranchesMock.mockClear();
 });
 
 function findTool(
@@ -43,14 +67,23 @@ describe('registerWebMCPTools', () => {
 		expect(() => registerWebMCPTools(undefined)).not.toThrow();
 	});
 
-	test('registers exactly three tools, named list_pipelines, get_pipeline, get_repo_usage', () => {
+	test('registers each tool under the name the MCP server uses', () => {
 		const registerTool = newRegisterToolMock();
 
 		registerWebMCPTools({ registerTool });
 
-		expect(registerTool).toHaveBeenCalledTimes(3);
 		const names = registerTool.mock.calls.map(([tool]) => tool.name);
-		expect(names).toEqual(['list_pipelines', 'get_pipeline', 'get_repo_usage']);
+		expect(names).toEqual([
+			'list_pipelines',
+			'get_pipeline',
+			'get_repo_usage',
+			'list_pipeline_steps',
+			'get_job_log',
+			'get_failure_insights',
+			'list_runs',
+			'list_flaky_steps',
+			'list_branches',
+		]);
 	});
 
 	test("list_pipelines' execute calls fetchPipelines and returns its result as the tool's content", async () => {
@@ -109,5 +142,112 @@ describe('registerWebMCPTools', () => {
 				},
 			],
 		});
+	});
+});
+
+// What each read tool hands its fetch function. The tool's own logic is only
+// this mapping, so one call per tool pins it; the fetch functions and the
+// endpoints are tested where they live.
+describe('read tools', () => {
+	const cases: [
+		string,
+		Record<string, unknown>,
+		ReturnType<typeof mock>,
+		unknown[],
+	][] = [
+		[
+			'list_pipeline_steps',
+			{ pipelineId: 'p1', window: '30d' },
+			fetchPipelineStepsMock,
+			['p1', { window: '30d' }],
+		],
+		[
+			'get_job_log',
+			{ runId: 'r1', jobId: 'j1', lines: 500 },
+			fetchJobLogMock,
+			['r1', 'j1', { lines: 500 }],
+		],
+		[
+			'get_failure_insights',
+			{ window: '30d', repoId: 'r1', forge: 'github', branch: 'main' },
+			fetchFailureInsightsMock,
+			[{ window: '30d', repoId: 'r1', forge: 'github', branch: 'main' }],
+		],
+		[
+			'list_runs',
+			{ status: 'failed', limit: 5, offset: 10, branch: 'main' },
+			fetchRunsMock,
+			[{ status: 'failed', limit: 5, offset: 10, branch: 'main' }],
+		],
+		[
+			'list_flaky_steps',
+			{ window: '24h', limit: 3 },
+			fetchFlakyStepsMock,
+			[{ window: '24h', limit: 3 }],
+		],
+		['list_branches', { window: '7d' }, fetchBranchesMock, [{ window: '7d' }]],
+	];
+
+	for (const [name, input, fetchMock, args] of cases) {
+		test(`${name} calls its fetch function with the arguments it is given`, async () => {
+			const registerTool = newRegisterToolMock();
+			registerWebMCPTools({ registerTool });
+
+			const result = await findTool(registerTool, name).execute(input, {
+				signal: new AbortController().signal,
+			});
+
+			expect(fetchMock).toHaveBeenCalledWith(...args);
+			expect(result.content[0].type).toBe('text');
+		});
+	}
+
+	test('list_runs asks for the first 20 when no paging is given', async () => {
+		const registerTool = newRegisterToolMock();
+		registerWebMCPTools({ registerTool });
+
+		await findTool(registerTool, 'list_runs').execute(
+			{},
+			{ signal: new AbortController().signal },
+		);
+
+		expect(fetchRunsMock).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+	});
+
+	test('list_runs ignores a paging value that is not a number', async () => {
+		const registerTool = newRegisterToolMock();
+		registerWebMCPTools({ registerTool });
+
+		await findTool(registerTool, 'list_runs').execute(
+			{ limit: '5', offset: null },
+			{ signal: new AbortController().signal },
+		);
+
+		expect(fetchRunsMock).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+	});
+
+	test('list_flaky_steps sends no paging when none is a number', async () => {
+		const registerTool = newRegisterToolMock();
+		registerWebMCPTools({ registerTool });
+
+		await findTool(registerTool, 'list_flaky_steps').execute(
+			{ limit: '3', offset: {} },
+			{ signal: new AbortController().signal },
+		);
+
+		const sent = fetchFlakyStepsMock.mock.calls[0]?.[0];
+		expect([sent?.limit, sent?.offset]).toEqual([undefined, undefined]);
+	});
+
+	test('get_failure_insights invents no window, so the server keeps its default', async () => {
+		const registerTool = newRegisterToolMock();
+		registerWebMCPTools({ registerTool });
+
+		await findTool(registerTool, 'get_failure_insights').execute(
+			{},
+			{ signal: new AbortController().signal },
+		);
+
+		expect(fetchFailureInsightsMock.mock.calls[0]?.[0]?.window).toBeUndefined();
 	});
 });
