@@ -1,5 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
-import { scanSettled } from './axe.js';
+import { expectFitsAndPassesAxeInBothSchemes, scanSettled } from './axe.js';
 import { expect, test } from './fixtures.js';
 
 // A CDP virtual authenticator stands in for a passkey device, as in
@@ -217,29 +217,23 @@ test('with no saved window it asks for none, and shows the one the server used',
 	expect(requested[0].searchParams.has('window')).toBe(false);
 });
 
-for (const scheme of ['light', 'dark'] as const) {
-	test(`fits a phone and passes axe in ${scheme} mode`, async ({
-		page,
-		context,
-	}) => {
-		await signIn(page, context);
-		await page.setViewportSize({ width: 390, height: 844 });
-		await page.emulateMedia({ colorScheme: scheme });
-		await mockFlaky(page, () => withQuarantine);
+test('fits a phone and passes axe in light and dark mode', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await page.setViewportSize({ width: 390, height: 844 });
+	await mockFlaky(page, () => withQuarantine);
 
-		await page.goto('/flaky');
+	await page.goto('/flaky');
+	await expect(page.getByText('Run unit tests').first()).toBeVisible();
+	await expect(page.getByText('Quarantined', { exact: true })).toBeVisible();
+
+	await expectFitsAndPassesAxeInBothSchemes(page, async () => {
 		await expect(page.getByText('Run unit tests').first()).toBeVisible();
 		await expect(page.getByText('Quarantined', { exact: true })).toBeVisible();
-
-		const overflow = await page.evaluate(
-			() => document.documentElement.scrollWidth - window.innerWidth,
-		);
-		expect(overflow).toBeLessThanOrEqual(0);
-
-		const scan = await scanSettled(page);
-		expect(scan.violations).toEqual([]);
 	});
-}
+});
 
 test('quarantines a flaky step with a note, and un-quarantines it again', async ({
 	page,

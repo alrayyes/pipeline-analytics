@@ -1,5 +1,8 @@
 import { signIn } from './auth.js';
-import { expectNoViolations } from './axe.js';
+import {
+	expectFitsAndPassesAxeInBothSchemes,
+	expectNoViolations,
+} from './axe.js';
 import { expect, test } from './fixtures.js';
 
 // What a visitor must never see, from rules/error-pages.md and the ticket
@@ -61,31 +64,28 @@ test('an error thrown while loading shows a generic view with no internals', asy
 	await expectNoViolations(page);
 });
 
-for (const scheme of ['light', 'dark'] as const) {
-	for (const [width, height] of [
-		[1280, 800],
-		[375, 800],
-	]) {
-		test(`the not-found view passes axe at ${width}px in ${scheme} mode`, async ({
-			page,
-			context,
-		}) => {
-			await signIn(page, context);
-			await page.setViewportSize({ width, height });
-			await page.emulateMedia({ colorScheme: scheme });
+for (const [width, height] of [
+	[1280, 800],
+	[375, 800],
+]) {
+	test(`the not-found view passes axe at ${width}px in light and dark mode`, async ({
+		page,
+		context,
+	}) => {
+		await signIn(page, context);
+		await page.setViewportSize({ width, height });
 
-			await page.goto('/no-such-page');
+		await page.goto('/no-such-page');
+		await expect(
+			page.getByRole('heading', { name: 'Page not found' }),
+		).toBeVisible();
+
+		await expectFitsAndPassesAxeInBothSchemes(page, async () => {
 			await expect(
 				page.getByRole('heading', { name: 'Page not found' }),
 			).toBeVisible();
-
-			const overflow = await page.evaluate(
-				() => document.documentElement.scrollWidth - window.innerWidth,
-			);
-			expect(overflow).toBeLessThanOrEqual(0);
-			await expectNoViolations(page);
 		});
-	}
+	});
 }
 
 // The files the server falls back to for requests the app can't render
