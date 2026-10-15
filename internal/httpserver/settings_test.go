@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/alrayyes/pipeline-analytics/internal/auth"
 	authsqlite "github.com/alrayyes/pipeline-analytics/internal/auth/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/db"
 	"github.com/alrayyes/pipeline-analytics/internal/httpserver"
@@ -20,6 +21,16 @@ import (
 // auth and settings deps this handler actually needs -- plus a ready
 // session cookie.
 func newSettingsTestServer(t *testing.T) testServer {
+	t.Helper()
+
+	srv, _ := newSettingsTestServerWithAuthStore(t)
+
+	return srv
+}
+
+// newSettingsTestServerWithAuthStore also hands back the auth store, for a test
+// that needs to issue an API token for the same account.
+func newSettingsTestServerWithAuthStore(t *testing.T) (testServer, auth.Store) {
 	t.Helper()
 
 	conn, err := db.Open(":memory:")
@@ -49,7 +60,7 @@ func newSettingsTestServer(t *testing.T) testServer {
 		SameSite: http.SameSiteStrictMode,
 	}
 
-	return testServer{Handler: handler, sessionCookie: cookie}
+	return testServer{Handler: handler, sessionCookie: cookie}, authStore
 }
 
 func TestSettingsGet(t *testing.T) {

@@ -126,6 +126,28 @@ func connectMCP(t *testing.T, srv testServer) *mcp.ClientSession {
 	return session
 }
 
+// connectMCPWithBearer is connectMCP for a caller that holds an API token and
+// no session, which is how an agent outside the dashboard reaches the server.
+func connectMCPWithBearer(t *testing.T, srv testServer, token string) *mcp.ClientSession {
+	t.Helper()
+
+	httpSrv := httptest.NewServer(srv)
+	t.Cleanup(httpSrv.Close)
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.0"}, nil)
+	transport := &mcp.StreamableClientTransport{
+		Endpoint:             httpSrv.URL + "/api/mcp",
+		HTTPClient:           &http.Client{Transport: authRoundTripper{bearer: token}},
+		DisableStandaloneSSE: true,
+	}
+
+	session, err := client.Connect(context.Background(), transport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+
+	return session
+}
+
 // callTool calls name with args, requires it succeeded, and decodes its
 // structured content into T.
 func callTool[T any](t *testing.T, session *mcp.ClientSession, name string, args map[string]any) T {
@@ -727,13 +749,43 @@ func TestMCPGetGitHubRateLimit(t *testing.T) {
 func TestMCPGetSettings(t *testing.T) {
 	t.Parallel()
 
-	session := connectMCP(t, newSettingsTestServer(t))
+	t.Run("returns the account's settings beside the defaults", func(t *testing.T) {
+		t.Parallel()
 
-	got := callTool[map[string]any](t, session, "get_settings", nil)
+		session := connectMCP(t, newSettingsTestServer(t))
 
-	require.Equal(t, settings.DefaultTheme, got["theme"])
-	require.Equal(t, settings.DefaultTelemetryWindow, got["telemetryWindow"])
+		got := callTool[map[string]any](t, session, "get_settings", nil)
 
-	defaults, _ := got["defaults"].(map[string]any)
-	require.Equal(t, settings.DefaultTheme, defaults["theme"])
+		require.Equal(t, settings.DefaultTheme, got["theme"])
+		require.Equal(t, settings.DefaultTelemetryWindow, got["telemetryWindow"])
+
+		defaults, _ := got["defaults"].(map[string]any)
+		require.Equal(t, settings.DefaultTheme, defaults["theme"])
+	})
+
+	t.Run("an API token reads them too, as on the endpoint", func(t *testing.T) {
+		t.Parallel()
+
+		srv, authStore := newSettingsTestServerWithAuthStore(t)
+
+		userID, err := authStore.Session(context.Background(), srv.sessionCookie.Value)
+		require.NoError(t, err)
+
+		_, raw, err := authStore.CreateToken(context.Background(), userID, 0)
+		require.NoError(t, err)
+
+		got := callTool[map[string]any](t, connectMCPWithBearer(t, srv, raw), "get_settings", nil)
+
+		require.Equal(t, settings.DefaultTheme, got["theme"])
+	})
+
+	t.Run("a build with no settings service reports it instead of failing", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := connectMCP(t, newTestServer(t, nil)).CallTool(context.Background(), &mcp.CallToolParams{Name: "get_settings"})
+
+		require.NoError(t, err)
+		require.True(t, res.IsError)
+		require.Contains(t, toolErrorText(t, res), "settings are not available")
+	})
 }
