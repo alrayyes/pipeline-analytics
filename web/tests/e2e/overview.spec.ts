@@ -1,5 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test';
-import { scanSettled } from './axe.js';
+import { expectFitsAndPassesAxeInBothSchemes, scanSettled } from './axe.js';
 import { expect, test } from './fixtures.js';
 
 // A CDP virtual authenticator stands in for a passkey device, as in
@@ -233,27 +233,20 @@ test('says so when the figures cannot load', async ({ page, context }) => {
 	);
 });
 
-for (const scheme of ['light', 'dark'] as const) {
-	test(`fits a phone and passes axe in ${scheme} mode`, async ({
-		page,
-		context,
-	}) => {
-		await signIn(page, context);
-		await mockOneRepo(page);
-		await page.setViewportSize({ width: 390, height: 844 });
-		await page.emulateMedia({ colorScheme: scheme });
-		await mockInsights(page, () => insights);
-		await mockLatestFailure(page, [latestFailure]);
+test('fits a phone and passes axe in light and dark mode', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await mockOneRepo(page);
+	await page.setViewportSize({ width: 390, height: 844 });
+	await mockInsights(page, () => insights);
+	await mockLatestFailure(page, [latestFailure]);
 
-		await page.goto('/');
+	await page.goto('/');
+	await expect(page.getByRole('group', { name: 'Pass rate' })).toBeVisible();
+
+	await expectFitsAndPassesAxeInBothSchemes(page, async () => {
 		await expect(page.getByRole('group', { name: 'Pass rate' })).toBeVisible();
-
-		const overflow = await page.evaluate(
-			() => document.documentElement.scrollWidth - window.innerWidth,
-		);
-		expect(overflow).toBeLessThanOrEqual(0);
-
-		const scan = await scanSettled(page);
-		expect(scan.violations).toEqual([]);
 	});
-}
+});
