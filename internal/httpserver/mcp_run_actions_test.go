@@ -2,36 +2,12 @@ package httpserver_test
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
 )
-
-// connectMCPWithBearer is connectMCP for a caller that holds an API token and
-// no session, which is how an agent outside the dashboard reaches the server.
-func connectMCPWithBearer(t *testing.T, srv testServer, token string) *mcp.ClientSession {
-	t.Helper()
-
-	httpSrv := httptest.NewServer(srv)
-	t.Cleanup(httpSrv.Close)
-
-	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.0"}, nil)
-	transport := &mcp.StreamableClientTransport{
-		Endpoint:             httpSrv.URL + "/api/mcp",
-		HTTPClient:           &http.Client{Transport: authRoundTripper{bearer: token}},
-		DisableStandaloneSSE: true,
-	}
-
-	session, err := client.Connect(context.Background(), transport, nil)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = session.Close() })
-
-	return session
-}
 
 // runActionError calls a run-action tool and returns the error it reported.
 func runActionError(t *testing.T, session *mcp.ClientSession, tool, runID string) string {
@@ -140,6 +116,23 @@ func TestMCPCancelRun(t *testing.T) {
 		require.Empty(t, actor.do)
 	})
 
+	t.Run("an API token is refused here too, before the forge is asked", func(t *testing.T) {
+		t.Parallel()
+
+		actor := &stubRunActor{}
+		srv, authStore, repoID := actionTestServerWithAuthStore(t, actor)
+		run := seedRunWith(t, srv, repoID, ingestion.Run{ForgeRunID: "93", Status: "in_progress"})
+
+		userID, err := authStore.Session(context.Background(), srv.sessionCookie.Value)
+		require.NoError(t, err)
+
+		_, raw, err := authStore.CreateToken(context.Background(), userID, 0)
+		require.NoError(t, err)
+
+		require.Contains(t, runActionError(t, connectMCPWithBearer(t, srv, raw), "cancel_run", run.ID), "unauthenticated")
+		require.Empty(t, actor.do, "the forge isn't asked")
+	})
+
 	t.Run("a forge with no actor is unsupported", func(t *testing.T) {
 		t.Parallel()
 
@@ -148,4 +141,20 @@ func TestMCPCancelRun(t *testing.T) {
 
 		require.Contains(t, runActionError(t, connectMCP(t, srv), "cancel_run", run.ID), "unsupported")
 	})
+}
+
+func TestMCPRunActionsWithoutAService(t *testing.T) {
+	t.Parallel()
+
+	for _, tool := range []string{"rerun_run", "cancel_run"} {
+		t.Run(tool+" reports that run actions are not available", func(t *testing.T) {
+			t.Parallel()
+
+			// A build with no run-action service leaves the endpoints unmounted;
+			// the tool says so and does not panic.
+			msg := runActionError(t, connectMCP(t, newTestServer(t, nil)), tool, "any-run")
+
+			require.Contains(t, msg, "run actions are not available")
+		})
+	}
 }
