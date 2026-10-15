@@ -11,13 +11,16 @@
 import {
 	fetchBranches,
 	fetchFailureInsights,
+	fetchFlakyRuns,
 	fetchFlakySteps,
 	fetchJobLog,
 	fetchPipeline,
 	fetchPipelineSteps,
 	fetchPipelines,
 	fetchRepoUsage,
+	fetchRunSteps,
 	fetchRuns,
+	fetchUnhealthySteps,
 	type InsightsWindow,
 	type RunStatusFilter,
 } from './dashboardApi.js';
@@ -34,6 +37,17 @@ function scope(input: Record<string, unknown>) {
 		repoId: input.repoId as string | undefined,
 		branch: input.branch as string | undefined,
 	};
+}
+
+// A missing required argument is an error the agent can read, not the string
+// "undefined" sent to the server, which answers an empty list or a 404.
+function required(input: Record<string, unknown>, key: string): string {
+	const value = input[key];
+	if (typeof value !== 'string' || value === '') {
+		throw new Error(`${key} is required`);
+	}
+
+	return value;
 }
 
 function textResult(data: unknown) {
@@ -164,6 +178,41 @@ export function registerWebMCPTools(
 					window: input.window as InsightsWindow | undefined,
 					forge: input.forge as Forge | undefined,
 					repoId: input.repoId as string | undefined,
+				}),
+			),
+	});
+
+	modelContext.registerTool({
+		name: 'get_run_steps',
+		description:
+			"Get one run's steps with their outcomes and, for a failed step, its job id for get_job_log.",
+		execute: async (input) =>
+			textResult(await fetchRunSteps(required(input, 'runId'))),
+	});
+
+	modelContext.registerTool({
+		name: 'list_pipeline_flaky_runs',
+		description:
+			'List the runs in which one step of a pipeline flaked, to open them with get_run_steps.',
+		execute: async (input) =>
+			textResult(
+				await fetchFlakyRuns(required(input, 'pipelineId'), {
+					step: required(input, 'step'),
+					window: typeof input.window === 'string' ? input.window : undefined,
+				}),
+			),
+	});
+
+	modelContext.registerTool({
+		name: 'list_unhealthy_steps',
+		description:
+			'List the pipelines that have a flaky or failing step over a window, with those steps.',
+		execute: async (input) =>
+			textResult(
+				await fetchUnhealthySteps({
+					window: typeof input.window === 'string' ? input.window : undefined,
+					limit: typeof input.limit === 'number' ? input.limit : undefined,
+					offset: typeof input.offset === 'number' ? input.offset : undefined,
 				}),
 			),
 	});
