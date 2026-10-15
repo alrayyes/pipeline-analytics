@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.79.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.6...v0.79.0) (2026-10-15)
+
+
+### Features
+
+* **mcp:** add tools for the version and the tracked repos ([#637](https://github.com/alrayyes/pipeline-analytics/issues/637)) ([b13de92](https://github.com/alrayyes/pipeline-analytics/commit/b13de922cf5ff4405ed3bb4fb717ab493dd71064))
+
+
+### Performance Improvements
+
+* **web:** open the release history on the newest 20 releases ([#636](https://github.com/alrayyes/pipeline-analytics/issues/636)) ([4cbe070](https://github.com/alrayyes/pipeline-analytics/commit/4cbe070049059ecfd4dc07684af6d2a74b512d1a))
+
 ## [0.78.6](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.5...v0.78.6) (2026-10-15)
 
 
