@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test';
-import { expectFitsAndPassesAxeInBothSchemes, scanSettled } from './axe.js';
+import { expectFitsAndPassesAxeInBothSchemes } from './axe.js';
 import { expect, test } from './fixtures.js';
 
 // A CDP virtual authenticator stands in for a passkey device, as in

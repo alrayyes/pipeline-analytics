@@ -50,14 +50,10 @@ export async function expectFitsAndPassesAxeInBothSchemes(
 	page: Page,
 	ready: () => Promise<void>,
 ): Promise<void> {
-	await expect(page).toHaveTitle(/.+/, { timeout: 15_000 });
-
-	const overflow = await page.evaluate(
-		() => document.documentElement.scrollWidth - window.innerWidth,
-	);
-	expect(overflow).toBeLessThanOrEqual(0);
-
 	const root = page.locator('html');
+
+	await expect(page).toHaveTitle(/.+/, { timeout: 15_000 });
+	await expectFitsViewport(page);
 	await expect(root).not.toHaveClass(/dark/);
 	const light = await scanSettled(page);
 	expect(light.violations, 'light mode').toEqual([]);
@@ -65,7 +61,16 @@ export async function expectFitsAndPassesAxeInBothSchemes(
 	await page.emulateMedia({ colorScheme: 'dark' });
 	await page.reload();
 	await ready();
+	await expect(page).toHaveTitle(/.+/, { timeout: 15_000 });
 	await expect(root).toHaveClass(/dark/);
+	await expectFitsViewport(page);
 	const dark = await scanSettled(page);
 	expect(dark.violations, 'dark mode').toEqual([]);
+}
+
+async function expectFitsViewport(page: Page): Promise<void> {
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - window.innerWidth,
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
 }
