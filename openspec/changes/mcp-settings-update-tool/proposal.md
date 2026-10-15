@@ -25,6 +25,12 @@ MCP, with the same authorisation and validation as the endpoint.
 - **One mapping.** The endpoint's error classification is extracted
   (`classifySettingsError`) and shared.
 
+## Parity is complete on the Go side
+
+This is the last operation without a tool, so the temporary `pendingMCPTools`
+list in the parity test goes: every operation now has a tool or an
+`x-agent-excluded` reason, with no third option.
+
 ## Capabilities
 
 ### Modified Capabilities

@@ -43,6 +43,9 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "cancel_run", operation: "cancelRun", path: "/api/runs/{runId}/cancel"},
 	{tool: "quarantine_step", operation: "quarantineStep", path: "/api/pipelines/{pipelineId}/steps/{step}/quarantine"},
 	{tool: "unquarantine_step", operation: "unquarantineStep", path: "/api/pipelines/{pipelineId}/steps/{step}/quarantine"},
+	{tool: "register_repo", operation: "registerRepo", path: "/api/repos"},
+	{tool: "discover_repos", operation: "discoverRepos", path: "/api/repos/discover"},
+	{tool: "untrack_repo", operation: "untrackRepo", path: "/api/repos/{repoId}"},
 }
 
 // agentExcludedExtension is the openapi.yaml extension that takes an
@@ -50,22 +53,11 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 // exclusion lives on the operation it excuses (rules/mcp.md).
 const agentExcludedExtension = "x-agent-excluded"
 
-// pendingMCPTools lists the operations whose tool is still to come under
-// #615. It exists so the parity test can land first and go green; each
-// follow-up pull request removes the operations it covers, and the last one
-// deletes the list. "Nobody asked yet" is not an exclusion, so an operation
-// stays here only until its tool ships.
-var pendingMCPTools = map[string]bool{
-	"registerRepo":  true,
-	"discoverRepos": true,
-	"untrackRepo":   true,
-}
-
 // TestEveryOperationHasAnMCPTool is the other half of
 // TestMCPToolSchemasMatchOpenAPI: that one checks the tools that exist, this
 // one notices an operation nobody gave a tool. It reads every operation ID
 // in openapi.yaml, any method, and wants a tool, an x-agent-excluded reason,
-// or (for now) a place on pendingMCPTools.
+// .
 func TestEveryOperationHasAnMCPTool(t *testing.T) {
 	t.Parallel()
 
@@ -88,7 +80,6 @@ func TestEveryOperationHasAnMCPTool(t *testing.T) {
 			reason, excluded := op.Extensions[agentExcludedExtension]
 			if excluded {
 				require.Falsef(t, tools[op.OperationID], "%s is both an MCP tool and %s", op.OperationID, agentExcludedExtension)
-				require.Falsef(t, pendingMCPTools[op.OperationID], "%s is both excluded and pending", op.OperationID)
 
 				text, isText := reason.(string)
 				require.Truef(t, isText && strings.TrimSpace(text) != "", "%s must be a reason, not %v, on %s", agentExcludedExtension, reason, op.OperationID)
@@ -96,18 +87,8 @@ func TestEveryOperationHasAnMCPTool(t *testing.T) {
 				continue
 			}
 
-			if pendingMCPTools[op.OperationID] {
-				require.Falsef(t, tools[op.OperationID], "%s has its tool: take it off pendingMCPTools", op.OperationID)
-
-				continue
-			}
-
 			require.Truef(t, tools[op.OperationID], "%s %s (%s) has no MCP tool: add one to mcp.go and mcpToolEndpoints, or mark the operation %s with a reason", method, path, op.OperationID, agentExcludedExtension)
 		}
-	}
-
-	for operation := range pendingMCPTools {
-		require.Truef(t, seen[operation], "pendingMCPTools names %s, which openapi.yaml no longer declares", operation)
 	}
 
 	for _, ep := range mcpToolEndpoints {
