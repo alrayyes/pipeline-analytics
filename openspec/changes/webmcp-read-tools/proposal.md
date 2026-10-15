@@ -11,6 +11,9 @@ already has, so each tool calls the same code the page does.
 
 - `list_pipeline_steps`, `get_job_log`, `get_failure_insights`, `list_runs`,
   `list_flaky_steps` and `list_branches`, named as the MCP tools are.
+- `list_pipeline_steps` takes the `window` and `get_job_log` the `lines` the
+  API accepts, so no parameter of the operation is out of an agent's reach;
+  `fetchPipelineSteps` and `fetchJobLog` gain a params argument for them.
 - The six come off the parity test's pending list.
 
 Not here: `get_run_steps`, `list_pipeline_flaky_runs` and

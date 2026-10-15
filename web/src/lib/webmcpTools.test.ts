@@ -10,9 +10,14 @@ const fetchRepoUsageMock = mock(() =>
 
 const fetchPipelineStepsMock = mock(() => Promise.resolve([{ name: 'unit' }]));
 const fetchJobLogMock = mock(() => Promise.resolve({ available: true }));
-const fetchFailureInsightsMock = mock(() => Promise.resolve({ window: '7d' }));
+const fetchFailureInsightsMock = mock((_params: { window?: string }) =>
+	Promise.resolve({ window: '7d' }),
+);
 const fetchRunsMock = mock(() => Promise.resolve({ runs: [], hasMore: false }));
-const fetchFlakyStepsMock = mock(() => Promise.resolve({ steps: [] }));
+const fetchFlakyStepsMock = mock(
+	(_params: { limit?: number; offset?: number }) =>
+		Promise.resolve({ steps: [] }),
+);
 const fetchBranchesMock = mock(() => Promise.resolve({ branches: [] }));
 
 mock.module('./dashboardApi.js', () => ({
@@ -152,15 +157,15 @@ describe('read tools', () => {
 	][] = [
 		[
 			'list_pipeline_steps',
-			{ pipelineId: 'p1' },
+			{ pipelineId: 'p1', window: '30d' },
 			fetchPipelineStepsMock,
-			['p1'],
+			['p1', { window: '30d' }],
 		],
 		[
 			'get_job_log',
-			{ runId: 'r1', jobId: 'j1' },
+			{ runId: 'r1', jobId: 'j1', lines: 500 },
 			fetchJobLogMock,
-			['r1', 'j1'],
+			['r1', 'j1', { lines: 500 }],
 		],
 		[
 			'get_failure_insights',
@@ -207,5 +212,42 @@ describe('read tools', () => {
 		);
 
 		expect(fetchRunsMock).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+	});
+
+	test('list_runs ignores a paging value that is not a number', async () => {
+		const registerTool = newRegisterToolMock();
+		registerWebMCPTools({ registerTool });
+
+		await findTool(registerTool, 'list_runs').execute(
+			{ limit: '5', offset: null },
+			{ signal: new AbortController().signal },
+		);
+
+		expect(fetchRunsMock).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+	});
+
+	test('list_flaky_steps sends no paging when none is a number', async () => {
+		const registerTool = newRegisterToolMock();
+		registerWebMCPTools({ registerTool });
+
+		await findTool(registerTool, 'list_flaky_steps').execute(
+			{ limit: '3', offset: {} },
+			{ signal: new AbortController().signal },
+		);
+
+		const sent = fetchFlakyStepsMock.mock.calls[0]?.[0];
+		expect([sent?.limit, sent?.offset]).toEqual([undefined, undefined]);
+	});
+
+	test('get_failure_insights invents no window, so the server keeps its default', async () => {
+		const registerTool = newRegisterToolMock();
+		registerWebMCPTools({ registerTool });
+
+		await findTool(registerTool, 'get_failure_insights').execute(
+			{},
+			{ signal: new AbortController().signal },
+		);
+
+		expect(fetchFailureInsightsMock.mock.calls[0]?.[0]?.window).toBeUndefined();
 	});
 });

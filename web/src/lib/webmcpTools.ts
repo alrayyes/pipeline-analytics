@@ -90,7 +90,11 @@ export function registerWebMCPTools(
 		description:
 			"List a pipeline's steps with their outcome counts, to find where it fails.",
 		execute: async (input) =>
-			textResult(await fetchPipelineSteps(input.pipelineId as string)),
+			textResult(
+				await fetchPipelineSteps(input.pipelineId as string, {
+					window: input.window as InsightsWindow | undefined,
+				}),
+			),
 	});
 
 	modelContext.registerTool({
@@ -99,7 +103,9 @@ export function registerWebMCPTools(
 			"Get the last lines of one job's log from a run, to read why a step failed.",
 		execute: async (input) =>
 			textResult(
-				await fetchJobLog(input.runId as string, input.jobId as string),
+				await fetchJobLog(input.runId as string, input.jobId as string, {
+					lines: typeof input.lines === 'number' ? input.lines : undefined,
+				}),
 			),
 	});
 

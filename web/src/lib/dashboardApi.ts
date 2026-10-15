@@ -276,11 +276,18 @@ export async function fetchPipeline(
 	return (await res.json()) as PipelineDetail;
 }
 
+export interface PipelineStepsParams {
+	// Omit to let the server use its default window.
+	window?: InsightsWindow;
+}
+
 export async function fetchPipelineSteps(
 	id: string,
+	params: PipelineStepsParams = {},
 	fetchFn: typeof fetch = fetch,
 ): Promise<Step[]> {
-	const res = await fetchFn(`/api/pipelines/${id}/steps`);
+	const query = params.window ? `?window=${params.window}` : '';
+	const res = await fetchFn(`/api/pipelines/${id}/steps${query}`);
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as Step[];
@@ -310,13 +317,20 @@ export interface JobLog {
 // How many trailing lines the step viewer asks for.
 export const JOB_LOG_LINES = 200;
 
+export interface JobLogParams {
+	// How many trailing lines to ask for; the step viewer's default if omitted.
+	lines?: number;
+}
+
 export async function fetchJobLog(
 	runId: string,
 	jobId: string,
+	params: JobLogParams = {},
 	fetchFn: typeof fetch = fetch,
 ): Promise<JobLog> {
+	const lines = params.lines ?? JOB_LOG_LINES;
 	const res = await fetchFn(
-		`/api/runs/${encodeURIComponent(runId)}/jobs/${encodeURIComponent(jobId)}/log?lines=${JOB_LOG_LINES}`,
+		`/api/runs/${encodeURIComponent(runId)}/jobs/${encodeURIComponent(jobId)}/log?lines=${lines}`,
 	);
 	if (!res.ok) throw new ApiError(res.status);
 
