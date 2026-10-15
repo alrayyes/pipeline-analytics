@@ -38,9 +38,9 @@ type stepQuarantineDTO struct {
 }
 
 // quarantineHandler marks a flaky step as known. Both routes are session-only,
-// like API tokens and saved forge tokens: a token or an agent can read a mark
-// (the flaky and step lists carry it) but never set or clear one. Neither
-// touches the forge.
+// like API tokens and saved forge tokens: an API token can read a mark (the
+// flaky and step lists carry it) but never set or clear one. The MCP tools hold
+// the same line (mcp_quarantine.go). Neither touches the forge.
 type quarantineHandler struct {
 	service *metrics.Service
 }

@@ -76,6 +76,29 @@ func TestMCPQuarantineStep(t *testing.T) {
 		require.False(t, listQuarantined(t, srv).Steps[0].Quarantined, "nothing was marked")
 	})
 
+	t.Run("a note of exactly 500 characters is accepted", func(t *testing.T) {
+		t.Parallel()
+
+		srv, id, _ := flakyServer(t)
+
+		got := callTool[quarantineResult](t, connectMCP(t, srv), "quarantine_step", map[string]any{
+			"pipelineId": id, "step": "test", "note": strings.Repeat("x", 500),
+		})
+
+		require.True(t, got.Quarantined)
+	})
+
+	t.Run("an empty step is refused, as the endpoint's path cannot match one", func(t *testing.T) {
+		t.Parallel()
+
+		srv, id, _ := flakyServer(t)
+
+		msg := toolFailure(t, connectMCP(t, srv), "quarantine_step", map[string]any{"pipelineId": id, "step": ""})
+
+		require.Contains(t, msg, "invalid_input")
+		require.False(t, listQuarantined(t, srv).Steps[0].Quarantined)
+	})
+
 	t.Run("an unknown pipeline is not found", func(t *testing.T) {
 		t.Parallel()
 
@@ -129,6 +152,24 @@ func TestMCPUnquarantineStep(t *testing.T) {
 		got := callTool[quarantineResult](t, connectMCP(t, srv), "unquarantine_step", map[string]any{"pipelineId": id, "step": "test"})
 
 		require.False(t, got.Quarantined)
+	})
+
+	t.Run("an unknown pipeline is not found", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _, _ := flakyServer(t)
+
+		msg := toolFailure(t, connectMCP(t, srv), "unquarantine_step", map[string]any{"pipelineId": "no-such-pipeline", "step": "test"})
+
+		require.Contains(t, msg, "not_found")
+	})
+
+	t.Run("an empty step is refused", func(t *testing.T) {
+		t.Parallel()
+
+		srv, id, _ := flakyServer(t)
+
+		require.Contains(t, toolFailure(t, connectMCP(t, srv), "unquarantine_step", map[string]any{"pipelineId": id, "step": ""}), "invalid_input")
 	})
 
 	t.Run("an API token cannot clear a mark either", func(t *testing.T) {

@@ -21,7 +21,9 @@ that rule, as the run-action tools do.
 
 ### Modified Capabilities
 
-- `mcp-endpoint`: the tools cover quarantine.
+- `mcp-endpoint`: the tools cover quarantine. This relies on the "Write tools act
+  only for a signed-in session" requirement in `mcp-run-action-tools`, so that
+  change is archived first.
 
 ## Impact
 

@@ -24,3 +24,16 @@ only for a signed-in session and reporting a failure as the endpoint does.
 - **WHEN** a client authenticated only by an API token calls `quarantine_step`
   or `unquarantine_step`
 - **THEN** the call reports `unauthenticated` and the mark is unchanged
+
+#### Scenario: Clearing a mark
+
+- **WHEN** a client with a session calls `unquarantine_step` for a quarantined
+  step, or for one with no mark
+- **THEN** the step is not quarantined afterwards and the call succeeds
+
+#### Scenario: An unknown pipeline or an empty step
+
+- **WHEN** a client with a session calls either tool for a pipeline that does
+  not exist
+- **THEN** the call reports `not_found`; with an empty step or pipeline id it
+  reports `invalid_input`, since the endpoint's path cannot match one

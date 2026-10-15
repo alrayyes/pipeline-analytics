@@ -35,8 +35,22 @@ type quarantineStepInput struct {
 	Note string `json:"note,omitempty" jsonschema:"why the step is known to be flaky; at most 500 characters"`
 }
 
+// checkStepInput refuses an empty pipeline or step. The endpoints' path cannot
+// match an empty segment, so a tool must not write a mark for one either.
+func checkStepInput(in stepInput) error {
+	if in.PipelineID == "" || in.Step == "" {
+		return mcpToolError{code: "invalid_input", message: "pipelineId and step are required"}
+	}
+
+	return nil
+}
+
 func (h *mcpHandler) quarantineStep(ctx context.Context, _ *mcp.CallToolRequest, in quarantineStepInput) (*mcp.CallToolResult, stepQuarantineDTO, error) {
 	if err := requireToolSession(ctx, "quarantine a step"); err != nil {
+		return nil, stepQuarantineDTO{}, err
+	}
+
+	if err := checkStepInput(in.stepInput); err != nil {
 		return nil, stepQuarantineDTO{}, err
 	}
 
@@ -52,6 +66,10 @@ func (h *mcpHandler) quarantineStep(ctx context.Context, _ *mcp.CallToolRequest,
 
 func (h *mcpHandler) unquarantineStep(ctx context.Context, _ *mcp.CallToolRequest, in stepInput) (*mcp.CallToolResult, stepQuarantineDTO, error) {
 	if err := requireToolSession(ctx, "un-quarantine a step"); err != nil {
+		return nil, stepQuarantineDTO{}, err
+	}
+
+	if err := checkStepInput(in); err != nil {
 		return nil, stepQuarantineDTO{}, err
 	}
 

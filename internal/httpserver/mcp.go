@@ -487,5 +487,5 @@ func requireToolSession(ctx context.Context, to string) error {
 		return nil
 	}
 
-	return mcpToolError{code: "unauthenticated", message: "a session is required to " + to}
+	return mcpToolError{code: "unauthenticated", message: sessionRequiredMessage(to)}
 }
