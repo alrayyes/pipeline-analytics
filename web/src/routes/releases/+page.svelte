@@ -1,9 +1,10 @@
 <script lang="ts">
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { onMount } from 'svelte';
+import { onMount, tick } from 'svelte';
 import { revealInBatches } from '#lib/batches.js';
 import type { Release } from '#lib/changelog.js';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -24,6 +25,26 @@ let failed = $state(false);
 // one go was a 660 ms task for 98 releases and dropped Lighthouse's
 // total-blocking-time score (#522), so they render a few at a time.
 let shown = $state(0);
+// How many of them the list may show. Every release is 114 cards and about
+// 2,500 elements, which Lighthouse's dom-size flags (#618), so the page opens
+// on the newest few and the rest come on request.
+const PAGE_SIZE = 20;
+let limit = $state(PAGE_SIZE);
+
+// Reveals the next page and moves focus to its first release, so a keyboard or
+// screen-reader user lands on the new content instead of on a button that
+// vanishes with the last page.
+async function showOlder() {
+	const firstNew = limit;
+	limit += PAGE_SIZE;
+	// The cards just asked for exist now, even if the background batches that
+	// reveal the list have not got that far, so there is something to focus.
+	shown = Math.max(shown, Math.min(limit, releases?.length ?? 0));
+	await tick();
+	document
+		.querySelector<HTMLAnchorElement>(`[data-release-index="${firstNew}"] a`)
+		?.focus();
+}
 
 onMount(() => {
 	let cancel = () => {};
@@ -39,7 +60,8 @@ onMount(() => {
 		.then((data: Release[]) => {
 			releases = data;
 			cancel = revealInBatches(data.length, 5, 5, (n) => {
-				shown = n;
+				// Never lowers it: showOlder() may have revealed ahead of the batches.
+				shown = Math.max(shown, n);
 			});
 		})
 		.catch(() => {
@@ -80,8 +102,8 @@ function renderBody(body: string): string {
 		<p class="mt-6 text-muted-foreground">No releases yet.</p>
 	{:else}
 		<ul class="mt-6 grid gap-3">
-			{#each releases.slice(0, shown) as release (release.tag)}
-				<li>
+			{#each releases.slice(0, Math.min(shown, limit)) as release, index (release.tag)}
+				<li data-release-index={index}>
 					<Card size="sm">
 						<CardHeader class="flex flex-row items-center justify-between">
 							<CardTitle>
@@ -121,5 +143,12 @@ function renderBody(body: string): string {
 				</li>
 			{/each}
 		</ul>
+		<!-- Not before the cards above it have all been revealed, or it would sit
+		     at the top of a short list and move down as the batches arrive. -->
+		{#if releases.length > limit && shown >= limit}
+			<Button variant="outline" class="mt-6" onclick={showOlder}>
+				Show older releases ({releases.length - limit} more)
+			</Button>
+		{/if}
 	{/if}
 </main>
