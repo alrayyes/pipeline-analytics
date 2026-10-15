@@ -7,15 +7,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// runActionToolError is a failed action as the tool reports it: the code and
-// message the endpoint answers with, so an agent reads what a client of the
-// endpoint reads.
-type runActionToolError struct {
-	code, message string
-}
-
-func (e runActionToolError) Error() string { return e.code + ": " + e.message }
-
 // errRunActionsUnavailable is returned by the run-action tools in a build with
 // no run-action service, which leaves the REST routes unmounted.
 var errRunActionsUnavailable = errors.New("run actions are not available")
@@ -56,15 +47,14 @@ func (h *mcpHandler) act(action string, do func(context.Context, string) error) 
 			return nil, runActionResult{}, errRunActionsUnavailable
 		}
 
-		info, ok := authInfoFrom(ctx)
-		if !ok || !info.ViaSession {
-			return nil, runActionResult{}, runActionToolError{code: "unauthenticated", message: sessionRequiredMessage}
+		if err := requireToolSession(ctx, "act on a run"); err != nil {
+			return nil, runActionResult{}, err
 		}
 
 		if err := do(ctx, in.RunID); err != nil {
 			failure := classifyRunActionError(err)
 
-			return nil, runActionResult{}, runActionToolError{code: failure.code, message: failure.message}
+			return nil, runActionResult{}, mcpToolError{code: failure.code, message: failure.message}
 		}
 
 		return nil, runActionResult{RunID: in.RunID, Action: action, Accepted: true}, nil

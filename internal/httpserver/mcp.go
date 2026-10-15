@@ -97,6 +97,7 @@ func newMCPHandler(deps Deps) http.Handler {
 	h.addRunTools(server)
 	h.addRepoTools(server)
 	h.addRunActionTools(server)
+	h.addQuarantineTools(server)
 
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
@@ -467,4 +468,24 @@ func (h *mcpHandler) listFlakySteps(ctx context.Context, _ *mcp.CallToolRequest,
 	}
 
 	return nil, toFlakyStepListDTO(window, steps, hasMore), nil
+}
+
+// mcpToolError is a failed call as a tool reports it: the code and message the
+// matching endpoint answers with, so an agent reads what a client of the
+// endpoint reads.
+type mcpToolError struct {
+	code, message string
+}
+
+func (e mcpToolError) Error() string { return e.code + ": " + e.message }
+
+// requireToolSession is requireViaSession for a tool call: a write needs a
+// signed-in session, and an API token is refused before anything is changed,
+// with the error the endpoint gives.
+func requireToolSession(ctx context.Context, to string) error {
+	if info, ok := authInfoFrom(ctx); ok && info.ViaSession {
+		return nil
+	}
+
+	return mcpToolError{code: "unauthenticated", message: sessionRequiredMessage(to)}
 }
