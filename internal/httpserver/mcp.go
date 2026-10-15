@@ -9,6 +9,7 @@ import (
 
 	"github.com/alrayyes/pipeline-analytics/internal/ingestion"
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
+	"github.com/alrayyes/pipeline-analytics/internal/settings"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -37,6 +38,9 @@ type mcpHandler struct {
 	repos   ingestion.Store
 	logs    *ingestion.JobLogService
 	version string
+
+	rateLimits ingestion.RateLimitReporter
+	settings   *settings.Service
 }
 
 // newMCPHandler builds the Streamable HTTP handler for POST /api/mcp,
@@ -47,7 +51,7 @@ type mcpHandler struct {
 // would enable (there's nothing it pushes to a client unprompted), and
 // statelessness keeps a single-account, always-on server simple.
 func newMCPHandler(deps Deps) http.Handler {
-	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore, logs: deps.JobLogs, version: deps.Version}
+	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore, logs: deps.JobLogs, version: deps.Version, rateLimits: deps.GitHubRateLimits, settings: deps.Settings}
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "pipeline-analytics",

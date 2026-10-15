@@ -18,6 +18,7 @@ import (
 	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
 	metricssqlite "github.com/alrayyes/pipeline-analytics/internal/metrics/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/settings"
 	gowebauthn "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
@@ -125,6 +126,28 @@ func connectMCP(t *testing.T, srv testServer) *mcp.ClientSession {
 	return session
 }
 
+// connectMCPWithBearer is connectMCP for a caller that holds an API token and
+// no session, which is how an agent outside the dashboard reaches the server.
+func connectMCPWithBearer(t *testing.T, srv testServer, token string) *mcp.ClientSession {
+	t.Helper()
+
+	httpSrv := httptest.NewServer(srv)
+	t.Cleanup(httpSrv.Close)
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.0"}, nil)
+	transport := &mcp.StreamableClientTransport{
+		Endpoint:             httpSrv.URL + "/api/mcp",
+		HTTPClient:           &http.Client{Transport: authRoundTripper{bearer: token}},
+		DisableStandaloneSSE: true,
+	}
+
+	session, err := client.Connect(context.Background(), transport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+
+	return session
+}
+
 // callTool calls name with args, requires it succeeded, and decodes its
 // structured content into T.
 func callTool[T any](t *testing.T, session *mcp.ClientSession, name string, args map[string]any) T {
@@ -185,6 +208,8 @@ func TestMCPToolsList(t *testing.T) {
 		"get_version",
 		"list_repos",
 		"list_repo_identifiers",
+		"get_github_rate_limit",
+		"get_settings",
 	}, names, "tool list must be exactly the read tools, no write tool")
 }
 
@@ -673,4 +698,94 @@ func toolErrorText(t *testing.T, res *mcp.CallToolResult) string {
 	require.True(t, ok, "error content is %T, want text", res.Content[0])
 
 	return text.Text
+}
+
+func TestMCPGetGitHubRateLimit(t *testing.T) {
+	t.Parallel()
+
+	type tokenUsage struct {
+		TokenMasked string         `json:"tokenMasked"`
+		Repos       []string       `json:"repos"`
+		Status      map[string]any `json:"status"`
+	}
+
+	t.Run("groups the repos that share a token, with its status", func(t *testing.T) {
+		t.Parallel()
+
+		resetAt := time.Unix(1700000000, 0).UTC()
+		srv := newTestServerWithRateLimits(t, map[string]ingestion.RateLimitSnapshot{
+			"ghp_shared": {Limit: 5000, Remaining: 4900, Used: 100, Resource: "core", ResetAt: resetAt},
+		})
+		seedRepoWithToken(t, srv, "alrayyes/repo-one", "ghp_shared")
+		seedRepoWithToken(t, srv, "alrayyes/repo-two", "ghp_shared")
+		session := connectMCP(t, srv)
+
+		got := callTool[struct {
+			Tokens []tokenUsage `json:"tokens"`
+		}](t, session, "get_github_rate_limit", nil)
+
+		require.Len(t, got.Tokens, 1)
+		require.ElementsMatch(t, []string{"alrayyes/repo-one", "alrayyes/repo-two"}, got.Tokens[0].Repos)
+		require.InDelta(t, 4900, got.Tokens[0].Status["remaining"], 0)
+		require.NotContains(t, got.Tokens[0].TokenMasked, "shared")
+	})
+
+	t.Run("a token never seen on a request has no status yet", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithRateLimits(t, nil)
+		seedRepoWithToken(t, srv, "alrayyes/repo-one", "ghp_unseen")
+		session := connectMCP(t, srv)
+
+		got := callTool[struct {
+			Tokens []tokenUsage `json:"tokens"`
+		}](t, session, "get_github_rate_limit", nil)
+
+		require.Len(t, got.Tokens, 1)
+		require.Nil(t, got.Tokens[0].Status)
+	})
+}
+
+func TestMCPGetSettings(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the account's settings beside the defaults", func(t *testing.T) {
+		t.Parallel()
+
+		session := connectMCP(t, newSettingsTestServer(t))
+
+		got := callTool[map[string]any](t, session, "get_settings", nil)
+
+		require.Equal(t, settings.DefaultTheme, got["theme"])
+		require.Equal(t, settings.DefaultTelemetryWindow, got["telemetryWindow"])
+
+		defaults, _ := got["defaults"].(map[string]any)
+		require.Equal(t, settings.DefaultTheme, defaults["theme"])
+	})
+
+	t.Run("an API token reads them too, as on the endpoint", func(t *testing.T) {
+		t.Parallel()
+
+		srv, authStore := newSettingsTestServerWithAuthStore(t)
+
+		userID, err := authStore.Session(context.Background(), srv.sessionCookie.Value)
+		require.NoError(t, err)
+
+		_, raw, err := authStore.CreateToken(context.Background(), userID, 0)
+		require.NoError(t, err)
+
+		got := callTool[map[string]any](t, connectMCPWithBearer(t, srv, raw), "get_settings", nil)
+
+		require.Equal(t, settings.DefaultTheme, got["theme"])
+	})
+
+	t.Run("a build with no settings service reports it instead of failing", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := connectMCP(t, newTestServer(t, nil)).CallTool(context.Background(), &mcp.CallToolParams{Name: "get_settings"})
+
+		require.NoError(t, err)
+		require.True(t, res.IsError)
+		require.Contains(t, toolErrorText(t, res), "settings are not available")
+	})
 }

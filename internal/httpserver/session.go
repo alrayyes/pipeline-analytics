@@ -28,7 +28,13 @@ func withAuthInfo(r *http.Request, info authInfo) *http.Request {
 // (isPublicPath) -- every gated path always has one by the time a handler
 // runs.
 func authInfoFromContext(r *http.Request) (authInfo, bool) {
-	info, ok := r.Context().Value(authInfoKey{}).(authInfo)
+	return authInfoFrom(r.Context())
+}
+
+// authInfoFrom is authInfoFromContext for a caller that holds the request's
+// context and not the request, as an MCP tool call does.
+func authInfoFrom(ctx context.Context) (authInfo, bool) {
+	info, ok := ctx.Value(authInfoKey{}).(authInfo)
 
 	return info, ok
 }
