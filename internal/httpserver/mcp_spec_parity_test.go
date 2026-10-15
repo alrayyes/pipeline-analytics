@@ -2,7 +2,6 @@ package httpserver_test
 
 import (
 	"context"
-	"net/http"
 	"strings"
 	"testing"
 
@@ -38,6 +37,8 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "list_repo_identifiers", operation: "listRepoIdentifiers", path: "/api/repos/identifiers"},
 	{tool: "get_github_rate_limit", operation: "getGitHubRateLimitInsights", path: "/api/insights/github-rate-limit"},
 	{tool: "get_settings", operation: "getSettings", path: "/api/settings"},
+	{tool: "rerun_run", operation: "rerunRun", path: "/api/runs/{runId}/rerun"},
+	{tool: "cancel_run", operation: "cancelRun", path: "/api/runs/{runId}/cancel"},
 }
 
 // agentExcludedExtension is the openapi.yaml extension that takes an
@@ -56,8 +57,6 @@ var pendingMCPTools = map[string]bool{
 	"untrackRepo":      true,
 	"quarantineStep":   true,
 	"unquarantineStep": true,
-	"rerunRun":         true,
-	"cancelRun":        true,
 	"updateSettings":   true,
 }
 
@@ -146,8 +145,8 @@ func TestMCPToolSchemasMatchOpenAPI(t *testing.T) {
 			pathItem := doc.Paths.Find(ep.path)
 			require.NotNilf(t, pathItem, "openapi.yaml has no path %s", ep.path)
 
-			op := pathItem.GetOperation(http.MethodGet)
-			require.NotNilf(t, op, "openapi.yaml has no GET %s", ep.path)
+			op := operationByID(pathItem, ep.operation)
+			require.NotNilf(t, op, "openapi.yaml has no operation %s on %s", ep.operation, ep.path)
 
 			specParams := specQueryAndPathParams(op)
 
@@ -155,9 +154,21 @@ func TestMCPToolSchemasMatchOpenAPI(t *testing.T) {
 			require.Truef(t, ok, "no MCP tool named %s", ep.tool)
 
 			require.Equal(t, specParams, toolInputParams(t, schema),
-				"%s's input parameters must match GET %s's declared parameters", ep.tool, ep.path)
+				"%s's input parameters must match %s on %s's declared parameters", ep.tool, ep.operation, ep.path)
 		})
 	}
+}
+
+// operationByID is the operation on item with the given operationId, whatever
+// its method.
+func operationByID(item *openapi3.PathItem, operationID string) *openapi3.Operation {
+	for _, op := range item.Operations() {
+		if op.OperationID == operationID {
+			return op
+		}
+	}
+
+	return nil
 }
 
 // specQueryAndPathParams maps each of op's path/query parameter names to
