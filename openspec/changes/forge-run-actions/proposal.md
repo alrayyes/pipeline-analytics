@@ -35,9 +35,11 @@ action gets its own ticket.
   own ticket as a question, outside this change.
 - **GitHub only for now.** A Forgejo run answers `unsupported`, as its job log
   does.
-- **Session-only, never an MCP tool.** These write to someone else's system, so
-  an API token or an agent doesn't get them, like passkeys and saved tokens.
-  The MCP server stays read-only.
+- **Session-only.** These write to someone else's system, so an API token
+  doesn't get them, like passkeys and saved tokens. They were first kept out of
+  MCP altogether; `rules/mcp.md` later asked for a tool for every operation, so
+  `rerun_run` and `cancel_run` exist and refuse an API token the same way
+  (mcp-run-action-tools).
 - **The token scope is a user decision, shown honestly.** A stored token with
   read-only Actions gets `forbidden` from GitHub. The UI says the token needs
   Actions write permission to do this and says nothing about re-registering
