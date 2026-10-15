@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.4](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.3...v0.78.4) (2026-10-15)
+
+
+### Bug Fixes
+
+* bump the web-bun-prod-minor-and-patch group in /web with 2 updates ([#611](https://github.com/alrayyes/pipeline-analytics/issues/611)) ([f815d7c](https://github.com/alrayyes/pipeline-analytics/commit/f815d7caa5da26313b933305070b16f3985c6778))
+
 ## [0.78.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.2...v0.78.3) (2026-10-13)
 
 
