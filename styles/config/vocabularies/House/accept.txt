@@ -57,3 +57,6 @@ happy-dom
 untrack
 untracking
 un-quarantine
+govulncheck
+lockfile
+lockfiles

@@ -143,6 +143,14 @@ proves nothing the pipeline won't re-check. `lefthook.yml` says so too, and
 `.github/scripts/lefthook-parity.test.sh` fails when any other check loses
 its hook.
 
+In CI both run as a gate through the shared `alrayyes/advisory-scan` action: a
+pull request fails only on an advisory it introduces over its base, so a newly
+published advisory never turns an unrelated pull request red. The
+`advisory-scan.yml` workflow audits `main` daily and on lockfile pushes, and
+keeps one open `Dependency advisories` issue per lockfile for whatever it
+finds. No advisory is ignored anywhere; a known one with no fix stays in that
+issue until a fix ships.
+
 Each `pre-push` job runs through
 [`hook-guard.sh`](.github/scripts/hook-guard.sh), which asks
 [`changes.sh`](.github/scripts/changes.sh) whether that job's CI group
