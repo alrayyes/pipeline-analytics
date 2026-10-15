@@ -7,9 +7,10 @@ import {
 	expect,
 	test,
 } from 'bun:test';
-import { flushSync, mount, unmount } from 'svelte';
+import { mount, unmount } from 'svelte';
 import { initTelemetryWindow } from '#lib/telemetryWindow.svelte.js';
 import { removeDom } from '../../../test/dom.js';
+import { fakeNetwork, json, radio, settle } from '../../../test/page.js';
 import Page from './+page.svelte';
 
 // The Failures page against a fake network: what the window toggle asks the
@@ -26,47 +27,26 @@ const insights = {
 	failureGroups: [],
 };
 
-const realFetch = globalThis.fetch;
-let requested: URL[];
+let network: ReturnType<typeof fakeNetwork>;
 let respond: (url: URL) => Response;
 let app: ReturnType<typeof mount> | undefined;
 
-function json(body: unknown, status = 200): Response {
-	return new Response(JSON.stringify(body), {
-		status,
-		headers: { 'content-type': 'application/json' },
-	});
-}
-
-// Lets the page's effects run and its fetches settle.
-async function settle(): Promise<void> {
-	for (let i = 0; i < 5; i++) {
-		await Promise.resolve();
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		flushSync();
-	}
-}
-
 function insightRequests(): URL[] {
-	return requested.filter((url) => url.pathname === '/api/insights/failures');
+	return network.requested.filter(
+		(url) => url.pathname === '/api/insights/failures',
+	);
 }
 
 beforeEach(() => {
-	requested = [];
 	localStorage.clear();
 	// The window is shared state across the app; start each test with none saved.
 	initTelemetryWindow();
 	respond = () => json(insights);
 
-	globalThis.fetch = (async (input: RequestInfo | URL) => {
-		const url = new URL(String(input), 'http://localhost');
-		requested.push(url);
-
+	network = fakeNetwork((url) => {
 		if (url.pathname === '/api/insights/failures') return respond(url);
 		if (url.pathname === '/api/branches') return json({ branches: [] });
-
-		return json({});
-	}) as typeof fetch;
+	});
 });
 
 afterEach(() => {
@@ -76,22 +56,13 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-	globalThis.fetch = realFetch;
+	network.restore();
 	await removeDom();
 });
 
 async function open(): Promise<void> {
 	app = mount(Page, { target: document.body });
 	await settle();
-}
-
-function radio(name: string): HTMLElement {
-	const found = [
-		...document.querySelectorAll<HTMLElement>('[role="radio"]'),
-	].find((el) => el.textContent?.trim() === name);
-	if (!found) throw new Error(`no radio named ${name}`);
-
-	return found;
 }
 
 describe('Failures page', () => {
