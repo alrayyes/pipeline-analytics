@@ -1015,7 +1015,7 @@ paths:
   /api/auth/logout:
     post:
       operationId: webauthnLogout
-      x-agent-excluded: "sign-in ceremony: it mints the session an agent works inside"
+      x-agent-excluded: "ends the signed-in person's own session, which an agent should not do for them"
       summary: End the current session
       tags: [auth]
       responses:

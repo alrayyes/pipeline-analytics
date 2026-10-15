@@ -3,6 +3,7 @@ package httpserver_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -81,13 +82,16 @@ func TestEveryOperationHasAnMCPTool(t *testing.T) {
 	for path, item := range doc.Paths.Map() {
 		for method, op := range item.Operations() {
 			require.NotEmptyf(t, op.OperationID, "%s %s has no operationId", method, path)
+			require.Falsef(t, seen[op.OperationID], "operationId %s is declared twice", op.OperationID)
 			seen[op.OperationID] = true
 
 			reason, excluded := op.Extensions[agentExcludedExtension]
 			if excluded {
 				require.Falsef(t, tools[op.OperationID], "%s is both an MCP tool and %s", op.OperationID, agentExcludedExtension)
 				require.Falsef(t, pendingMCPTools[op.OperationID], "%s is both excluded and pending", op.OperationID)
-				require.NotEmptyf(t, reason, "%s on %s must say why", agentExcludedExtension, op.OperationID)
+
+				text, isText := reason.(string)
+				require.Truef(t, isText && strings.TrimSpace(text) != "", "%s must be a reason, not %v, on %s", agentExcludedExtension, reason, op.OperationID)
 
 				continue
 			}

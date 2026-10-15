@@ -1,5 +1,16 @@
 # Spec Delta
 
+## REMOVED Requirements
+
+### Requirement: Every read endpoint has a tool
+
+**Reason**: Replaced by "Every operation has a tool or a written exclusion",
+which covers every method, not only GET. Its scenarios (a run an agent finds
+can be opened, failure insights over MCP) are per-tool behaviour the tool
+tests already pin.
+
+**Migration**: None. The read tools stay as they are.
+
 ## ADDED Requirements
 
 ### Requirement: Every operation has a tool or a written exclusion
