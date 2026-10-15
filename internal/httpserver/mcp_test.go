@@ -210,7 +210,9 @@ func TestMCPToolsList(t *testing.T) {
 		"list_repo_identifiers",
 		"get_github_rate_limit",
 		"get_settings",
-	}, names, "tool list must be exactly the read tools, no write tool")
+		"rerun_run",
+		"cancel_run",
+	}, names, "tool list must be exactly the declared tools")
 }
 
 func TestMCPListPipelines(t *testing.T) {
