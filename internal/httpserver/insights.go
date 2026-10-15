@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -41,15 +42,27 @@ type githubTokenGroup struct {
 // (ingestion.RateLimitReporter), never a dedicated poll -- GitHub's own
 // guidance prefers this over calling GET /rate_limit.
 func (h *insightsHandler) githubRateLimit(w http.ResponseWriter, r *http.Request) {
-	repos, _, err := h.repos.ListRepos(r.Context(), ingestion.RepoListFilter{})
+	dtos, err := h.tokenUsage(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "list repos")
 
 		return
 	}
 
-	order, byToken := h.groupGitHubReposByToken(r.Context(), repos)
-	writeJSON(w, http.StatusOK, toGitHubTokenUsageDTOs(order, byToken))
+	writeJSON(w, http.StatusOK, dtos)
+}
+
+// tokenUsage is the endpoint's body, shared with the MCP get_github_rate_limit
+// tool so both group repos by token and report its status the same way.
+func (h *insightsHandler) tokenUsage(ctx context.Context) ([]githubTokenUsageDTO, error) {
+	repos, _, err := h.repos.ListRepos(ctx, ingestion.RepoListFilter{})
+	if err != nil {
+		return nil, fmt.Errorf("list repos: %w", err)
+	}
+
+	order, byToken := h.groupGitHubReposByToken(ctx, repos)
+
+	return toGitHubTokenUsageDTOs(order, byToken), nil
 }
 
 // groupGitHubReposByToken decrypts each GitHub repo's token and groups repo
