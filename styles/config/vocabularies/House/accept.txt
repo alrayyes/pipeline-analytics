@@ -53,3 +53,4 @@ Cobertura
 lcov
 Brotli
 gzip
+happy-dom
