@@ -54,6 +54,23 @@ describe('root layout load', () => {
 		});
 	});
 
+	test('reports no repos from a successful check of an empty list', async () => {
+		const fetchFn: FetchMock = (input) => {
+			if (String(input).includes('/api/repos')) {
+				return Promise.resolve(
+					new Response(JSON.stringify({ repos: [] }), { status: 200 }),
+				);
+			}
+
+			return Promise.resolve(new Response(null, { status: 404 }));
+		};
+
+		await expect(callLoad('/', fetchFn)).resolves.toEqual({
+			hasRepos: false,
+			settings: null,
+		});
+	});
+
 	test('redirects to /login on a 401', async () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(new Response(null, { status: 401 }));

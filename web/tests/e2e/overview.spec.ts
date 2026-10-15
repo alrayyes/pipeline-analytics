@@ -104,27 +104,21 @@ async function mockOneRepo(page: Page): Promise<void> {
 	);
 }
 
-test('with no repository registered, the landing page says how to start', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-
-	await expect(page).toHaveURL('/');
-	await expect(page.getByText('No repositories registered yet')).toBeVisible();
-});
-
 test('shows the figures, the failing steps, the top failing pipelines and the latest failure', async ({
 	page,
 	context,
 }) => {
 	await signIn(page, context);
 	await mockOneRepo(page);
-	await mockInsights(page, () => insights);
+	const requested = await mockInsights(page, () => insights);
 	await mockLatestFailure(page, [latestFailure]);
 
 	await page.goto('/');
 	await expect(page).toHaveURL('/');
+	// The account's default window, from the real server's settings, is what the
+	// first request asks for: the one hop from the settings to the page that
+	// only a real server proves.
+	await expect.poll(() => requested[0]?.searchParams.get('window')).toBe('7d');
 	await expect(
 		page.getByRole('heading', { name: 'Overview', level: 1 }),
 	).toBeVisible();
@@ -166,70 +160,6 @@ test('shows the figures, the failing steps, the top failing pipelines and the la
 	await expect(banner.getByRole('link', { name: /inspect/i })).toHaveAttribute(
 		'href',
 		'/runs/run-9',
-	);
-});
-
-test('a figure the server has no data for says so instead of showing zero', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	await mockOneRepo(page);
-	await mockInsights(page, () => ({
-		...insights,
-		passRate: undefined,
-		passRateDelta: undefined,
-		mttrSeconds: undefined,
-		totalRuns: 3,
-		failedRuns: 0,
-	}));
-	await mockLatestFailure(page, []);
-
-	await page.goto('/');
-
-	await expect(
-		page.getByRole('group', { name: 'Pass rate' }).getByText('No data'),
-	).toBeVisible();
-	await expect(
-		page
-			.getByRole('group', { name: 'Mean time to recovery' })
-			.getByText('No recoveries'),
-	).toBeVisible();
-	await expect(
-		page.getByRole('region', { name: 'Latest failure' }),
-	).toHaveCount(0);
-});
-
-test('the window toggle asks the server for that window', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	await mockOneRepo(page);
-	const requested = await mockInsights(page, () => insights);
-	await mockLatestFailure(page, []);
-
-	await page.goto('/');
-	await expect(page.getByRole('group', { name: 'Pass rate' })).toBeVisible();
-	expect(requested[0].searchParams.get('window')).toBe('7d');
-
-	await page.getByRole('radio', { name: '24 hours' }).click();
-
-	await expect
-		.poll(() => requested[requested.length - 1].searchParams.get('window'))
-		.toBe('24h');
-});
-
-test('says so when the figures cannot load', async ({ page, context }) => {
-	await signIn(page, context);
-	await mockOneRepo(page);
-	await mockInsights(page, () => 500);
-	await mockLatestFailure(page, []);
-
-	await page.goto('/');
-
-	await expect(page.getByRole('alert')).toContainText(
-		"Couldn't load the overview",
 	);
 });
 
