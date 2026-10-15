@@ -195,9 +195,14 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      # RELEASE_TOKEN here too, not only on the `gh` calls below: a push made
+      # with the default token starts no workflows, so replacing the branch of a
+      # refresh PR that is already open would leave its new head with no checks
+      # and strict required checks would keep it blocked for good.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.27.2"
@@ -231,7 +236,9 @@ jobs:
       # not start the workflows on main either (same reason as
       # release-auto-merge.yml, #145). The diff is only what the `git add`
       # above staged, docs/ and README.md, so it merges itself once its checks
-      # pass (#639).
+      # pass (#639). If main moves while it waits, the branch has to be brought
+      # up to date before the required checks pass again; auto-merge does not do
+      # that, and neither does this job.
       - if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}

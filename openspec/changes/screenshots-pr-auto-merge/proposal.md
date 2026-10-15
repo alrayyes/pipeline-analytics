@@ -10,8 +10,11 @@ for.
 
 ## What Changes
 
-- The job opens the pull request with `RELEASE_TOKEN`, as the release PR's
-  auto-merge already does, so its checks run.
+- The job checks out and opens the pull request with `RELEASE_TOKEN`, as the
+  release PR's auto-merge already does, so a push to the branch and a new PR
+  both start the checks. With the default token a refresh PR left open from an
+  earlier release would get a new head with no checks, and the required checks
+  would keep it blocked.
 - It then arms squash auto-merge on it, whether it opened the PR or found one
   already open.
 - The PR text says what it is, rather than asking for a manual review. The
@@ -26,3 +29,9 @@ for.
 ## Impact
 
 - `.github/workflows/release.yml`.
+
+## Known limit
+
+The repo requires branches to be up to date with `main` before they merge.
+Auto-merge does not update a branch, so a refresh PR that waits while `main`
+moves needs its branch updated, which this change does not do.
