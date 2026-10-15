@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.80.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.79.0...v0.80.0) (2026-10-15)
+
+
+### Features
+
+* **mcp:** add tools for the GitHub rate-limit status and the settings ([#642](https://github.com/alrayyes/pipeline-analytics/issues/642)) ([1b7ea2f](https://github.com/alrayyes/pipeline-analytics/commit/1b7ea2ff0b9fc386f956acb21fea3eec3049180e))
+
 ## [0.79.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.78.6...v0.79.0) (2026-10-15)
 
 
