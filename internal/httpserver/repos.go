@@ -76,12 +76,24 @@ func (h *reposHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writeJSON(w, http.StatusOK, toRepoListDTO(repos, hasMore))
+}
+
+// toRepoListDTO is the list endpoint's body, shared with the MCP list_repos
+// tool so both report a repo the same way, token masked.
+func toRepoListDTO(repos []ingestion.Repo, hasMore bool) repoListDTO {
 	dtos := make([]repoDTO, 0, len(repos))
 	for _, repo := range repos {
 		dtos = append(dtos, toRepoDTO(repo))
 	}
 
-	writeJSON(w, http.StatusOK, repoListDTO{Repos: dtos, HasMore: hasMore})
+	return repoListDTO{Repos: dtos, HasMore: hasMore}
+}
+
+// isTrackedForge reports whether forge names one of the forges a repo can be
+// tracked on, which the identifiers endpoint and its MCP tool both require.
+func isTrackedForge(forge string) bool {
+	return forge == string(ingestion.ForgeGitHub) || forge == string(ingestion.ForgeForgejo)
 }
 
 func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +170,7 @@ type repoIdentifiersDTO struct {
 
 func (h *reposHandler) identifiers(w http.ResponseWriter, r *http.Request) {
 	forge := r.URL.Query().Get("forge")
-	if forge != string(ingestion.ForgeGitHub) && forge != string(ingestion.ForgeForgejo) {
+	if !isTrackedForge(forge) {
 		writeError(w, http.StatusBadRequest, "invalid_query", "forge is required")
 
 		return
