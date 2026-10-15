@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.84.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.83.0...v0.84.0) (2026-10-15)
+
+
+### Features
+
+* **mcp:** add tools to register, discover and untrack repos ([#654](https://github.com/alrayyes/pipeline-analytics/issues/654)) ([06c5cec](https://github.com/alrayyes/pipeline-analytics/commit/06c5cec03292ba28aca0305bef298029abd36e35))
+
 ## [0.83.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.82.0...v0.83.0) (2026-10-15)
 
 
