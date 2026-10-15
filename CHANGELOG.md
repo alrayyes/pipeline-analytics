@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.83.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.82.0...v0.83.0) (2026-10-15)
+
+
+### Features
+
+* **mcp:** add tools to quarantine and un-quarantine a flaky step ([#648](https://github.com/alrayyes/pipeline-analytics/issues/648)) ([6b5dc3c](https://github.com/alrayyes/pipeline-analytics/commit/6b5dc3cd2d0ccd05e2951a47f41a2311664a8288))
+
 ## [0.82.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.81.0...v0.82.0) (2026-10-15)
 
 
