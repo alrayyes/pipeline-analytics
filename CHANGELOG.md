@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.85.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.84.0...v0.85.0) (2026-10-15)
+
+
+### Features
+
+* **mcp:** add a tool to update the account's settings ([#655](https://github.com/alrayyes/pipeline-analytics/issues/655)) ([b5b7fcf](https://github.com/alrayyes/pipeline-analytics/commit/b5b7fcf9e675a80242044a90fcf3de09bdfd5600))
+
 ## [0.84.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.83.0...v0.84.0) (2026-10-15)
 
 
