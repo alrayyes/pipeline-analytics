@@ -29,12 +29,16 @@ export function radio(name: string): HTMLElement {
 	return found;
 }
 
+// The fetch in place when this module loads, before any fake. Captured once, so
+// a test that calls fakeNetwork in every beforeEach restores the real one at the
+// end and not the previous test's fake.
+const realFetch = globalThis.fetch;
+
 // Replaces fetch with a fake that records every URL it is asked for and answers
 // from `answer`; a URL it returns nothing for gets an empty object. `restore`
 // puts the real one back.
 export function fakeNetwork(answer: (url: URL) => Response | undefined) {
 	const requested: URL[] = [];
-	const real = globalThis.fetch;
 
 	globalThis.fetch = (async (input: RequestInfo | URL) => {
 		const url = new URL(String(input), 'http://localhost');
@@ -46,7 +50,7 @@ export function fakeNetwork(answer: (url: URL) => Response | undefined) {
 	return {
 		requested,
 		restore: () => {
-			globalThis.fetch = real;
+			globalThis.fetch = realFetch;
 		},
 	};
 }
