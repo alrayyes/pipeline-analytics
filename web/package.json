@@ -20,8 +20,8 @@
 		"lint:tailwind": "oxlint",
 		"prepare": "svelte-kit sync || echo ''",
 		"preview": "vite preview",
-		"test": "bun test --isolate",
-		"test:coverage": "bun test --isolate --coverage --coverage-reporter=text --coverage-reporter=lcov --reporter=junit --reporter-outfile=junit.xml",
+		"test": "bun test --isolate --conditions browser",
+		"test:coverage": "bun test --isolate --conditions browser --coverage --coverage-reporter=text --coverage-reporter=lcov --reporter=junit --reporter-outfile=junit.xml",
 		"test:e2e": "playwright test",
 		"test:mutation": "stryker run"
 	},
@@ -55,6 +55,7 @@
 		"@axe-core/playwright": "4.13.0",
 		"@biomejs/biome": "2.5.15",
 		"@fontsource-variable/inter": "5.3.0",
+		"@happy-dom/global-registrator": "21.0.1",
 		"@hughescr/stryker-bun-runner": "1.4.0",
 		"@internationalized/date": "3.12.4",
 		"@lhci/cli": "0.15.1",

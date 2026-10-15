@@ -4,5 +4,5 @@
 
 ## Test plan
 
-- [ ] `go test ./...` / `bun test` passes
+- [ ] `go test ./...` / `bun run test` passes
 - [ ] Manually verified against the linked issue's acceptance criteria

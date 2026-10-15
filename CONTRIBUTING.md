@@ -72,7 +72,7 @@ Frontend (from `web/`):
 ```sh
 bun run check          # svelte-check
 bun run lint           # biome
-bun run test           # unit tests (bun:test)
+bun run test           # unit and component tests (bun:test)
 bun run test:coverage  # same, plus a coverage report and `junit.xml`
 bun run test:mutation  # mutation testing (Stryker), fails on a surviving mutant
 bun run build
@@ -80,6 +80,14 @@ bun audit
 bun run test:e2e        # Playwright, builds the real binary and runs against it
 ./scripts/lighthouse.sh # Lighthouse CI on /login and the signed-in pages, builds the real binary too
 ```
+
+A component test (`*.dom.test.ts`, next to the page it covers) mounts the real page in a
+happy-dom document and fakes the network, so a page's own wiring (what a control asks the
+server for, what it shows when there is nothing or the request fails) is checked in
+milliseconds instead of through a browser. A test file opts in by importing
+`test/dom.ts` first; the others run without a `window`. The suite runs with Bun's
+`browser` export condition, which Svelte needs to mount. Playwright keeps one journey per
+flow, which proves the wiring against the real server once.
 
 `test:mutation` runs against
 [`@hughescr/stryker-bun-runner`](https://github.com/hughescr/stryker-bun-runner),

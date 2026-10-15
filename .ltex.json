@@ -17,6 +17,7 @@
 			"OpenSpec",
 			"Forgejo",
 			"SvelteKit",
+			"happy-dom",
 			"shadcn-svelte",
 			"LayerChart",
 			"sqlite",
