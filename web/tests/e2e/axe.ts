@@ -38,3 +38,39 @@ export async function expectNoViolations(page: Page): Promise<void> {
 
 	expect(results.violations).toEqual([]);
 }
+
+// One page, both colour schemes: the page loads and signs in once, is scanned
+// in light, then reloaded in dark and scanned again. A scan per scheme is the
+// point, since contrast differs, but an isolated server and a sign-in per
+// scheme re-proved nothing (testing.md, "one journey per flow"). The reload is
+// there because the scheme is applied when the page loads. Also checks the
+// page fits the phone width the caller set. `ready` waits for the page's own
+// content, so neither scan runs on a half-rendered page.
+export async function expectFitsAndPassesAxeInBothSchemes(
+	page: Page,
+	ready: () => Promise<void>,
+): Promise<void> {
+	const root = page.locator('html');
+
+	await expect(page).toHaveTitle(/.+/, { timeout: 15_000 });
+	await expectFitsViewport(page);
+	await expect(root).not.toHaveClass(/dark/);
+	const light = await scanSettled(page);
+	expect(light.violations, 'light mode').toEqual([]);
+
+	await page.emulateMedia({ colorScheme: 'dark' });
+	await page.reload();
+	await ready();
+	await expect(page).toHaveTitle(/.+/, { timeout: 15_000 });
+	await expect(root).toHaveClass(/dark/);
+	await expectFitsViewport(page);
+	const dark = await scanSettled(page);
+	expect(dark.violations, 'dark mode').toEqual([]);
+}
+
+async function expectFitsViewport(page: Page): Promise<void> {
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - window.innerWidth,
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+}

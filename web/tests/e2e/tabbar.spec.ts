@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test';
-import { scanSettled } from './axe.js';
+import { expectFitsAndPassesAxeInBothSchemes } from './axe.js';
 import { expect, test } from './fixtures.js';
 
 // A CDP virtual authenticator stands in for a passkey device, as in
@@ -129,26 +129,21 @@ test('there is no tab bar on the login page', async ({ page }) => {
 	).toHaveCount(0);
 });
 
-for (const scheme of ['light', 'dark'] as const) {
-	test(`the tab bar passes axe and fits a phone in ${scheme} mode`, async ({
-		page,
-		context,
-	}) => {
-		await signIn(page, context);
-		await mockOneRepo(page);
-		await page.setViewportSize(PHONE);
-		await page.emulateMedia({ colorScheme: scheme });
-		await page.goto('/');
+test('the tab bar passes axe and fits a phone in light and dark mode', async ({
+	page,
+	context,
+}) => {
+	await signIn(page, context);
+	await mockOneRepo(page);
+	await page.setViewportSize(PHONE);
+	await page.goto('/');
+	await expect(
+		page.getByRole('navigation', { name: 'Main views' }),
+	).toBeVisible();
+
+	await expectFitsAndPassesAxeInBothSchemes(page, async () => {
 		await expect(
 			page.getByRole('navigation', { name: 'Main views' }),
 		).toBeVisible();
-
-		const overflow = await page.evaluate(
-			() => document.documentElement.scrollWidth - window.innerWidth,
-		);
-		expect(overflow).toBeLessThanOrEqual(0);
-
-		const scan = await scanSettled(page);
-		expect(scan.violations).toEqual([]);
 	});
-}
+});
