@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import { onMount } from 'svelte';
 import { revealInBatches } from '#lib/batches.js';
 import type { Release } from '#lib/changelog.js';
+import { Button } from '#lib/components/ui/button/index.js';
 import {
 	Card,
 	CardContent,
@@ -24,6 +25,11 @@ let failed = $state(false);
 // one go was a 660 ms task for 98 releases and dropped Lighthouse's
 // total-blocking-time score (#522), so they render a few at a time.
 let shown = $state(0);
+// How many of them the list may show. Every release is 114 cards and about
+// 2,500 elements, which Lighthouse's dom-size flags (#618), so the page opens
+// on the newest few and the rest come on request.
+const PAGE_SIZE = 20;
+let limit = $state(PAGE_SIZE);
 
 onMount(() => {
 	let cancel = () => {};
@@ -80,7 +86,7 @@ function renderBody(body: string): string {
 		<p class="mt-6 text-muted-foreground">No releases yet.</p>
 	{:else}
 		<ul class="mt-6 grid gap-3">
-			{#each releases.slice(0, shown) as release (release.tag)}
+			{#each releases.slice(0, Math.min(shown, limit)) as release (release.tag)}
 				<li>
 					<Card size="sm">
 						<CardHeader class="flex flex-row items-center justify-between">
@@ -121,5 +127,14 @@ function renderBody(body: string): string {
 				</li>
 			{/each}
 		</ul>
+		{#if releases.length > limit}
+			<Button
+				variant="outline"
+				class="mt-6"
+				onclick={() => (limit += PAGE_SIZE)}
+			>
+				Show older releases ({releases.length - limit} more)
+			</Button>
+		{/if}
 	{/if}
 </main>

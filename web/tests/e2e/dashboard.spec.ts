@@ -1197,9 +1197,19 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 			.getByRole('link', { name: '0.56.1', exact: true }),
 	).toHaveCount(0);
 	await expect(page.getByRole('contentinfo').getByText('0.56.1')).toBeVisible();
+	// The list opens with the newest 20 releases, not all of them: rendering
+	// every release was a 2,500-element page (#618). Older ones come on request.
+	const releaseHeadings = page
+		.getByRole('main')
+		.getByRole('heading', { level: 2 });
+	await expect(releaseHeadings).toHaveCount(20);
+	await page.getByRole('button', { name: /show older releases/i }).click();
+	await expect(releaseHeadings).toHaveCount(40);
 	// v0.10.0 is real history: its changelog section has a "Features" list
-	// with a #61 link. The page lists every release, so locators that match
-	// once per release take the first.
+	// with a #61 link. Keep asking for older releases until it appears; the
+	// button goes once there are no more, so this cannot loop forever.
+	const older = page.getByRole('button', { name: /show older releases/i });
+	while (await older.isVisible()) await older.click();
 	await expect(
 		page.getByRole('heading', { name: 'v0.10.0', exact: true }),
 	).toBeVisible();
