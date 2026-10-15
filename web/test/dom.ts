@@ -7,6 +7,6 @@ import { GlobalRegistrator } from '@happy-dom/global-registrator';
 // for the modules that check for one.
 GlobalRegistrator.register({ url: 'http://localhost/' });
 
-export function removeDom(): void {
-	void GlobalRegistrator.unregister();
+export function removeDom(): Promise<void> {
+	return GlobalRegistrator.unregister();
 }

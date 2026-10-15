@@ -26,6 +26,7 @@ const insights = {
 	failureGroups: [],
 };
 
+const realFetch = globalThis.fetch;
 let requested: URL[];
 let respond: (url: URL) => Response;
 let app: ReturnType<typeof mount> | undefined;
@@ -74,7 +75,10 @@ afterEach(() => {
 	document.body.innerHTML = '';
 });
 
-afterAll(removeDom);
+afterAll(async () => {
+	globalThis.fetch = realFetch;
+	await removeDom();
+});
 
 async function open(): Promise<void> {
 	app = mount(Page, { target: document.body });
@@ -115,9 +119,34 @@ describe('Failures page', () => {
 		await open();
 
 		expect(document.body.textContent).toContain('No failures in this window.');
+		expect(document.querySelector('#failure-categories-heading')).toBeNull();
+	});
+
+	test('shows the category breakdown when something failed', async () => {
+		respond = () =>
+			json({
+				...insights,
+				failedRuns: 2,
+				categoryBreakdown: [
+					{ category: 'code_tests', occurrences: 2, share: 1 },
+				],
+				failureGroups: [
+					{
+						step: 'Run unit tests',
+						category: 'code_tests',
+						occurrences: 2,
+						pipelines: [{ pipelineId: 'p1', pipelineName: 'api-gateway' }],
+					},
+				],
+			});
+
+		await open();
+
+		// The same element the empty state asserts is absent, so that assertion
+		// is looking at something that really does appear.
 		expect(
-			document.querySelector('[aria-label="Failure categories"]'),
-		).toBeNull();
+			document.querySelector('#failure-categories-heading'),
+		).not.toBeNull();
 	});
 
 	test('says so when the figures cannot load', async () => {
