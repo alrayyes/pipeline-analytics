@@ -43,10 +43,16 @@ func requireSessionAuth(w http.ResponseWriter, r *http.Request) bool {
 
 // requireViaSession answers 401 unless the request came from a session, saying
 // what the session is needed to do.
+// sessionRequiredMessage is what a caller with no session is told when it tries
+// to do something that needs one, on the endpoints and through the MCP tools.
+func sessionRequiredMessage(to string) string {
+	return "a session is required to " + to
+}
+
 func requireViaSession(w http.ResponseWriter, r *http.Request, to string) bool {
 	info, ok := authInfoFromContext(r)
 	if !ok || !info.ViaSession {
-		writeError(w, http.StatusUnauthorized, "unauthenticated", "a session is required to "+to)
+		writeError(w, http.StatusUnauthorized, "unauthenticated", sessionRequiredMessage(to))
 
 		return false
 	}

@@ -23,16 +23,12 @@ func (h *runActionsHandler) cancel(w http.ResponseWriter, r *http.Request) {
 	h.do(w, r, h.service.Cancel)
 }
 
-// sessionRequiredMessage is what a caller with no session is told, on the
-// endpoint and through the MCP tools alike.
-const sessionRequiredMessage = "a session is required to act on a run"
-
 // do runs one action. Session-only: an API token gets a 401, because this
 // writes to the forge and an agent doesn't get that.
 func (h *runActionsHandler) do(w http.ResponseWriter, r *http.Request, act func(context.Context, string) error) {
 	info, ok := authInfoFromContext(r)
 	if !ok || !info.ViaSession {
-		writeError(w, http.StatusUnauthorized, "unauthenticated", sessionRequiredMessage)
+		writeError(w, http.StatusUnauthorized, "unauthenticated", sessionRequiredMessage("act on a run"))
 
 		return
 	}
