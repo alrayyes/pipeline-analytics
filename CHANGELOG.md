@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.82.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.81.0...v0.82.0) (2026-10-15)
+
+
+### Features
+
+* **web:** add WebMCP tools for the reads the dashboard already fetches ([#631](https://github.com/alrayyes/pipeline-analytics/issues/631)) ([e670154](https://github.com/alrayyes/pipeline-analytics/commit/e6701547a43cc5091c3fd6d7a769acd3c85249b9))
+
 ## [0.81.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.80.0...v0.81.0) (2026-10-15)
 
 
