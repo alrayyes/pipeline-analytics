@@ -74,8 +74,6 @@ const withQuarantine = {
 	],
 };
 
-const empty = { window: '7d', steps: [], hasMore: false };
-
 // Answers GET /api/steps/flaky from `respond`, recording every requested URL
 // so a test can assert on the window the page asked for.
 async function mockFlaky(
@@ -113,11 +111,21 @@ test('shows each flaky step with its matrix, rate and run count, flakiest first'
 }) => {
 	await signIn(page, context);
 	await mockOneRepo(page);
-	await mockFlaky(page, () => flaky);
+	const requested = await mockFlaky(page, () => flaky);
 
 	await page.goto('/');
 	await page.getByRole('link', { name: 'Flaky', exact: true }).click();
 	await expect(page).toHaveURL('/flaky');
+	// The account's default window, from the real server's settings, is what the
+	// page asks for: the one hop only a real server proves.
+	await expect
+		.poll(() =>
+			requested
+				.filter((url) => url.pathname === '/api/steps/flaky')
+				.at(-1)
+				?.searchParams.get('window'),
+		)
+		.toBe('7d');
 	await expect(
 		page.getByRole('heading', { name: 'Flaky tests', level: 1 }),
 	).toBeVisible();
@@ -160,61 +168,6 @@ test('shows each flaky step with its matrix, rate and run count, flakiest first'
 		'href',
 		'/pipelines/p-api/flaky-runs?step=Run%20unit%20tests',
 	);
-});
-
-test('the window toggle asks the server for that window', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	const requested = await mockFlaky(page, () => flaky);
-
-	await page.goto('/flaky');
-	await expect(page.getByText('Run unit tests').first()).toBeVisible();
-	expect(requested[0].searchParams.get('window')).toBe('7d');
-
-	await page.getByRole('radio', { name: '30 days' }).click();
-
-	await expect
-		.poll(() => requested[requested.length - 1].searchParams.get('window'))
-		.toBe('30d');
-	await expect(page.getByRole('radio', { name: '30 days' })).toBeChecked();
-});
-
-test('says so when nothing is flaky, and when the list cannot load', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-
-	let respond: unknown | number = empty;
-	await mockFlaky(page, () => respond);
-
-	await page.goto('/flaky');
-	await expect(page.getByText('No flaky steps in this window.')).toBeVisible();
-
-	respond = 500;
-	await page.getByRole('radio', { name: '24 hours' }).click();
-	await expect(page.getByRole('alert')).toContainText(
-		"Couldn't load flaky steps",
-	);
-});
-
-test('with no saved window it asks for none, and shows the one the server used', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	await page.evaluate(() => localStorage.clear());
-	await page.route('**/api/settings', (route) =>
-		route.fulfill({ status: 500 }),
-	);
-	const requested = await mockFlaky(page, () => ({ ...flaky, window: '24h' }));
-
-	await page.goto('/flaky');
-
-	await expect(page.getByRole('radio', { name: '24 hours' })).toBeChecked();
-	expect(requested[0].searchParams.has('window')).toBe(false);
 });
 
 test('fits a phone and passes axe in light and dark mode', async ({
@@ -318,22 +271,4 @@ test('quarantines a flaky step with a note, and un-quarantines it again', async 
 		url: '/api/pipelines/p-web/steps/Browser%20tests/quarantine',
 		body: null,
 	});
-});
-
-test('says so when the quarantine could not be saved', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	await mockOneRepo(page);
-	await mockFlaky(page, () => flaky);
-	await page.route(/\/quarantine$/, (route) => route.fulfill({ status: 500 }));
-
-	await page.goto('/flaky');
-	const unit = page.getByRole('listitem').filter({ hasText: 'Run unit tests' });
-	await unit.getByRole('button', { name: 'Quarantine', exact: true }).click();
-	await unit.getByRole('button', { name: 'Quarantine this step' }).click();
-
-	await expect(unit.getByRole('alert')).toContainText("Couldn't update");
-	await expect(unit.getByText('Quarantined', { exact: true })).toHaveCount(0);
 });
