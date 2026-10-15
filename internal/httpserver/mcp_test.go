@@ -182,6 +182,9 @@ func TestMCPToolsList(t *testing.T) {
 		"get_job_log",
 		"list_flaky_steps",
 		"list_branches",
+		"get_version",
+		"list_repos",
+		"list_repo_identifiers",
 	}, names, "tool list must be exactly the read tools, no write tool")
 }
 
@@ -547,4 +550,93 @@ func TestMCPListFlakySteps(t *testing.T) {
 	require.Equal(t, "test", got.Steps[0].Name)
 	require.Equal(t, 3, got.Steps[0].RunCount)
 	require.Equal(t, []string{"passed", "failed", "passed"}, got.Steps[0].RecentOutcomes)
+}
+
+func TestMCPGetVersion(t *testing.T) {
+	t.Parallel()
+
+	session := connectMCP(t, newTestServer(t, nil))
+
+	got := callTool[map[string]any](t, session, "get_version", nil)
+
+	require.Equal(t, "test-version", got["version"])
+}
+
+func TestMCPListRepos(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	repoID := seedRepo(t, srv)
+	session := connectMCP(t, srv)
+
+	t.Run("lists the tracked repos with the token masked", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[struct {
+			Repos   []map[string]any `json:"repos"`
+			HasMore bool             `json:"hasMore"`
+		}](t, session, "list_repos", nil)
+
+		require.Len(t, got.Repos, 1)
+		require.Equal(t, repoID, got.Repos[0]["id"])
+		require.NotContains(t, got.Repos[0]["tokenMasked"], "supersecret")
+	})
+
+	t.Run("a forge filter that matches nothing returns no repos", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[struct {
+			Repos []map[string]any `json:"repos"`
+		}](t, session, "list_repos", map[string]any{"forge": "forgejo"})
+
+		require.Empty(t, got.Repos)
+	})
+
+	t.Run("limit pages the list and reports whether more follow", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[struct {
+			Repos   []map[string]any `json:"repos"`
+			HasMore bool             `json:"hasMore"`
+		}](t, session, "list_repos", map[string]any{"limit": 1})
+
+		require.Len(t, got.Repos, 1)
+		require.False(t, got.HasMore)
+	})
+}
+
+func TestMCPListRepoIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	seedRepo(t, srv)
+	session := connectMCP(t, srv)
+
+	t.Run("lists a forge's tracked identifiers", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[struct {
+			Identifiers []string `json:"identifiers"`
+		}](t, session, "list_repo_identifiers", map[string]any{"forge": "github"})
+
+		require.Equal(t, []string{"alrayyes/pipeline-analytics"}, got.Identifiers)
+	})
+
+	t.Run("a forge is required, as on the endpoint", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "list_repo_identifiers", Arguments: map[string]any{}})
+		if err == nil {
+			require.True(t, res.IsError, "a missing forge must be rejected")
+		}
+	})
+
+	t.Run("an unknown forge is rejected, as on the endpoint", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "list_repo_identifiers", Arguments: map[string]any{"forge": "gitlab"}})
+		if err == nil {
+			require.True(t, res.IsError, "an unknown forge must be rejected")
+		}
+	})
 }
