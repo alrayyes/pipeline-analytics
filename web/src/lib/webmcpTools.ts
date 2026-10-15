@@ -39,6 +39,17 @@ function scope(input: Record<string, unknown>) {
 	};
 }
 
+// A missing required argument is an error the agent can read, not the string
+// "undefined" sent to the server, which answers an empty list or a 404.
+function required(input: Record<string, unknown>, key: string): string {
+	const value = input[key];
+	if (typeof value !== 'string' || value === '') {
+		throw new Error(`${key} is required`);
+	}
+
+	return value;
+}
+
 function textResult(data: unknown) {
 	return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] };
 }
@@ -176,7 +187,7 @@ export function registerWebMCPTools(
 		description:
 			"Get one run's steps with their outcomes and, for a failed step, its job id for get_job_log.",
 		execute: async (input) =>
-			textResult(await fetchRunSteps(input.runId as string)),
+			textResult(await fetchRunSteps(required(input, 'runId'))),
 	});
 
 	modelContext.registerTool({
@@ -185,9 +196,9 @@ export function registerWebMCPTools(
 			'List the runs in which one step of a pipeline flaked, to open them with get_run_steps.',
 		execute: async (input) =>
 			textResult(
-				await fetchFlakyRuns(input.pipelineId as string, {
-					step: input.step as string,
-					window: input.window as InsightsWindow | undefined,
+				await fetchFlakyRuns(required(input, 'pipelineId'), {
+					step: required(input, 'step'),
+					window: typeof input.window === 'string' ? input.window : undefined,
 				}),
 			),
 	});
@@ -199,7 +210,7 @@ export function registerWebMCPTools(
 		execute: async (input) =>
 			textResult(
 				await fetchUnhealthySteps({
-					window: input.window as InsightsWindow | undefined,
+					window: typeof input.window === 'string' ? input.window : undefined,
 					limit: typeof input.limit === 'number' ? input.limit : undefined,
 					offset: typeof input.offset === 'number' ? input.offset : undefined,
 				}),

@@ -14,7 +14,7 @@ import { fakeNetwork, json, settle } from '../../../../test/page.js';
 
 // The run page against a fake network: what it asks for, and what it says for a
 // run that is found, missing, failed to load or unreachable. The page and the
-// run_steps WebMCP tool share one fetch function, so this is what keeps the
+// get_run_steps WebMCP tool share one fetch function, so this is what keeps the
 // page's messages as they were.
 
 mock.module('$app/state', () => ({

@@ -495,7 +495,8 @@ export interface FlakyRun {
 export interface FlakyRunsParams {
 	step: string;
 	// Omit to let the server use its default window.
-	window?: InsightsWindow;
+	// A trailing run count, not a time window.
+	window?: string;
 }
 
 // The runs in which a pipeline's step flaked. A failed response throws an
@@ -530,7 +531,8 @@ export interface UnhealthyStepsList {
 
 export interface UnhealthyStepsParams {
 	// Omit to let the server use its default window.
-	window?: InsightsWindow;
+	// A trailing run count, not a time window.
+	window?: string;
 	limit?: number;
 	offset?: number;
 }

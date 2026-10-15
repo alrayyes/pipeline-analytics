@@ -235,6 +235,26 @@ describe('read tools', () => {
 		});
 	}
 
+	const missing: [string, Record<string, unknown>, string][] = [
+		['get_run_steps', {}, 'runId'],
+		['list_pipeline_flaky_runs', { step: 'unit' }, 'pipelineId'],
+		['list_pipeline_flaky_runs', { pipelineId: 'p1' }, 'step'],
+		['list_pipeline_flaky_runs', { pipelineId: 'p1', step: '' }, 'step'],
+	];
+
+	for (const [name, input, key] of missing) {
+		test(`${name} says ${key} is required instead of sending "undefined"`, async () => {
+			const registerTool = newRegisterToolMock();
+			registerWebMCPTools({ registerTool });
+
+			await expect(
+				findTool(registerTool, name).execute(input, {
+					signal: new AbortController().signal,
+				}),
+			).rejects.toThrow(`${key} is required`);
+		});
+	}
+
 	test('list_runs asks for the first 20 when no paging is given', async () => {
 		const registerTool = newRegisterToolMock();
 		registerWebMCPTools({ registerTool });
