@@ -104,6 +104,8 @@ the filter doesn't define.
 
 The system SHALL audit the login page and the pages behind the passkey with
 Lighthouse in CI, as the page itself and not as a redirect to the login page.
+The audit covers accessibility, best practices and performance, and not SEO,
+because the service is internal, and every page is `noindex`.
 
 #### Scenario: Every page has a report
 
@@ -113,8 +115,8 @@ Lighthouse in CI, as the page itself and not as a redirect to the login page.
 
 #### Scenario: A signed-in page below a threshold
 
-- **WHEN** a signed-in page scores below the accessibility, best-practices or
-  SEO threshold
+- **WHEN** a signed-in page scores below the accessibility or best-practices
+  threshold
 - **THEN** the job fails, and a performance score below its threshold only
   warns
 
@@ -122,6 +124,11 @@ Lighthouse in CI, as the page itself and not as a redirect to the login page.
 
 - **WHEN** a page's report ended on a different URL than the one requested
 - **THEN** the job fails
+
+#### Scenario: No SEO score
+
+- **WHEN** the lighthouse job finishes
+- **THEN** its reports hold no SEO category
 
 ### Requirement: Checks run only when the files they cover change
 
@@ -256,3 +263,61 @@ deployment.
 
 - **WHEN** the list still doesn't name `github-pages` after a minute
 - **THEN** the job fails and its log says the artifact is missing
+
+### Requirement: CI tools run on the bun version CI pins
+
+The system SHALL keep each frontend dev tool at a release that runs on the bun
+version the CI jobs pin, and SHALL stop Dependabot from proposing a release
+that needs a newer bun.
+
+#### Scenario: A web change runs the mutation job
+
+- **WHEN** a pull request changes a file under `web/`
+- **THEN** the mutation job starts Stryker and ends on its mutation score, not
+  on a bun version check
+
+#### Scenario: A tool release needs a newer bun
+
+- **WHEN** a release of `@hughescr/stryker-bun-runner` needs bun 1.4 or newer
+- **THEN** Dependabot does not propose it while CI pins bun 1.3
+
+### Requirement: The screenshot refresh pull request merges itself on green
+
+The system SHALL open the README screenshot refresh pull request so that its
+checks run, and SHALL arm auto-merge on it, so it merges once those checks
+pass and not before. The pull request SHALL change only `docs/` and
+`README.md`.
+
+#### Scenario: A release changes the UI
+
+- **WHEN** a release changes what the screenshots show
+- **THEN** a pull request holding the new screenshots is opened, its checks
+  run, and it merges once they pass
+
+#### Scenario: A release does not change the UI
+
+- **WHEN** the screenshots and the README section regenerate unchanged
+- **THEN** no pull request is opened
+
+#### Scenario: A pull request is already open
+
+- **WHEN** an earlier refresh pull request is still open at the next release
+- **THEN** its branch is replaced with the new screenshots and auto-merge is
+  armed on it again
+
+### Requirement: One end-to-end journey scans both color schemes
+
+The system SHALL scan a page with axe in light and in dark from one end-to-end
+journey, rather than repeating the sign-in and page load once per scheme.
+
+#### Scenario: Both schemes are scanned
+
+- **WHEN** the end-to-end suite runs an accessibility journey for a page
+- **THEN** the page is scanned in light mode and again in dark mode, and a
+  violation in either fails the test naming the scheme
+
+#### Scenario: The dark scan is really dark
+
+- **WHEN** the journey scans in dark mode
+- **THEN** the page's `dark` class is set before the scan, so the scan cannot
+  silently repeat the light one
