@@ -118,14 +118,7 @@ test('shows each flaky step with its matrix, rate and run count, flakiest first'
 	await expect(page).toHaveURL('/flaky');
 	// The account's default window, from the real server's settings, is what the
 	// page asks for: the one hop only a real server proves.
-	await expect
-		.poll(() =>
-			requested
-				.filter((url) => url.pathname === '/api/steps/flaky')
-				.at(-1)
-				?.searchParams.get('window'),
-		)
-		.toBe('7d');
+	await expect.poll(() => requested[0]?.searchParams.get('window')).toBe('7d');
 	await expect(
 		page.getByRole('heading', { name: 'Flaky tests', level: 1 }),
 	).toBeVisible();
