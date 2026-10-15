@@ -90,13 +90,21 @@ func (h *quarantineHandler) unquarantine(w http.ResponseWriter, r *http.Request)
 }
 
 func writeQuarantineError(w http.ResponseWriter, err error) {
+	status, code, message := classifyQuarantineError(err)
+	writeError(w, status, code, message)
+}
+
+// classifyQuarantineError is how a failed quarantine write is reported: the
+// status, code and message the endpoints answer with, which the MCP tools put
+// in their error text.
+func classifyQuarantineError(err error) (status int, code, message string) {
 	switch {
 	case errors.Is(err, metrics.ErrPipelineNotFound), errors.Is(err, metrics.ErrInvalidPipelineID):
-		writeError(w, http.StatusNotFound, "not_found", "pipeline not found")
+		return http.StatusNotFound, "not_found", "pipeline not found"
 	case errors.Is(err, metrics.ErrQuarantineNoteTooLong):
-		writeError(w, http.StatusUnprocessableEntity, "note_too_long", "a note is at most 500 characters")
+		return http.StatusUnprocessableEntity, "note_too_long", "a note is at most 500 characters"
 	default:
-		writeError(w, http.StatusInternalServerError, "internal_error", "update quarantine")
+		return http.StatusInternalServerError, "internal_error", "update quarantine"
 	}
 }
 

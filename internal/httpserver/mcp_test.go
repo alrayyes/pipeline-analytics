@@ -212,6 +212,8 @@ func TestMCPToolsList(t *testing.T) {
 		"get_settings",
 		"rerun_run",
 		"cancel_run",
+		"quarantine_step",
+		"unquarantine_step",
 	}, names, "tool list must be exactly the declared tools")
 }
 

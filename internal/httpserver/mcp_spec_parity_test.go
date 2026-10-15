@@ -2,6 +2,7 @@ package httpserver_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -39,6 +40,8 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "get_settings", operation: "getSettings", path: "/api/settings"},
 	{tool: "rerun_run", operation: "rerunRun", path: "/api/runs/{runId}/rerun"},
 	{tool: "cancel_run", operation: "cancelRun", path: "/api/runs/{runId}/cancel"},
+	{tool: "quarantine_step", operation: "quarantineStep", path: "/api/pipelines/{pipelineId}/steps/{step}/quarantine"},
+	{tool: "unquarantine_step", operation: "unquarantineStep", path: "/api/pipelines/{pipelineId}/steps/{step}/quarantine"},
 }
 
 // agentExcludedExtension is the openapi.yaml extension that takes an
@@ -52,12 +55,10 @@ const agentExcludedExtension = "x-agent-excluded"
 // deletes the list. "Nobody asked yet" is not an exclusion, so an operation
 // stays here only until its tool ships.
 var pendingMCPTools = map[string]bool{
-	"registerRepo":     true,
-	"discoverRepos":    true,
-	"untrackRepo":      true,
-	"quarantineStep":   true,
-	"unquarantineStep": true,
-	"updateSettings":   true,
+	"registerRepo":   true,
+	"discoverRepos":  true,
+	"untrackRepo":    true,
+	"updateSettings": true,
 }
 
 // TestEveryOperationHasAnMCPTool is the other half of
@@ -171,11 +172,11 @@ func operationByID(item *openapi3.PathItem, operationID string) *openapi3.Operat
 	return nil
 }
 
-// specQueryAndPathParams maps each of op's path/query parameter names to
-// whether it's required, per openapi.yaml -- what an MCP tool's input
-// schema for the same operation should match. Header/cookie parameters
-// aren't part of a tool's input (auth is handled outside the tool call),
-// so they're excluded.
+// specQueryAndPathParams maps each of op's path/query parameter names, and the
+// properties of its JSON request body, to whether it's required, per
+// openapi.yaml -- what an MCP tool's input schema for the same operation should
+// match. Header/cookie parameters aren't part of a tool's input (auth is
+// handled outside the tool call), so they're excluded.
 func specQueryAndPathParams(op *openapi3.Operation) map[string]bool {
 	params := make(map[string]bool, len(op.Parameters))
 
@@ -186,6 +187,20 @@ func specQueryAndPathParams(op *openapi3.Operation) map[string]bool {
 		}
 
 		params[p.Name] = p.Required
+	}
+
+	if op.RequestBody == nil || op.RequestBody.Value == nil {
+		return params
+	}
+
+	media := op.RequestBody.Value.Content.Get("application/json")
+	if media == nil || media.Schema == nil || media.Schema.Value == nil {
+		return params
+	}
+
+	body := media.Schema.Value
+	for name := range body.Properties {
+		params[name] = slices.Contains(body.Required, name)
 	}
 
 	return params
