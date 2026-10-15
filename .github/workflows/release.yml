@@ -224,11 +224,17 @@ jobs:
           fi
       # Opens a PR rather than pushing to main directly -- this isn't the
       # release job's version/CHANGELOG.md push exception, it's the normal
-      # "commit and push to a branch needs no separate ask" rule, and a
-      # screenshot diff is worth a human's eyes before it merges.
+      # "commit and push to a branch needs no separate ask" rule. The PR is
+      # opened and merged under RELEASE_TOKEN, not GITHUB_TOKEN: a PR opened
+      # with the default token starts none of the pull_request workflows, so
+      # auto-merge would have no checks to wait for, and a merge by it would
+      # not start the workflows on main either (same reason as
+      # release-auto-merge.yml, #145). The diff is only what the `git add`
+      # above staged, docs/ and README.md, so it merges itself once its checks
+      # pass (#639).
       - if: steps.diff.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -243,5 +249,6 @@ jobs:
           if [ "$(gh pr list --head docs/refresh-screenshots --state open --json number --jq length)" = "0" ]; then
             gh pr create --title "docs: refresh README screenshots" \
               --base main --head docs/refresh-screenshots \
-              --body "Automated screenshot refresh after ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag_name }}. Review the diff before merging."
+              --body "Automated screenshot refresh after ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag_name }}. Only docs/ and README.md change; it merges itself once its checks pass."
           fi
+          gh pr merge --auto --squash docs/refresh-screenshots
