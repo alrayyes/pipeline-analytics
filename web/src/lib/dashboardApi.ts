@@ -467,6 +467,94 @@ export async function fetchBranches(
 	return (await res.json()) as BranchList;
 }
 
+export interface RunDetail {
+	runId: string;
+	startedAt?: string;
+	steps: RunStep[];
+}
+
+// One run and its steps. A failed response throws an ApiError carrying the
+// status, so a page can tell a run that does not exist (404) from one that
+// could not be loaded.
+export async function fetchRunSteps(
+	runId: string,
+	fetchFn: typeof fetch = fetch,
+): Promise<RunDetail> {
+	const res = await fetchFn(`/api/runs/${encodeURIComponent(runId)}/steps`);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as RunDetail;
+}
+
+export interface FlakyRun {
+	runId: string;
+	startedAt?: string;
+	forgeUrl?: string;
+}
+
+export interface FlakyRunsParams {
+	step: string;
+	// Omit to let the server use its default window.
+	window?: InsightsWindow;
+}
+
+// The runs in which a pipeline's step flaked. A failed response throws an
+// ApiError carrying the status.
+export async function fetchFlakyRuns(
+	pipelineId: string,
+	params: FlakyRunsParams,
+	fetchFn: typeof fetch = fetch,
+): Promise<FlakyRun[]> {
+	const searchParams = new URLSearchParams({ step: params.step });
+	if (params.window) searchParams.set('window', params.window);
+
+	const res = await fetchFn(
+		`/api/pipelines/${encodeURIComponent(pipelineId)}/flaky-runs?${searchParams}`,
+	);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as FlakyRun[];
+}
+
+export interface PipelineStepsGroup {
+	pipelineId: string;
+	pipelineName: string;
+	repoId: string;
+	steps: Step[];
+}
+
+export interface UnhealthyStepsList {
+	groups: PipelineStepsGroup[];
+	hasMore: boolean;
+}
+
+export interface UnhealthyStepsParams {
+	// Omit to let the server use its default window.
+	window?: InsightsWindow;
+	limit?: number;
+	offset?: number;
+}
+
+// The pipelines with a flaky or failing step, grouped by pipeline.
+export async function fetchUnhealthySteps(
+	params: UnhealthyStepsParams,
+	fetchFn: typeof fetch = fetch,
+): Promise<UnhealthyStepsList> {
+	const searchParams = new URLSearchParams();
+	if (params.window) searchParams.set('window', params.window);
+	if (params.limit !== undefined)
+		searchParams.set('limit', String(params.limit));
+	if (params.offset !== undefined) {
+		searchParams.set('offset', String(params.offset));
+	}
+
+	const query = searchParams.size > 0 ? `?${searchParams}` : '';
+	const res = await fetchFn(`/api/steps/unhealthy${query}`);
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as UnhealthyStepsList;
+}
+
 function quarantineUrl(pipelineId: string, step: string): string {
 	return `/api/pipelines/${encodeURIComponent(pipelineId)}/steps/${encodeURIComponent(step)}/quarantine`;
 }

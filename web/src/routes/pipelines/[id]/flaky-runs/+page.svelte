@@ -14,13 +14,9 @@ import {
 	TableHeader,
 	TableRow,
 } from '#lib/components/ui/table/index.js';
+import { ApiError, type FlakyRun, fetchFlakyRuns } from '#lib/dashboardApi.js';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
-
-interface FlakyRun {
-	runId: string;
-	startedAt?: string;
-}
 
 let runs = $state<FlakyRun[] | null>(null);
 let notFound = $state(false);
@@ -33,24 +29,15 @@ async function load(step: string): Promise<void> {
 	runs = null;
 
 	try {
-		const res = await fetch(
-			`/api/pipelines/${page.params.id}/flaky-runs?step=${encodeURIComponent(step)}`,
-		);
-		if (res.status === 404) {
+		runs = await fetchFlakyRuns(page.params.id ?? '', { step });
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) {
 			notFound = true;
-
-			return;
-		}
-
-		if (!res.ok) {
+		} else if (e instanceof ApiError) {
 			error = 'Could not load flaky runs.';
-
-			return;
+		} else {
+			error = 'Could not reach the server.';
 		}
-
-		runs = await res.json();
-	} catch {
-		error = 'Could not reach the server.';
 	}
 }
 

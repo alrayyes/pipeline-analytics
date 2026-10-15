@@ -11,13 +11,16 @@
 import {
 	fetchBranches,
 	fetchFailureInsights,
+	fetchFlakyRuns,
 	fetchFlakySteps,
 	fetchJobLog,
 	fetchPipeline,
 	fetchPipelineSteps,
 	fetchPipelines,
 	fetchRepoUsage,
+	fetchRunSteps,
 	fetchRuns,
+	fetchUnhealthySteps,
 	type InsightsWindow,
 	type RunStatusFilter,
 } from './dashboardApi.js';
@@ -164,6 +167,41 @@ export function registerWebMCPTools(
 					window: input.window as InsightsWindow | undefined,
 					forge: input.forge as Forge | undefined,
 					repoId: input.repoId as string | undefined,
+				}),
+			),
+	});
+
+	modelContext.registerTool({
+		name: 'get_run_steps',
+		description:
+			"Get one run's steps with their outcomes and, for a failed step, its job id for get_job_log.",
+		execute: async (input) =>
+			textResult(await fetchRunSteps(input.runId as string)),
+	});
+
+	modelContext.registerTool({
+		name: 'list_pipeline_flaky_runs',
+		description:
+			'List the runs in which one step of a pipeline flaked, to open them with get_run_steps.',
+		execute: async (input) =>
+			textResult(
+				await fetchFlakyRuns(input.pipelineId as string, {
+					step: input.step as string,
+					window: input.window as InsightsWindow | undefined,
+				}),
+			),
+	});
+
+	modelContext.registerTool({
+		name: 'list_unhealthy_steps',
+		description:
+			'List the pipelines that have a flaky or failing step over a window, with those steps.',
+		execute: async (input) =>
+			textResult(
+				await fetchUnhealthySteps({
+					window: input.window as InsightsWindow | undefined,
+					limit: typeof input.limit === 'number' ? input.limit : undefined,
+					offset: typeof input.offset === 'number' ? input.offset : undefined,
 				}),
 			),
 	});

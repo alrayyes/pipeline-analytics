@@ -17,22 +17,8 @@ import {
 	TableHeader,
 	TableRow,
 } from '#lib/components/ui/table/index.js';
+import { ApiError, fetchRunSteps, type RunDetail } from '#lib/dashboardApi.js';
 import { page } from '$app/state';
-
-interface RunStep {
-	jobId?: string;
-	name: string;
-	status: string;
-	conclusion?: string;
-	outcome?: string;
-	forgeUrl?: string;
-}
-
-interface RunDetail {
-	runId: string;
-	startedAt?: string;
-	steps: RunStep[];
-}
 
 let detail = $state<RunDetail | null>(null);
 let notFound = $state(false);
@@ -58,22 +44,15 @@ const backLabel = $derived(
 
 async function load(): Promise<void> {
 	try {
-		const res = await fetch(`/api/runs/${page.params.id}/steps`);
-		if (res.status === 404) {
+		detail = await fetchRunSteps(page.params.id ?? '');
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) {
 			notFound = true;
-
-			return;
-		}
-
-		if (!res.ok) {
+		} else if (e instanceof ApiError) {
 			error = 'Could not load run.';
-
-			return;
+		} else {
+			error = 'Could not reach the server.';
 		}
-
-		detail = await res.json();
-	} catch {
-		error = 'Could not reach the server.';
 	}
 }
 

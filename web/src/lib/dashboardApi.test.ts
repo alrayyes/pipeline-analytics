@@ -6,6 +6,7 @@ import {
 	type FlakyStepList,
 	fetchBranches,
 	fetchFailureInsights,
+	fetchFlakyRuns,
 	fetchFlakySteps,
 	fetchJobLog,
 	fetchPipeline,
@@ -13,7 +14,9 @@ import {
 	fetchPipelines,
 	fetchRepos,
 	fetchRepoUsage,
+	fetchRunSteps,
 	fetchRuns,
+	fetchUnhealthySteps,
 	type PipelineDetail,
 	quarantineStep,
 	type RunSummary,
@@ -746,5 +749,93 @@ describe('unquarantineStep', () => {
 		await expect(
 			unquarantineStep('p1', 'test', fetchFn as typeof fetch),
 		).rejects.toMatchObject({ status: 401 });
+	});
+});
+
+// Records the URL a fetch function asks for and answers with `body`.
+function recording(body: unknown, status = 200) {
+	const seen: { url?: string } = {};
+	const fetchFn: FetchMock = (input) => {
+		seen.url = String(input);
+
+		return Promise.resolve(jsonResponse(body, status));
+	};
+
+	return { seen, fetchFn: fetchFn as typeof fetch };
+}
+
+describe('fetchRunSteps', () => {
+	test('calls GET /api/runs/{runId}/steps with the id escaped', async () => {
+		const { seen, fetchFn } = recording({ runId: 'a b', steps: [] });
+
+		await expect(fetchRunSteps('a b', fetchFn)).resolves.toEqual({
+			runId: 'a b',
+			steps: [],
+		});
+		expect(seen.url).toBe('/api/runs/a%20b/steps');
+	});
+
+	test('throws an ApiError carrying the status, so a page can tell a missing run', async () => {
+		const { fetchFn } = recording({ code: 'not_found' }, 404);
+
+		const failure = await fetchRunSteps('r', fetchFn).catch((e) => e);
+
+		expect(failure).toBeInstanceOf(ApiError);
+		expect((failure as ApiError).status).toBe(404);
+	});
+});
+
+describe('fetchFlakyRuns', () => {
+	test('calls GET /api/pipelines/{id}/flaky-runs with the step, both escaped', async () => {
+		const { seen, fetchFn } = recording([{ runId: 'r1' }]);
+
+		await expect(
+			fetchFlakyRuns('p 1', { step: 'Run unit tests' }, fetchFn),
+		).resolves.toEqual([{ runId: 'r1' }]);
+		expect(seen.url).toBe(
+			'/api/pipelines/p%201/flaky-runs?step=Run+unit+tests',
+		);
+	});
+
+	test('adds the window when one is given', async () => {
+		const { seen, fetchFn } = recording([]);
+
+		await fetchFlakyRuns('p1', { step: 'build', window: '30d' }, fetchFn);
+
+		expect(seen.url).toBe('/api/pipelines/p1/flaky-runs?step=build&window=30d');
+	});
+
+	test('throws an ApiError carrying the status', async () => {
+		const { fetchFn } = recording({}, 404);
+
+		const failure = await fetchFlakyRuns('p', { step: 's' }, fetchFn).catch(
+			(e) => e,
+		);
+
+		expect((failure as ApiError).status).toBe(404);
+	});
+});
+
+describe('fetchUnhealthySteps', () => {
+	test('calls GET /api/steps/unhealthy with no query when nothing is given', async () => {
+		const { seen, fetchFn } = recording({ groups: [], hasMore: false });
+
+		await fetchUnhealthySteps({}, fetchFn);
+
+		expect(seen.url).toBe('/api/steps/unhealthy');
+	});
+
+	test('sends the window and the paging it is given', async () => {
+		const { seen, fetchFn } = recording({ groups: [], hasMore: false });
+
+		await fetchUnhealthySteps({ window: '24h', limit: 5, offset: 10 }, fetchFn);
+
+		expect(seen.url).toBe('/api/steps/unhealthy?window=24h&limit=5&offset=10');
+	});
+
+	test('throws an ApiError on a failed response', async () => {
+		const { fetchFn } = recording({}, 500);
+
+		await expect(fetchUnhealthySteps({}, fetchFn)).rejects.toThrow(ApiError);
 	});
 });
