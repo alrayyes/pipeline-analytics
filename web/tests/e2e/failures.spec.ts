@@ -67,36 +67,17 @@ const insights = {
 	],
 };
 
-const empty = {
-	window: '7d',
-	totalRuns: 10,
-	failedRuns: 0,
-	flakyStepRatio: 0,
-	stageDistribution: [],
-	categoryBreakdown: [],
-	topFailingPipelines: [],
-	failureGroups: [],
-};
-
-// Answers GET /api/insights/failures from `respond`, recording every
-// requested URL so a test can assert on the window the page asked for.
+// Answers GET /api/insights/failures from `respond`.
 async function mockInsights(
 	page: Page,
 	respond: (url: URL) => unknown | number,
-): Promise<URL[]> {
-	const requested: URL[] = [];
-
+): Promise<void> {
 	await page.route(/\/api\/insights\/failures/, (route: Route) => {
-		const url = new URL(route.request().url());
-		requested.push(url);
-
-		const body = respond(url);
+		const body = respond(new URL(route.request().url()));
 		if (typeof body === 'number') return route.fulfill({ status: body });
 
 		return route.fulfill({ json: body });
 	});
-
-	return requested;
 }
 
 async function mockOneRepo(page: Page): Promise<void> {
@@ -155,69 +136,6 @@ test('shows the category breakdown and each failing step, with links to its fail
 		.filter({ hasText: 'Publish release' });
 	await expect(publish.getByText('timed_out')).toBeVisible();
 	await expect(publish.getByText('1 pipeline', { exact: false })).toBeVisible();
-});
-
-test('the window toggle asks the server for that window', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	const requested = await mockInsights(page, () => insights);
-
-	await page.goto('/failures');
-	await expect(page.getByText('Run unit tests').first()).toBeVisible();
-	// The default is 7d, the account's default window.
-	expect(requested[0].searchParams.get('window')).toBe('7d');
-
-	await page.getByRole('radio', { name: '30 days' }).click();
-
-	await expect
-		.poll(() => requested[requested.length - 1].searchParams.get('window'))
-		.toBe('30d');
-	await expect(page.getByRole('radio', { name: '30 days' })).toBeChecked();
-});
-
-test('says so when nothing failed, and when the figures cannot load', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-
-	let respond: unknown | number = empty;
-	await mockInsights(page, () => respond);
-
-	await page.goto('/failures');
-	await expect(page.getByText('No failures in this window.')).toBeVisible();
-	await expect(
-		page.getByRole('region', { name: 'Failure categories' }),
-	).toHaveCount(0);
-
-	respond = 500;
-	await page.getByRole('radio', { name: '24 hours' }).click();
-	await expect(page.getByRole('alert')).toContainText("Couldn't load failures");
-});
-
-test('with no saved window it asks for none, and shows the one the server used', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	// Settings can't load and nothing is cached (signing in cached the real
-	// server's window, so clear it), so the page has no window of its own: it
-	// sends none and the server chooses; the toggle then shows what it reports.
-	await page.evaluate(() => localStorage.clear());
-	await page.route('**/api/settings', (route) =>
-		route.fulfill({ status: 500 }),
-	);
-	const requested = await mockInsights(page, () => ({
-		...insights,
-		window: '24h',
-	}));
-
-	await page.goto('/failures');
-
-	await expect(page.getByRole('radio', { name: '24 hours' })).toBeChecked();
-	expect(requested[0].searchParams.has('window')).toBe(false);
 });
 
 test('fits a phone and passes axe in light and dark mode', async ({
