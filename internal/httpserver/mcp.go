@@ -36,6 +36,7 @@ type mcpHandler struct {
 	metrics *metrics.Service
 	repos   ingestion.Store
 	logs    *ingestion.JobLogService
+	version string
 }
 
 // newMCPHandler builds the Streamable HTTP handler for POST /api/mcp,
@@ -46,7 +47,7 @@ type mcpHandler struct {
 // would enable (there's nothing it pushes to a client unprompted), and
 // statelessness keeps a single-account, always-on server simple.
 func newMCPHandler(deps Deps) http.Handler {
-	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore, logs: deps.JobLogs}
+	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore, logs: deps.JobLogs, version: deps.Version}
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "pipeline-analytics",
@@ -89,6 +90,7 @@ func newMCPHandler(deps Deps) http.Handler {
 	}, h.getFailureInsights)
 
 	h.addRunTools(server)
+	h.addRepoTools(server)
 
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
