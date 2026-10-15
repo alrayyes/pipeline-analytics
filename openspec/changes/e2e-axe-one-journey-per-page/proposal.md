@@ -14,7 +14,8 @@ differs; the sign-in, server and page load per scheme go.
   once, scans in light, reloads in dark and scans again.
 - `overview`, `failures`, `flaky`, `runs`, `branch`, `tabbar` and `error-pages`
   call it from one test each, and the error pages keep one test per width.
-- 7 tests fewer on the 14 that looped, with the same 14 scans.
+- 16 tests become 8, with the same 16 scans: six pages looped over two schemes
+  and the error pages over two widths and two schemes.
 
 ## Capabilities
 
