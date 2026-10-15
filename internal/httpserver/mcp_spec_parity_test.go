@@ -42,6 +42,9 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "cancel_run", operation: "cancelRun", path: "/api/runs/{runId}/cancel"},
 	{tool: "quarantine_step", operation: "quarantineStep", path: "/api/pipelines/{pipelineId}/steps/{step}/quarantine"},
 	{tool: "unquarantine_step", operation: "unquarantineStep", path: "/api/pipelines/{pipelineId}/steps/{step}/quarantine"},
+	{tool: "register_repo", operation: "registerRepo", path: "/api/repos"},
+	{tool: "discover_repos", operation: "discoverRepos", path: "/api/repos/discover"},
+	{tool: "untrack_repo", operation: "untrackRepo", path: "/api/repos/{repoId}"},
 }
 
 // agentExcludedExtension is the openapi.yaml extension that takes an
@@ -55,9 +58,6 @@ const agentExcludedExtension = "x-agent-excluded"
 // deletes the list. "Nobody asked yet" is not an exclusion, so an operation
 // stays here only until its tool ships.
 var pendingMCPTools = map[string]bool{
-	"registerRepo":   true,
-	"discoverRepos":  true,
-	"untrackRepo":    true,
 	"updateSettings": true,
 }
 

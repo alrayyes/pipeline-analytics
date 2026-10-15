@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -137,28 +138,25 @@ func validForge(forge string) bool {
 	return forge == string(ingestion.ForgeGitHub) || forge == string(ingestion.ForgeForgejo)
 }
 
-// resolveToken is the token a registration or discovery request should use:
-// the one it carries, else the one saved for its forge and instance. When
-// neither exists it answers 400 no_saved_token itself.
-func resolveToken(w http.ResponseWriter, r *http.Request, tokens ingestion.ForgeTokenStore, forge, instanceURL, given string) (string, bool) {
+// givenOrSavedToken is the token a registration or discovery should use: the
+// one it carries, else the one saved for its forge and instance. When neither
+// exists it is a 400 no_saved_token. The repo endpoints and the MCP tools that
+// register or discover repos share it.
+func givenOrSavedToken(ctx context.Context, tokens ingestion.ForgeTokenStore, forge, instanceURL, given string) (string, *apiProblem) {
 	if given != "" {
-		return given, true
+		return given, nil
 	}
 
 	if tokens != nil {
-		token, err := tokens.ForgeToken(r.Context(), ingestion.Forge(forge), instanceURL)
+		token, err := tokens.ForgeToken(ctx, ingestion.Forge(forge), instanceURL)
 		if err == nil {
-			return token, true
+			return token, nil
 		}
 
 		if !errors.Is(err, ingestion.ErrSavedTokenNotFound) {
-			writeError(w, http.StatusInternalServerError, "internal_error", "read saved token")
-
-			return "", false
+			return "", &apiProblem{http.StatusInternalServerError, "internal_error", "read saved token"}
 		}
 	}
 
-	writeError(w, http.StatusBadRequest, "no_saved_token", "no token given and none saved for this forge")
-
-	return "", false
+	return "", &apiProblem{http.StatusBadRequest, "no_saved_token", "no token given and none saved for this forge"}
 }

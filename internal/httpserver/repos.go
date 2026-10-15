@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -96,30 +97,47 @@ func isTrackedForge(forge string) bool {
 	return forge == string(ingestion.ForgeGitHub) || forge == string(ingestion.ForgeForgejo)
 }
 
+// apiProblem is a request that cannot be carried out: the status, code and
+// message the endpoint answers with, which the MCP tools put in their error
+// text, so an agent reads what a client of the endpoint reads.
+type apiProblem struct {
+	status        int
+	code, message string
+}
+
 func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 	var in repoRegistrationDTO
 	if !readJSON(w, r, &in) {
 		return
 	}
 
-	if in.Identifier == "" || !validForge(in.Forge) {
-		writeError(w, http.StatusBadRequest, "invalid_body", "forge and identifier are required")
+	repo, problem := h.registerRepo(r.Context(), in)
+	if problem != nil {
+		writeError(w, problem.status, problem.code, problem.message)
 
 		return
+	}
+
+	writeJSON(w, http.StatusCreated, toRepoDTO(repo))
+}
+
+// registerRepo is the registration, shared with the MCP register_repo tool:
+// validate, find the token, register, and say why when it cannot.
+func (h *reposHandler) registerRepo(ctx context.Context, in repoRegistrationDTO) (ingestion.Repo, *apiProblem) {
+	if in.Identifier == "" || !validForge(in.Forge) {
+		return ingestion.Repo{}, &apiProblem{http.StatusBadRequest, "invalid_body", "forge and identifier are required"}
 	}
 
 	if len(in.Identifier) > maxIdentifierLength || len(in.Token) > maxTokenLength || len(in.ForgejoInstanceURL) > maxInstanceURLLength {
-		writeError(w, http.StatusBadRequest, "invalid_body", "identifier, token or instance URL is too long")
-
-		return
+		return ingestion.Repo{}, &apiProblem{http.StatusBadRequest, "invalid_body", "identifier, token or instance URL is too long"}
 	}
 
-	token, ok := resolveToken(w, r, h.tokens, in.Forge, in.ForgejoInstanceURL, in.Token)
-	if !ok {
-		return
+	token, problem := givenOrSavedToken(ctx, h.tokens, in.Forge, in.ForgejoInstanceURL, in.Token)
+	if problem != nil {
+		return ingestion.Repo{}, problem
 	}
 
-	repo, err := h.registrar.Register(r.Context(), ingestion.NewRepo{
+	repo, err := h.registrar.Register(ctx, ingestion.NewRepo{
 		Forge:              ingestion.Forge(in.Forge),
 		Identifier:         in.Identifier,
 		ForgejoInstanceURL: in.ForgejoInstanceURL,
@@ -127,21 +145,19 @@ func (h *reposHandler) register(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if code, message, ok := registrationConflict(err); ok {
-			slog.ErrorContext(r.Context(), "rejected repo registration",
+			slog.ErrorContext(ctx, "rejected repo registration",
 				"forge", in.Forge, "identifier", in.Identifier, "reason", code)
-			writeError(w, http.StatusConflict, code, message)
 
-			return
+			return ingestion.Repo{}, &apiProblem{http.StatusConflict, code, message}
 		}
 
-		slog.ErrorContext(r.Context(), "register repo failed",
+		slog.ErrorContext(ctx, "register repo failed",
 			"forge", in.Forge, "identifier", in.Identifier, "error", err)
-		writeError(w, http.StatusInternalServerError, "internal_error", "register repo")
 
-		return
+		return ingestion.Repo{}, &apiProblem{http.StatusInternalServerError, "internal_error", "register repo"}
 	}
 
-	writeJSON(w, http.StatusCreated, toRepoDTO(repo))
+	return repo, nil
 }
 
 // registrationConflict maps a Registrar.Register error to the (code,
@@ -192,26 +208,9 @@ func (h *reposHandler) discover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validForge(in.Forge) {
-		writeError(w, http.StatusBadRequest, "invalid_body", "forge is required")
-
-		return
-	}
-
-	if len(in.Token) > maxTokenLength || len(in.ForgejoInstanceURL) > maxInstanceURLLength {
-		writeError(w, http.StatusBadRequest, "invalid_body", "token or instance URL is too long")
-
-		return
-	}
-
-	token, ok := resolveToken(w, r, h.tokens, in.Forge, in.ForgejoInstanceURL, in.Token)
-	if !ok {
-		return
-	}
-
-	repos, err := h.registrar.Discover(r.Context(), ingestion.Forge(in.Forge), in.ForgejoInstanceURL, token)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "forge_error", "could not list repositories: "+err.Error())
+	repos, problem := h.discoverRepos(r.Context(), in)
+	if problem != nil {
+		writeError(w, problem.status, problem.code, problem.message)
 
 		return
 	}
@@ -219,14 +218,46 @@ func (h *reposHandler) discover(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, repos)
 }
 
+// discoverRepos is the discovery, shared with the MCP discover_repos tool.
+func (h *reposHandler) discoverRepos(ctx context.Context, in repoDiscoveryDTO) ([]string, *apiProblem) {
+	if !validForge(in.Forge) {
+		return nil, &apiProblem{http.StatusBadRequest, "invalid_body", "forge is required"}
+	}
+
+	if len(in.Token) > maxTokenLength || len(in.ForgejoInstanceURL) > maxInstanceURLLength {
+		return nil, &apiProblem{http.StatusBadRequest, "invalid_body", "token or instance URL is too long"}
+	}
+
+	token, problem := givenOrSavedToken(ctx, h.tokens, in.Forge, in.ForgejoInstanceURL, in.Token)
+	if problem != nil {
+		return nil, problem
+	}
+
+	repos, err := h.registrar.Discover(ctx, ingestion.Forge(in.Forge), in.ForgejoInstanceURL, token)
+	if err != nil {
+		return nil, &apiProblem{http.StatusBadGateway, "forge_error", "could not list repositories: " + err.Error()}
+	}
+
+	return repos, nil
+}
+
 func (h *reposHandler) untrack(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.DeleteRepo(r.Context(), r.PathValue("repoId")); err != nil {
-		writeError(w, http.StatusNotFound, "not_found", "repo not found")
+	if problem := h.untrackRepo(r.Context(), r.PathValue("repoId")); problem != nil {
+		writeError(w, problem.status, problem.code, problem.message)
 
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// untrackRepo is the removal, shared with the MCP untrack_repo tool.
+func (h *reposHandler) untrackRepo(ctx context.Context, repoID string) *apiProblem {
+	if err := h.store.DeleteRepo(ctx, repoID); err != nil {
+		return &apiProblem{http.StatusNotFound, "not_found", "repo not found"}
+	}
+
+	return nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
