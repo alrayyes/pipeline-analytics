@@ -38,6 +38,7 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "list_repo_identifiers", operation: "listRepoIdentifiers", path: "/api/repos/identifiers"},
 	{tool: "get_github_rate_limit", operation: "getGitHubRateLimitInsights", path: "/api/insights/github-rate-limit"},
 	{tool: "get_settings", operation: "getSettings", path: "/api/settings"},
+	{tool: "update_settings", operation: "updateSettings", path: "/api/settings"},
 	{tool: "rerun_run", operation: "rerunRun", path: "/api/runs/{runId}/rerun"},
 	{tool: "cancel_run", operation: "cancelRun", path: "/api/runs/{runId}/cancel"},
 	{tool: "quarantine_step", operation: "quarantineStep", path: "/api/pipelines/{pipelineId}/steps/{step}/quarantine"},
@@ -55,10 +56,9 @@ const agentExcludedExtension = "x-agent-excluded"
 // deletes the list. "Nobody asked yet" is not an exclusion, so an operation
 // stays here only until its tool ships.
 var pendingMCPTools = map[string]bool{
-	"registerRepo":   true,
-	"discoverRepos":  true,
-	"untrackRepo":    true,
-	"updateSettings": true,
+	"registerRepo":  true,
+	"discoverRepos": true,
+	"untrackRepo":   true,
 }
 
 // TestEveryOperationHasAnMCPTool is the other half of

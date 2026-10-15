@@ -96,6 +96,7 @@ func newMCPHandler(deps Deps) http.Handler {
 
 	h.addRunTools(server)
 	h.addRepoTools(server)
+	h.addSettingsUpdateTool(server)
 	h.addRunActionTools(server)
 	h.addQuarantineTools(server)
 

@@ -281,3 +281,27 @@ func TestUpdate_RepoSelectorLength(t *testing.T) {
 		require.Equal(t, settings.DefaultPipelinesRepoSelector, got.PipelinesRepoSelector)
 	})
 }
+
+func TestAllowedValues(t *testing.T) {
+	t.Parallel()
+
+	t.Run("lists a closed setting's values", func(t *testing.T) {
+		t.Parallel()
+
+		require.Equal(t, []string{"light", "dark", "system"}, settings.AllowedValues(settings.KeyTheme))
+	})
+
+	t.Run("a setting with no closed set has none", func(t *testing.T) {
+		t.Parallel()
+
+		require.Empty(t, settings.AllowedValues(settings.KeyPipelinesRepoSelector))
+	})
+
+	t.Run("a caller cannot change what the package accepts by editing the result", func(t *testing.T) {
+		t.Parallel()
+
+		settings.AllowedValues(settings.KeyTheme)[0] = "neon"
+
+		require.Equal(t, "light", settings.AllowedValues(settings.KeyTheme)[0])
+	})
+}

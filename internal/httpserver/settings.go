@@ -82,13 +82,30 @@ func (h *settingsHandler) patch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	got, err := h.service.Update(r.Context(), info.UserID, updates)
+	if err != nil {
+		code, message := classifySettingsError(err)
+		status := http.StatusInternalServerError
 
-	switch {
-	case errors.Is(err, settings.ErrInvalidKey), errors.Is(err, settings.ErrInvalidValue):
-		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
-	case err != nil:
-		writeError(w, http.StatusInternalServerError, "internal_error", "update settings")
-	default:
-		writeJSON(w, http.StatusOK, toSettingsDTO(got))
+		if code == "invalid_body" {
+			status = http.StatusBadRequest
+		}
+
+		writeError(w, status, code, message)
+
+		return
 	}
+
+	writeJSON(w, http.StatusOK, toSettingsDTO(got))
+}
+
+// classifySettingsError is how a failed update is reported: the code and
+// message the endpoint answers with, which the MCP tool puts in its error text.
+// An unknown key or a value outside its set is the caller's mistake (400
+// invalid_body); anything else is ours.
+func classifySettingsError(err error) (code, message string) {
+	if errors.Is(err, settings.ErrInvalidKey) || errors.Is(err, settings.ErrInvalidValue) {
+		return "invalid_body", err.Error()
+	}
+
+	return "internal_error", "update settings"
 }
