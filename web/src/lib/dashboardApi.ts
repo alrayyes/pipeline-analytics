@@ -286,7 +286,10 @@ export async function fetchPipelineSteps(
 	params: PipelineStepsParams = {},
 	fetchFn: typeof fetch = fetch,
 ): Promise<Step[]> {
-	const query = params.window ? `?window=${params.window}` : '';
+	const searchParams = new URLSearchParams();
+	if (params.window) searchParams.set('window', params.window);
+
+	const query = searchParams.size > 0 ? `?${searchParams}` : '';
 	const res = await fetchFn(`/api/pipelines/${id}/steps${query}`);
 	if (!res.ok) throw new ApiError(res.status);
 
