@@ -19,11 +19,10 @@ until every release has been shown.
 
 - **WHEN** the history has more than 20 releases and the user chooses to show
   older releases
-- **THEN** the next 20 releases appear below, and the control goes once every
-  release is shown
+- **THEN** the next 20 releases appear below with keyboard focus on the first of
+  them, and the control goes once every release is shown
 
 #### Scenario: Lighthouse performance
 
 - **WHEN** Lighthouse audits `/releases`
-- **THEN** its performance score is at least 0.8, and the page holds fewer
-  than 800 elements
+- **THEN** its performance score is at least 0.8

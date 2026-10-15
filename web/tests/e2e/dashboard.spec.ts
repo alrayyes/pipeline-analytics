@@ -1205,6 +1205,11 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	await expect(releaseHeadings).toHaveCount(20);
 	await page.getByRole('button', { name: /show older releases/i }).click();
 	await expect(releaseHeadings).toHaveCount(40);
+	// Focus moves to the first release that was added, so a keyboard user is not
+	// left on a control that may be gone.
+	await expect(
+		page.locator('[data-release-index="20"] a').first(),
+	).toBeFocused();
 	// v0.10.0 is real history: its changelog section has a "Features" list
 	// with a #61 link. Keep asking for older releases until it appears; the
 	// button goes once there are no more, so this cannot loop forever.

@@ -1,7 +1,7 @@
 <script lang="ts">
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { onMount } from 'svelte';
+import { onMount, tick } from 'svelte';
 import { revealInBatches } from '#lib/batches.js';
 import type { Release } from '#lib/changelog.js';
 import { Button } from '#lib/components/ui/button/index.js';
@@ -30,6 +30,18 @@ let shown = $state(0);
 // on the newest few and the rest come on request.
 const PAGE_SIZE = 20;
 let limit = $state(PAGE_SIZE);
+
+// Reveals the next page and moves focus to its first release, so a keyboard or
+// screen-reader user lands on the new content instead of on a button that
+// vanishes with the last page.
+async function showOlder() {
+	const firstNew = limit;
+	limit += PAGE_SIZE;
+	await tick();
+	document
+		.querySelector<HTMLAnchorElement>(`[data-release-index="${firstNew}"] a`)
+		?.focus();
+}
 
 onMount(() => {
 	let cancel = () => {};
@@ -86,8 +98,8 @@ function renderBody(body: string): string {
 		<p class="mt-6 text-muted-foreground">No releases yet.</p>
 	{:else}
 		<ul class="mt-6 grid gap-3">
-			{#each releases.slice(0, Math.min(shown, limit)) as release (release.tag)}
-				<li>
+			{#each releases.slice(0, Math.min(shown, limit)) as release, index (release.tag)}
+				<li data-release-index={index}>
 					<Card size="sm">
 						<CardHeader class="flex flex-row items-center justify-between">
 							<CardTitle>
@@ -127,12 +139,10 @@ function renderBody(body: string): string {
 				</li>
 			{/each}
 		</ul>
-		{#if releases.length > limit}
-			<Button
-				variant="outline"
-				class="mt-6"
-				onclick={() => (limit += PAGE_SIZE)}
-			>
+		<!-- Not before the cards above it have all been revealed, or it would sit
+		     at the top of a short list and move down as the batches arrive. -->
+		{#if releases.length > limit && shown >= limit}
+			<Button variant="outline" class="mt-6" onclick={showOlder}>
 				Show older releases ({releases.length - limit} more)
 			</Button>
 		{/if}
