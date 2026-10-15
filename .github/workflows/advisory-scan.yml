@@ -25,6 +25,8 @@ permissions:
 jobs:
   go:
     name: scan (go)
+    # A dispatch from another branch would scan it and rewrite the shared issue.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -44,6 +46,8 @@ jobs:
 
   web:
     name: scan (web)
+    # A dispatch from another branch would scan it and rewrite the shared issue.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
