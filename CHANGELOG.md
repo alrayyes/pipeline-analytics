@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.86.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.85.0...v0.86.0) (2026-10-15)
+
+
+### Features
+
+* **web:** add WebMCP tools for a run's steps, a step's flaky runs and the unhealthy steps ([#662](https://github.com/alrayyes/pipeline-analytics/issues/662)) ([5e74a51](https://github.com/alrayyes/pipeline-analytics/commit/5e74a5150b4e4c47d7dc3b93ad72a9cc0d48a567))
+
 ## [0.85.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.84.0...v0.85.0) (2026-10-15)
 
 
