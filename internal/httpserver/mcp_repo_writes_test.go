@@ -128,6 +128,7 @@ func TestMCPRegisterRepo(t *testing.T) {
 		msg := toolFailure(t, connectMCP(t, srv), "register_repo", args(map[string]any{"identifier": strings.Repeat("a", 201)}))
 
 		require.Contains(t, msg, "invalid_body")
+		require.Contains(t, msg, "too long", "the length check fired, not the empty-identifier one")
 	})
 
 	t.Run("an API token may register, as the endpoint allows", func(t *testing.T) {
@@ -140,6 +141,47 @@ func TestMCPRegisterRepo(t *testing.T) {
 		got := callTool[repoResult](t, bearerSession(t, srv, authStore), "register_repo", args(nil))
 
 		require.Equal(t, "alrayyes/new-repo", got.Identifier)
+	})
+}
+
+// typedToken is a made-up token a call carries, to be told apart from the saved one.
+var typedToken = strings.Join([]string{"ghp", "typedtoken1111"}, "_")
+
+func TestMCPRegisterRepo_SavedToken(t *testing.T) {
+	t.Parallel()
+
+	t.Run("with no token it uses the one saved for the forge, and never echoes any token", func(t *testing.T) {
+		t.Parallel()
+
+		srv, recorder := newTokenServer(t)
+		saveToken(t, srv, `{"forge":"github","token":"ghp_supersecret1234"}`)
+
+		res, err := connectMCP(t, srv).CallTool(context.Background(), &mcp.CallToolParams{
+			Name:      "register_repo",
+			Arguments: map[string]any{"forge": "github", "identifier": "o/n"},
+		})
+		require.NoError(t, err)
+		require.False(t, res.IsError)
+
+		require.Equal(t, "ghp_supersecret1234", recorder.getRepoToken, "the saved token reached the forge")
+
+		raw, err := json.Marshal(res)
+		require.NoError(t, err)
+		require.NotContains(t, string(raw), "ghp_supersecret1234", "nothing in the result carries the token")
+		require.Contains(t, string(raw), "****1234")
+	})
+
+	t.Run("a token in the call wins over the saved one", func(t *testing.T) {
+		t.Parallel()
+
+		srv, recorder := newTokenServer(t)
+		saveToken(t, srv, `{"forge":"github","token":"ghp_saved00000"}`)
+
+		callTool[repoResult](t, connectMCP(t, srv), "register_repo", map[string]any{
+			"forge": "github", "identifier": "o/n", "token": typedToken,
+		})
+
+		require.Equal(t, typedToken, recorder.getRepoToken)
 	})
 }
 
@@ -158,12 +200,26 @@ func TestMCPDiscoverRepos(t *testing.T) {
 		require.Equal(t, []string{"alrayyes/a", "alrayyes/b"}, got.Identifiers)
 	})
 
+	t.Run("with no token it uses the one saved for the forge", func(t *testing.T) {
+		t.Parallel()
+
+		srv, recorder := newTokenServer(t)
+		saveToken(t, srv, `{"forge":"github","token":"ghp_supersecret1234"}`)
+
+		callTool[map[string]any](t, connectMCP(t, srv), "discover_repos", map[string]any{"forge": "github"})
+
+		require.Equal(t, "ghp_supersecret1234", recorder.discoverToken)
+	})
+
 	t.Run("a forge failure is reported as one", func(t *testing.T) {
 		t.Parallel()
 
 		srv := newTestServerWithDiscovery(t, nil, context.DeadlineExceeded)
 
-		require.Contains(t, toolFailure(t, connectMCP(t, srv), "discover_repos", map[string]any{"forge": "github", "token": "ghp_x"}), "forge_error")
+		msg := toolFailure(t, connectMCP(t, srv), "discover_repos", map[string]any{"forge": "github", "token": "ghp_x"})
+
+		require.Contains(t, msg, "forge_error")
+		require.Contains(t, msg, "could not list repositories", "the endpoint's wording is kept")
 	})
 
 	t.Run("an unknown forge is refused", func(t *testing.T) {
