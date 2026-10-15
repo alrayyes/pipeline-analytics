@@ -37,6 +37,9 @@ let limit = $state(PAGE_SIZE);
 async function showOlder() {
 	const firstNew = limit;
 	limit += PAGE_SIZE;
+	// The cards just asked for exist now, even if the background batches that
+	// reveal the list have not got that far, so there is something to focus.
+	shown = Math.max(shown, Math.min(limit, releases?.length ?? 0));
 	await tick();
 	document
 		.querySelector<HTMLAnchorElement>(`[data-release-index="${firstNew}"] a`)
@@ -57,7 +60,8 @@ onMount(() => {
 		.then((data: Release[]) => {
 			releases = data;
 			cancel = revealInBatches(data.length, 5, 5, (n) => {
-				shown = n;
+				// Never lowers it: showOlder() may have revealed ahead of the batches.
+				shown = Math.max(shown, n);
 			});
 		})
 		.catch(() => {

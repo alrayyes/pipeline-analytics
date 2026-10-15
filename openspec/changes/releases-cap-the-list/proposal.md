@@ -11,8 +11,9 @@ published CI run scores it 93 with the same 2,505 elements.
 
 - The page opens on the newest 20 releases, with a "Show older releases"
   button that adds 20 more until none are left.
-- Slice-by-slice rendering stays, so revealing a page of cards is still not one
-  long task.
+- The first 20 still render slice by slice, so opening the page is not one long
+  task. Asking for older releases renders those 20 at once, which is far fewer
+  than the 114 that were rendered together before.
 - The release journey in `dashboard.spec.ts` asserts the cap and pages through
   to reach an old release.
 
