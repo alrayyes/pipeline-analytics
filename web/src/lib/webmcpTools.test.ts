@@ -19,6 +19,17 @@ const fetchFlakyStepsMock = mock(
 		Promise.resolve({ steps: [] }),
 );
 const fetchBranchesMock = mock(() => Promise.resolve({ branches: [] }));
+const fetchRunStepsMock = mock((_runId: string) =>
+	Promise.resolve({ steps: [] }),
+);
+const fetchFlakyRunsMock = mock(
+	(_pipelineId: string, _params: { step: string; window?: string }) =>
+		Promise.resolve([]),
+);
+const fetchUnhealthyStepsMock = mock(
+	(_params: { window?: string; limit?: number; offset?: number }) =>
+		Promise.resolve({ groups: [], hasMore: false }),
+);
 
 mock.module('./dashboardApi.js', () => ({
 	fetchPipelines: fetchPipelinesMock,
@@ -30,6 +41,9 @@ mock.module('./dashboardApi.js', () => ({
 	fetchRuns: fetchRunsMock,
 	fetchFlakySteps: fetchFlakyStepsMock,
 	fetchBranches: fetchBranchesMock,
+	fetchRunSteps: fetchRunStepsMock,
+	fetchFlakyRuns: fetchFlakyRunsMock,
+	fetchUnhealthySteps: fetchUnhealthyStepsMock,
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
@@ -51,6 +65,9 @@ beforeEach(() => {
 	fetchRunsMock.mockClear();
 	fetchFlakyStepsMock.mockClear();
 	fetchBranchesMock.mockClear();
+	fetchRunStepsMock.mockClear();
+	fetchFlakyRunsMock.mockClear();
+	fetchUnhealthyStepsMock.mockClear();
 });
 
 function findTool(
@@ -83,6 +100,9 @@ describe('registerWebMCPTools', () => {
 			'list_runs',
 			'list_flaky_steps',
 			'list_branches',
+			'get_run_steps',
+			'list_pipeline_flaky_runs',
+			'list_unhealthy_steps',
 		]);
 	});
 
@@ -186,6 +206,19 @@ describe('read tools', () => {
 			[{ window: '24h', limit: 3 }],
 		],
 		['list_branches', { window: '7d' }, fetchBranchesMock, [{ window: '7d' }]],
+		['get_run_steps', { runId: 'r1' }, fetchRunStepsMock, ['r1']],
+		[
+			'list_pipeline_flaky_runs',
+			{ pipelineId: 'p1', step: 'unit', window: '30d' },
+			fetchFlakyRunsMock,
+			['p1', { step: 'unit', window: '30d' }],
+		],
+		[
+			'list_unhealthy_steps',
+			{ window: '24h', limit: 5, offset: 10 },
+			fetchUnhealthyStepsMock,
+			[{ window: '24h', limit: 5, offset: 10 }],
+		],
 	];
 
 	for (const [name, input, fetchMock, args] of cases) {
@@ -199,6 +232,26 @@ describe('read tools', () => {
 
 			expect(fetchMock).toHaveBeenCalledWith(...args);
 			expect(result.content[0].type).toBe('text');
+		});
+	}
+
+	const missing: [string, Record<string, unknown>, string][] = [
+		['get_run_steps', {}, 'runId'],
+		['list_pipeline_flaky_runs', { step: 'unit' }, 'pipelineId'],
+		['list_pipeline_flaky_runs', { pipelineId: 'p1' }, 'step'],
+		['list_pipeline_flaky_runs', { pipelineId: 'p1', step: '' }, 'step'],
+	];
+
+	for (const [name, input, key] of missing) {
+		test(`${name} says ${key} is required instead of sending "undefined"`, async () => {
+			const registerTool = newRegisterToolMock();
+			registerWebMCPTools({ registerTool });
+
+			await expect(
+				findTool(registerTool, name).execute(input, {
+					signal: new AbortController().signal,
+				}),
+			).rejects.toThrow(`${key} is required`);
 		});
 	}
 

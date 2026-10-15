@@ -16,6 +16,9 @@ mock.module('./dashboardApi.js', () => ({
 	fetchRuns: () => Promise.resolve({}),
 	fetchFlakySteps: () => Promise.resolve({}),
 	fetchBranches: () => Promise.resolve({}),
+	fetchRunSteps: () => Promise.resolve({}),
+	fetchFlakyRuns: () => Promise.resolve([]),
+	fetchUnhealthySteps: () => Promise.resolve({}),
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
@@ -32,6 +35,9 @@ const toolOperations: Record<string, string[]> = {
 	list_runs: ['listRuns'],
 	list_flaky_steps: ['listFlakySteps'],
 	list_branches: ['listBranches'],
+	get_run_steps: ['getRunSteps'],
+	list_pipeline_flaky_runs: ['listFlakyRuns'],
+	list_unhealthy_steps: ['listUnhealthySteps'],
 };
 
 // Operations whose WebMCP tool is still to come under #615. It exists so the
@@ -46,12 +52,9 @@ const pendingOperations = new Set<string>([
 	'untrackRepo',
 	'quarantineStep',
 	'unquarantineStep',
-	'listFlakyRuns',
-	'getRunSteps',
 	'rerunRun',
 	'cancelRun',
 	'getGitHubRateLimitInsights',
-	'listUnhealthySteps',
 	'getSettings',
 	'updateSettings',
 ]);
