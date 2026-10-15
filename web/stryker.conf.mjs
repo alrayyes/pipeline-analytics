@@ -6,9 +6,10 @@
 export default {
 	plugins: ['@hughescr/stryker-bun-runner'],
 	testRunner: 'bun',
-	// Same flag as `bun run test`: each file gets its own module registry, so
-	// a test that reads a store's initial value can't see another file's writes.
-	bun: { bunArgs: ['--isolate'] },
+	// Same flags as `bun run test`: each file gets its own module registry, so
+	// a test that reads a store's initial value can't see another file's writes,
+	// and the browser export condition is set for the component tests.
+	bun: { bunArgs: ['--isolate', '--conditions', 'browser'] },
 	coverageAnalysis: 'perTest',
 	// Stryker's sandbox is built from `git ls-files`, so the gitignored,
 	// generated `.svelte-kit/` -- which is what actually resolves the

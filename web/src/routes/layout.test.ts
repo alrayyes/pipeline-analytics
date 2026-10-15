@@ -1,5 +1,7 @@
-import { describe, expect, test } from 'bun:test';
+import '../../test/dom.js';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { isRedirect } from '@sveltejs/kit';
+import { removeDom } from '../../test/dom.js';
 import { load } from './+layout.js';
 
 type LoadFn = typeof load;
@@ -16,6 +18,10 @@ function callLoad(pathname: string, fetchFn: FetchMock) {
 		fetch: fetchFn as unknown as LoadEvent['fetch'],
 	} as LoadEvent);
 }
+
+// `redirect()` reads `window` under the browser export condition the tests run
+// with, as it does in the browser this load function also runs in.
+afterAll(removeDom);
 
 describe('root layout load', () => {
 	test('skips both requests on /login', async () => {
