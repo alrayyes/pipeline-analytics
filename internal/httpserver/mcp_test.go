@@ -214,6 +214,9 @@ func TestMCPToolsList(t *testing.T) {
 		"cancel_run",
 		"quarantine_step",
 		"unquarantine_step",
+		"register_repo",
+		"discover_repos",
+		"untrack_repo",
 	}, names, "tool list must be exactly the declared tools")
 }
 

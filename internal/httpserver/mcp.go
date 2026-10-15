@@ -42,6 +42,7 @@ type mcpHandler struct {
 	rateLimits ingestion.RateLimitReporter
 	settings   *settings.Service
 	runActions *ingestion.RunActionService
+	repoWrites *reposHandler
 }
 
 // newMCPHandler builds the Streamable HTTP handler for POST /api/mcp,
@@ -52,7 +53,7 @@ type mcpHandler struct {
 // would enable (there's nothing it pushes to a client unprompted), and
 // statelessness keeps a single-account, always-on server simple.
 func newMCPHandler(deps Deps) http.Handler {
-	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore, logs: deps.JobLogs, version: deps.Version, rateLimits: deps.GitHubRateLimits, settings: deps.Settings, runActions: deps.RunActions}
+	h := &mcpHandler{metrics: deps.Metrics, repos: deps.IngestionStore, logs: deps.JobLogs, version: deps.Version, rateLimits: deps.GitHubRateLimits, settings: deps.Settings, runActions: deps.RunActions, repoWrites: &reposHandler{registrar: deps.Registrar, store: deps.IngestionStore, tokens: deps.ForgeTokens}}
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "pipeline-analytics",
@@ -98,6 +99,7 @@ func newMCPHandler(deps Deps) http.Handler {
 	h.addRepoTools(server)
 	h.addRunActionTools(server)
 	h.addQuarantineTools(server)
+	h.addRepoWriteTools(server)
 
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
