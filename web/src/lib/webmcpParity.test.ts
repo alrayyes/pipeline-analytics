@@ -78,7 +78,21 @@ function registeredToolNames(): string[] {
 	return names;
 }
 
-describe('WebMCP parity with openapi.yaml', () => {
+// Stryker copies only web/ into its sandbox, so the spec one level above is not
+// there and every test here would fail its dry run. It sets this variable in
+// its workers; the frontend test job, which has the whole checkout, still runs
+// these. There is no source here for a mutant to live in anyway.
+const inStryker = process.env.STRYKER_MUTATOR_WORKER !== undefined;
+
+describe.skipIf(inStryker)('WebMCP parity with openapi.yaml', () => {
+	test('every operation has an operationId', async () => {
+		const unnamed = (await specOperations()).filter(
+			(op) => typeof op.operationId !== 'string' || op.operationId === '',
+		);
+
+		expect(unnamed).toEqual([]);
+	});
+
 	test('every operation has a tool, an exclusion reason or a pending entry', async () => {
 		const covered = new Set(Object.values(toolOperations).flat());
 		const offenders = (await specOperations())
