@@ -18,6 +18,7 @@ import (
 	ingestionsqlite "github.com/alrayyes/pipeline-analytics/internal/ingestion/sqlite"
 	"github.com/alrayyes/pipeline-analytics/internal/metrics"
 	metricssqlite "github.com/alrayyes/pipeline-analytics/internal/metrics/sqlite"
+	"github.com/alrayyes/pipeline-analytics/internal/settings"
 	gowebauthn "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
@@ -185,6 +186,8 @@ func TestMCPToolsList(t *testing.T) {
 		"get_version",
 		"list_repos",
 		"list_repo_identifiers",
+		"get_github_rate_limit",
+		"get_settings",
 	}, names, "tool list must be exactly the read tools, no write tool")
 }
 
@@ -673,4 +676,64 @@ func toolErrorText(t *testing.T, res *mcp.CallToolResult) string {
 	require.True(t, ok, "error content is %T, want text", res.Content[0])
 
 	return text.Text
+}
+
+func TestMCPGetGitHubRateLimit(t *testing.T) {
+	t.Parallel()
+
+	type tokenUsage struct {
+		TokenMasked string         `json:"tokenMasked"`
+		Repos       []string       `json:"repos"`
+		Status      map[string]any `json:"status"`
+	}
+
+	t.Run("groups the repos that share a token, with its status", func(t *testing.T) {
+		t.Parallel()
+
+		resetAt := time.Unix(1700000000, 0).UTC()
+		srv := newTestServerWithRateLimits(t, map[string]ingestion.RateLimitSnapshot{
+			"ghp_shared": {Limit: 5000, Remaining: 4900, Used: 100, Resource: "core", ResetAt: resetAt},
+		})
+		seedRepoWithToken(t, srv, "alrayyes/repo-one", "ghp_shared")
+		seedRepoWithToken(t, srv, "alrayyes/repo-two", "ghp_shared")
+		session := connectMCP(t, srv)
+
+		got := callTool[struct {
+			Tokens []tokenUsage `json:"tokens"`
+		}](t, session, "get_github_rate_limit", nil)
+
+		require.Len(t, got.Tokens, 1)
+		require.ElementsMatch(t, []string{"alrayyes/repo-one", "alrayyes/repo-two"}, got.Tokens[0].Repos)
+		require.InDelta(t, 4900, got.Tokens[0].Status["remaining"], 0)
+		require.NotContains(t, got.Tokens[0].TokenMasked, "shared")
+	})
+
+	t.Run("a token never seen on a request has no status yet", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithRateLimits(t, nil)
+		seedRepoWithToken(t, srv, "alrayyes/repo-one", "ghp_unseen")
+		session := connectMCP(t, srv)
+
+		got := callTool[struct {
+			Tokens []tokenUsage `json:"tokens"`
+		}](t, session, "get_github_rate_limit", nil)
+
+		require.Len(t, got.Tokens, 1)
+		require.Nil(t, got.Tokens[0].Status)
+	})
+}
+
+func TestMCPGetSettings(t *testing.T) {
+	t.Parallel()
+
+	session := connectMCP(t, newSettingsTestServer(t))
+
+	got := callTool[map[string]any](t, session, "get_settings", nil)
+
+	require.Equal(t, settings.DefaultTheme, got["theme"])
+	require.Equal(t, settings.DefaultTelemetryWindow, got["telemetryWindow"])
+
+	defaults, _ := got["defaults"].(map[string]any)
+	require.Equal(t, settings.DefaultTheme, defaults["theme"])
 }
