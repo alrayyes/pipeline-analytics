@@ -210,6 +210,7 @@ func TestMCPToolsList(t *testing.T) {
 		"list_repo_identifiers",
 		"get_github_rate_limit",
 		"get_settings",
+		"update_settings",
 		"rerun_run",
 		"cancel_run",
 		"quarantine_step",
