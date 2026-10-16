@@ -39,11 +39,6 @@ const toolOperations: Record<string, string[]> = Object.fromEntries(
 // and the last one deletes the list. "Nobody asked yet" is not an exclusion.
 const pendingOperations = new Set<string>([
 	'getVersion',
-	'listRepos',
-	'registerRepo',
-	'listRepoIdentifiers',
-	'discoverRepos',
-	'untrackRepo',
 	'getGitHubRateLimitInsights',
 	'getSettings',
 	'updateSettings',

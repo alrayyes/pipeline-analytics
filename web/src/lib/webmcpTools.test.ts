@@ -47,6 +47,22 @@ const unquarantineStepMock = mock((_pipelineId: string, _step: string) =>
 	Promise.resolve({ quarantined: false }),
 );
 
+const fetchRepoPageMock = mock((_params: object) =>
+	Promise.resolve({ repos: [], hasMore: false }),
+);
+const fetchRepoIdentifiersMock = mock((_params: object) => Promise.resolve([]));
+const discoverReposMock = mock((_request: object) => Promise.resolve([]));
+const registerRepoMock = mock((_request: object) => Promise.resolve({}));
+const untrackRepoMock = mock((_repoId: string) => Promise.resolve());
+
+mock.module('./repoApi.js', () => ({
+	fetchRepoPage: fetchRepoPageMock,
+	fetchRepoIdentifiers: fetchRepoIdentifiersMock,
+	discoverRepos: discoverReposMock,
+	registerRepo: registerRepoMock,
+	untrackRepo: untrackRepoMock,
+}));
+
 mock.module('./dashboardApi.js', () => ({
 	fetchPipelines: fetchPipelinesMock,
 	fetchPipeline: fetchPipelineMock,
@@ -97,6 +113,11 @@ beforeEach(() => {
 	cancelRunMock.mockClear();
 	quarantineStepMock.mockClear();
 	unquarantineStepMock.mockClear();
+	fetchRepoPageMock.mockClear();
+	fetchRepoIdentifiersMock.mockClear();
+	discoverReposMock.mockClear();
+	registerRepoMock.mockClear();
+	untrackRepoMock.mockClear();
 });
 
 function findTool(
@@ -136,6 +157,11 @@ describe('registerWebMCPTools', () => {
 			'cancel_run',
 			'quarantine_step',
 			'unquarantine_step',
+			'list_repos',
+			'list_repo_identifiers',
+			'discover_repos',
+			'register_repo',
+			'untrack_repo',
 		]);
 	});
 
@@ -222,6 +248,11 @@ const allFetchMocks = [
 	cancelRunMock,
 	quarantineStepMock,
 	unquarantineStepMock,
+	fetchRepoPageMock,
+	fetchRepoIdentifiersMock,
+	discoverReposMock,
+	registerRepoMock,
+	untrackRepoMock,
 ];
 
 // A tool that advertises a parameter must pass it on: an agent told it can

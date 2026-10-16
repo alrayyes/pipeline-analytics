@@ -397,5 +397,125 @@ export const inputSchemas = {
 			"step"
 		],
 		"additionalProperties": false
+	},
+	"list_repos": {
+		"type": "object",
+		"properties": {
+			"forge": {
+				"type": "string",
+				"enum": [
+					"github",
+					"forgejo"
+				],
+				"description": "Restrict the list to one forge. Omitted returns every forge."
+			},
+			"limit": {
+				"type": "integer",
+				"minimum": 1,
+				"description": "Max repositories to return. Defaults to 20 here; the API itself returns every repository when it is omitted.",
+				"default": 20
+			},
+			"offset": {
+				"type": "integer",
+				"minimum": 0,
+				"default": 0,
+				"description": "Repositories to skip before the returned page."
+			}
+		},
+		"required": [],
+		"additionalProperties": false
+	},
+	"list_repo_identifiers": {
+		"type": "object",
+		"properties": {
+			"forge": {
+				"type": "string",
+				"enum": [
+					"github",
+					"forgejo"
+				]
+			},
+			"forgejoInstanceUrl": {
+				"type": "string",
+				"description": "For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub."
+			}
+		},
+		"required": [
+			"forge"
+		],
+		"additionalProperties": false
+	},
+	"register_repo": {
+		"type": "object",
+		"properties": {
+			"forge": {
+				"type": "string",
+				"enum": [
+					"github",
+					"forgejo"
+				]
+			},
+			"identifier": {
+				"type": "string",
+				"maxLength": 200,
+				"description": "The repository as owner/name, for example `alrayyes/pipeline-analytics`, as discover_repos lists it. At most 200 characters."
+			},
+			"forgejoInstanceUrl": {
+				"type": "string",
+				"format": "uri",
+				"maxLength": 2048,
+				"description": "For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub."
+			},
+			"token": {
+				"type": "string",
+				"maxLength": 1024,
+				"description": "Repo-scoped personal access token. Never echoed back. Omitted uses the token saved for this forge and instance; a `400` with code `no_saved_token` when there is none.\n"
+			}
+		},
+		"required": [
+			"forge",
+			"identifier"
+		],
+		"additionalProperties": false
+	},
+	"discover_repos": {
+		"type": "object",
+		"properties": {
+			"forge": {
+				"type": "string",
+				"enum": [
+					"github",
+					"forgejo"
+				]
+			},
+			"forgejoInstanceUrl": {
+				"type": "string",
+				"format": "uri",
+				"maxLength": 2048,
+				"description": "For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub."
+			},
+			"token": {
+				"type": "string",
+				"maxLength": 1024,
+				"description": "Never stored by this call -- used for this one lookup only. Omitted uses the token saved for this forge and instance; a `400` with code `no_saved_token` when there is none.\n"
+			}
+		},
+		"required": [
+			"forge"
+		],
+		"additionalProperties": false
+	},
+	"untrack_repo": {
+		"type": "object",
+		"properties": {
+			"repoId": {
+				"type": "string",
+				"description": "The repository's id as list_repos reports it. Do not encode it."
+			}
+		},
+		"required": [
+			"repoId"
+		],
+		"additionalProperties": false
 	}
 } as const;
