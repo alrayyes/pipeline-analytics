@@ -191,9 +191,13 @@ const allFetchMocks = [
 // A tool that advertises a parameter must pass it on: an agent told it can
 // filter by health would otherwise get the unfiltered list and no error (#649).
 describe('advertised parameters', () => {
-	function sentinel(name: string, schema: Record<string, unknown>): unknown {
+	function sentinel(
+		name: string,
+		schema: Record<string, unknown>,
+		index: number,
+	): unknown {
 		if (Array.isArray(schema.enum)) return schema.enum[0];
-		if (schema.type === 'integer') return 7;
+		if (schema.type === 'integer') return 7 + index;
 
 		return `value-of-${name}`;
 	}
@@ -207,9 +211,9 @@ describe('advertised parameters', () => {
 				Record<string, unknown>
 			>;
 			const input = Object.fromEntries(
-				Object.entries(props).map(([key, value]) => [
+				Object.entries(props).map(([key, value], index) => [
 					key,
-					sentinel(key, value),
+					sentinel(key, value, index),
 				]),
 			);
 
