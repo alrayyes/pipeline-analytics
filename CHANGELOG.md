@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.90.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.89.0...v0.90.0) (2026-10-16)
+
+
+### Features
+
+* **web:** add WebMCP tools to quarantine and un-quarantine a flaky step ([#677](https://github.com/alrayyes/pipeline-analytics/issues/677)) ([cd59457](https://github.com/alrayyes/pipeline-analytics/commit/cd59457dc53a4e01a6cf436ba4fbdb78e3e9ebaa))
+
 ## [0.89.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.88.0...v0.89.0) (2026-10-16)
 
 
