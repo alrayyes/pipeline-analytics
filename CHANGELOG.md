@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.89.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.88.0...v0.89.0) (2026-10-16)
+
+
+### Features
+
+* **web:** add WebMCP tools to re-run and cancel a run ([#676](https://github.com/alrayyes/pipeline-analytics/issues/676)) ([f9aed2d](https://github.com/alrayyes/pipeline-analytics/commit/f9aed2d65e12d6878eac4510942b239bb994aa4b))
+
 ## [0.88.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.87.0...v0.88.0) (2026-10-16)
 
 
