@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.87.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.86.0...v0.87.0) (2026-10-16)
+
+
+### Features
+
+* **web:** upload bundle analysis to Codecov from the frontend build ([#672](https://github.com/alrayyes/pipeline-analytics/issues/672)) ([c64c447](https://github.com/alrayyes/pipeline-analytics/commit/c64c4474e86ec3399340ef79ac70e32f15e4183e))
+
 ## [0.86.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.85.0...v0.86.0) (2026-10-15)
 
 
