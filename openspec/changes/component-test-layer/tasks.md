@@ -5,4 +5,5 @@
 - [x] 2a Overview page: window toggle, no repos, no data and error states, and the layout's empty-list case
 - [x] 2b Flaky page: window toggle, no saved window, empty, load-error and quarantine-failure states
 - [x] 2c Runs page: status tabs, paging, refresh, empty, load-error, re-run and cancel states
+- [x] 2d Pipelines page: filter matching nothing, nothing ingested and Reset filters
 - [ ] 3 Archive once every page is moved
