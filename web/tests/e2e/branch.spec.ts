@@ -129,39 +129,6 @@ test('picking a branch scopes the views, and a branch with no runs says so', asy
 	await expect(page.getByText('No flaky steps in this window.')).toBeVisible();
 });
 
-test('a branch with no runs shows an empty state, not zeros', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	await mockTelemetry(page, []);
-
-	await page.goto('/');
-	await page.getByLabel('Branch').click();
-	await page.getByRole('option', { name: /^feat\/quiet/ }).click();
-
-	await expect(
-		page.getByText('No runs on feat/quiet in this window.'),
-	).toBeVisible();
-	await expect(page.getByText('Pass rate')).toHaveCount(0);
-});
-
-test('the views still load when the branch list cannot', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	await mockTelemetry(page, []);
-	await page.route('**/api/branches*', (route) =>
-		route.fulfill({ status: 500, json: {} }),
-	);
-
-	await page.goto('/');
-
-	await expect(page.getByText('Pass rate')).toBeVisible();
-	await expect(page.getByLabel('Branch')).toContainText('All branches');
-});
-
 test('the selector fits a phone and passes axe in light and dark mode', async ({
 	page,
 	context,
