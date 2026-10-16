@@ -21,6 +21,8 @@ mock.module('./dashboardApi.js', () => ({
 	fetchUnhealthySteps: () => Promise.resolve({}),
 	quarantineStep: () => Promise.resolve({}),
 	unquarantineStep: () => Promise.resolve({}),
+	fetchVersion: () => Promise.resolve({}),
+	fetchGitHubRateLimit: () => Promise.resolve([]),
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
