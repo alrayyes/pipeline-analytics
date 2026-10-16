@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.91.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.90.0...v0.91.0) (2026-10-16)
+
+
+### Features
+
+* **web:** add WebMCP tools for listing, discovering, registering and untracking repos ([#683](https://github.com/alrayyes/pipeline-analytics/issues/683)) ([727f1f9](https://github.com/alrayyes/pipeline-analytics/commit/727f1f95650461eb06a146a10d75dea7bdda178e))
+
 ## [0.90.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.89.0...v0.90.0) (2026-10-16)
 
 
