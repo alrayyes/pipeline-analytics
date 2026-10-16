@@ -7,56 +7,6 @@ import { expect, test } from './fixtures.js';
 // without a release version, which is a dev build; a release build is
 // simulated by answering /api/version.
 
-test('a dev build says so and links nowhere', async ({ page }) => {
-	await page.goto('/login');
-
-	const footer = page.getByRole('contentinfo');
-	await expect(footer.getByText('dev build')).toBeVisible();
-	await expect(footer.getByRole('link', { name: /dev/ })).toHaveCount(0);
-	await expect(
-		footer.getByRole('link', { name: 'Release history' }),
-	).toHaveCount(0);
-});
-
-test('a release version links to the release history, with no second link to it', async ({
-	page,
-}) => {
-	await page.route('**/api/version', (route) =>
-		route.fulfill({ json: { version: '0.56.1' } }),
-	);
-	await page.goto('/login');
-
-	const footer = page.getByRole('contentinfo');
-	await expect(
-		footer.getByRole('link', { name: '0.56.1', exact: true }),
-	).toHaveAttribute('href', '/releases');
-	await expect(
-		footer.getByRole('link', { name: 'Release history' }),
-	).toHaveCount(0);
-	// The privacy link beside it is untouched.
-	await expect(
-		footer.getByRole('link', { name: 'Privacy & disclaimer' }),
-	).toBeVisible();
-});
-
-test('the footer links to the GitHub repo and the license (#516)', async ({
-	page,
-}) => {
-	await page.goto('/login');
-
-	const footer = page.getByRole('contentinfo');
-	await expect(footer.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
-		'href',
-		'https://github.com/alrayyes/pipeline-analytics',
-	);
-	await expect(footer.getByRole('link', { name: 'AGPL-3.0' })).toHaveAttribute(
-		'href',
-		'https://github.com/alrayyes/pipeline-analytics/blob/main/LICENSE',
-	);
-	// The mark sits beside its own label, so it is decorative.
-	await expect(footer.locator('svg[aria-hidden="true"]')).toHaveCount(1);
-});
-
 test('the footer wraps on a narrow phone without scrolling sideways (#516)', async ({
 	page,
 }) => {
@@ -100,9 +50,10 @@ test('the privacy and release pages pass axe', async ({ page, context }) => {
 	await expectNoViolations(page);
 });
 
-// The two links that leave the app open in a new tab, so the dashboard stays
-// where it was (#554). The app's own pages stay in the same tab.
-test('the GitHub and license links open in a new tab, and say so', async ({
+// The links that leave the app open in a new tab, so the dashboard stays where
+// it was (#554). Their attributes are asserted in Footer.dom.test.ts; opening a
+// real tab needs a browser.
+test('the GitHub link opens the repo in a new tab and leaves the dashboard where it was', async ({
 	page,
 	context,
 }) => {
@@ -112,21 +63,6 @@ test('the GitHub and license links open in a new tab, and say so', async ({
 	await page.goto('/login');
 
 	const footer = page.getByRole('contentinfo');
-	for (const name of ['GitHub', 'AGPL-3.0']) {
-		const link = footer.getByRole('link', { name });
-		await expect(link).toHaveAttribute('target', '_blank');
-		await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-		// A screen reader hears it before following the link.
-		await expect(link).toHaveAccessibleName(
-			new RegExp(`${name}.*opens in a new tab`),
-		);
-	}
-
-	// Same-tab links keep their name and have no target.
-	for (const name of ['0.56.1', 'Privacy & disclaimer']) {
-		const link = footer.getByRole('link', { name, exact: true });
-		await expect(link).not.toHaveAttribute('target', /.*/);
-	}
 
 	await context.route('https://github.com/**', (route) =>
 		route.fulfill({ body: '<title>repo</title>', contentType: 'text/html' }),
