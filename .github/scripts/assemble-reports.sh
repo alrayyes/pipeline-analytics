@@ -80,10 +80,20 @@ if [ -z "$pages" ]; then
 fi
 
 manifest="[]"
+seen=" "
 while read -r entry; do
 	url="$(jq -r .url <<<"$entry")"
 	slug="$(sed -E 's|^[a-z]+://[^/]*||; s|[?#].*$||; s|^/+||; s|/+$||; s|/|-|g' <<<"$url")"
 	[ -n "$slug" ] || slug="home"
+
+	# Two URLs that share a name would overwrite each other's report.
+	case "$seen" in
+	*" $slug "*)
+		echo "assemble-reports: two Lighthouse reports are called $slug" >&2
+		exit 1
+		;;
+	esac
+	seen="$seen$slug "
 
 	for kind in html json; do
 		src="$lh_in/$(basename "$(jq -r ".${kind}Path" <<<"$entry")")"

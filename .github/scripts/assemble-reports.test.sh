@@ -108,6 +108,20 @@ else
 	check "a missing report fails the assembly" failed failed
 fi
 
+# Two URLs that would share one name must stop the assembly, not overwrite each
+# other's report.
+write_lighthouse 2026_10_16_13_22_47
+# /login/ and /login both become "login".
+jq '[.[0] | .url = "http://localhost:4191/login/"] + .' "$artifacts/lighthouse-report/manifest.json" >"$tmp/m.json"
+cp "$tmp/m.json" "$artifacts/lighthouse-report/manifest.json"
+echo '<testsuites name="e2e"/>' >"$artifacts/reports-e2e/e2e.xml"
+
+if "$script" "$artifacts" "$tmp/collide" >/dev/null 2>&1; then
+	check "two reports with one name fail the assembly" ran failed
+else
+	check "two reports with one name fail the assembly" failed failed
+fi
+
 if [ "$failures" -gt 0 ]; then
 	exit 1
 fi
