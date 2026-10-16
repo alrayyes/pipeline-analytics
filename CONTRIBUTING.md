@@ -39,13 +39,18 @@ Codecov. CI passes it the `CODECOV_TOKEN` secret that coverage and test results
 already use. With no token (a local build, a fork, a Dependabot run) the plugin
 does a dry run and uploads nothing, so the build is unchanged.
 
-The dashboard also registers three read-only
-[WebMCP](https://github.com/webmachinelearning/webmcp) tools
-(`list_pipelines`, `get_pipeline`, `get_repo_usage`) on mount, so an
-in-browser agent sharing the page can read the same data it renders. This
-is feature-detected (`web/src/lib/webmcpTools.ts`) and safe to ignore —
-WebMCP is a pre-stable draft with no browser shipping it stably yet, and
-registration is a no-op everywhere else.
+The dashboard also registers read-only
+[WebMCP](https://github.com/webmachinelearning/webmcp) tools on mount (see
+`web/src/lib/webmcpOperations.ts` for the list), so an in-browser agent sharing
+the page can read the same data it renders. This is feature-detected
+(`web/src/lib/webmcpTools.ts`) and safe to ignore — WebMCP is a pre-stable
+draft with no browser shipping it stably yet, and registration is a no-op
+everywhere else.
+
+Each tool's input schema is generated from the OpenAPI operation it wraps and
+committed as `web/src/lib/webmcpSchemas.generated.ts`. After you change a
+parameter in `openapi/openapi.yaml`, run `bun scripts/generate-webmcp-schemas.ts`
+in `web/`; the unit tests fail until you do.
 
 ## Testing and linting
 
