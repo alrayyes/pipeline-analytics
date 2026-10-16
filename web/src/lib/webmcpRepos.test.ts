@@ -296,8 +296,9 @@ function deletes() {
 describe('untrack_repo', () => {
 	test('asks the person first, naming the repository, then sends the DELETE the page sends', async () => {
 		answer(200, {
-			repos: [{ id: 'r 1', forge: 'github', identifier: 'alrayyes/payments' }],
-			hasMore: false,
+			id: 'r 1',
+			forge: 'github',
+			identifier: 'alrayyes/payments',
 		});
 		answer(204);
 
@@ -309,6 +310,7 @@ describe('untrack_repo', () => {
 		const question = confirmMock.mock.calls[0]?.[0] ?? '';
 		expect(question).toContain('alrayyes/payments');
 		expect(question).toContain('deleted');
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/repos/r%201');
 		const sent = fetchMock.mock.calls.at(-1);
 		expect(sent?.[0]).toBe('/api/repos/r%201');
 		expect(sent?.[1]?.method).toBe('DELETE');
@@ -327,20 +329,18 @@ describe('untrack_repo', () => {
 		expect(fetchMock.mock.calls.at(-1)?.[1]?.method).toBe('DELETE');
 	});
 
-	test('names the id when the repository is not on the first page of the list', async () => {
-		answer(200, {
-			repos: [{ id: 'other', forge: 'github', identifier: 'a/b' }],
-			hasMore: true,
-		});
-		answer(204);
+	test('names the id when no repository is tracked under it', async () => {
+		answer(404, { code: 'not_found', message: 'repo not found' });
+		answer(404, { code: 'not_found', message: 'repo not found' });
 
-		await tool('untrack_repo').execute({ repoId: 'r9' }, { signal });
-
+		await expect(
+			tool('untrack_repo').execute({ repoId: 'r9' }, { signal }),
+		).rejects.toThrow('404');
 		expect(confirmMock.mock.calls[0]?.[0]).toContain('r9');
 	});
 
 	test('does not wait on a lookup that never answers', async () => {
-		answer(200, { repos: [], hasMore: false });
+		answer(200, { id: 'r1', identifier: 'a/b' });
 		answer(204);
 
 		await tool('untrack_repo').execute({ repoId: 'r1' }, { signal });
@@ -349,7 +349,7 @@ describe('untrack_repo', () => {
 	});
 
 	test('does nothing when the person declines', async () => {
-		answer(200, { repos: [], hasMore: false });
+		answer(200, { id: 'r1', identifier: 'a/b' });
 		confirmMock.mockImplementation(() => false);
 
 		await expect(
@@ -359,7 +359,7 @@ describe('untrack_repo', () => {
 	});
 
 	test('does nothing when the agent reports the person said no', async () => {
-		answer(200, { repos: [], hasMore: false });
+		answer(200, { id: 'r1', identifier: 'a/b' });
 		const requestUserInteraction = mock(<T>(_ask: () => Promise<T> | T) =>
 			Promise.resolve(false as T),
 		);
@@ -381,7 +381,7 @@ describe('untrack_repo', () => {
 	});
 
 	test('fails with the status when the repo is gone', async () => {
-		answer(200, { repos: [], hasMore: false });
+		answer(200, { id: 'r1', identifier: 'a/b' });
 		answer(404, {});
 
 		await expect(
