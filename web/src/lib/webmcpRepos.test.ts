@@ -242,8 +242,17 @@ describe('register_repo', () => {
 	});
 });
 
+// Only a DELETE changes anything; the name lookup before the question is a read.
+function deletes() {
+	return fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE');
+}
+
 describe('untrack_repo', () => {
-	test('asks the person first, then sends the DELETE the page sends', async () => {
+	test('asks the person first, naming the repository, then sends the DELETE the page sends', async () => {
+		answer(200, {
+			repos: [{ id: 'r 1', forge: 'github', identifier: 'alrayyes/payments' }],
+			hasMore: false,
+		});
 		answer(204);
 
 		const result = await tool('untrack_repo').execute(
@@ -252,25 +261,59 @@ describe('untrack_repo', () => {
 		);
 
 		const question = confirmMock.mock.calls[0]?.[0] ?? '';
-		expect(question).toContain('r 1');
+		expect(question).toContain('alrayyes/payments');
 		expect(question).toContain('deleted');
-		expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/repos/r%201');
-		expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('DELETE');
+		const sent = fetchMock.mock.calls.at(-1);
+		expect(sent?.[0]).toBe('/api/repos/r%201');
+		expect(sent?.[1]?.method).toBe('DELETE');
 		expect(result.content[0]?.text).toBe(
 			JSON.stringify({ repoId: 'r 1', untracked: true }),
 		);
 	});
 
+	test('names the id when the repository cannot be looked up', async () => {
+		answer(500, {});
+		answer(204);
+
+		await tool('untrack_repo').execute({ repoId: 'r9' }, { signal });
+
+		expect(confirmMock.mock.calls[0]?.[0]).toContain('r9');
+		expect(fetchMock.mock.calls.at(-1)?.[1]?.method).toBe('DELETE');
+	});
+
+	test('names the id when the repository is not on the first page of the list', async () => {
+		answer(200, {
+			repos: [{ id: 'other', forge: 'github', identifier: 'a/b' }],
+			hasMore: true,
+		});
+		answer(204);
+
+		await tool('untrack_repo').execute({ repoId: 'r9' }, { signal });
+
+		expect(confirmMock.mock.calls[0]?.[0]).toContain('r9');
+	});
+
+	test('does not wait on a lookup that never answers', async () => {
+		answer(200, { repos: [], hasMore: false });
+		answer(204);
+
+		await tool('untrack_repo').execute({ repoId: 'r1' }, { signal });
+
+		expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+	});
+
 	test('does nothing when the person declines', async () => {
+		answer(200, { repos: [], hasMore: false });
 		confirmMock.mockImplementation(() => false);
 
 		await expect(
 			tool('untrack_repo').execute({ repoId: 'r1' }, { signal }),
 		).rejects.toThrow('declined');
-		expect(fetchMock).not.toHaveBeenCalled();
+		expect(deletes()).toHaveLength(0);
 	});
 
 	test('does nothing when the agent reports the person said no', async () => {
+		answer(200, { repos: [], hasMore: false });
 		const requestUserInteraction = mock(<T>(_ask: () => Promise<T> | T) =>
 			Promise.resolve(false as T),
 		);
@@ -281,7 +324,7 @@ describe('untrack_repo', () => {
 				{ signal, requestUserInteraction },
 			),
 		).rejects.toThrow('declined');
-		expect(fetchMock).not.toHaveBeenCalled();
+		expect(deletes()).toHaveLength(0);
 	});
 
 	test('says repoId is required before asking anyone', async () => {
@@ -292,6 +335,7 @@ describe('untrack_repo', () => {
 	});
 
 	test('fails with the status when the repo is gone', async () => {
+		answer(200, { repos: [], hasMore: false });
 		answer(404, {});
 
 		await expect(
