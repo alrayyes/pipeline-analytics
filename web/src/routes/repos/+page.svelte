@@ -37,32 +37,27 @@ import {
 	TableHeader,
 	TableRow,
 } from '#lib/components/ui/table/index.js';
+import { ApiError } from '#lib/dashboardApi.js';
 import { getForgeFilter } from '#lib/forgeFilter.svelte.js';
 import {
 	getRememberedForgeSelection,
 	rememberForgeSelection,
 } from '#lib/lastForgeSelection.js';
 import {
+	discoverRepos as discoverReposRequest,
+	fetchRepoIdentifiers,
+	fetchRepoPage,
+	type TrackedRepo as Repo,
+	RepoApiError,
+	registerRepo,
+	untrackRepo,
+} from '#lib/repoApi.js';
+import {
 	findSavedToken,
 	listForgeTokens,
 	type SavedForgeToken,
 } from '#lib/savedForgeTokens.js';
 import { invalidateAll } from '$app/navigation';
-
-interface Repo {
-	id: string;
-	forge: 'github' | 'forgejo';
-	identifier: string;
-	forgejoInstanceUrl?: string;
-	tokenMasked: string;
-	ingestionStatus: 'pending' | 'active' | 'degraded';
-	ingestionStatusReason?: string;
-}
-
-interface RepoListResponse {
-	repos: Repo[];
-	hasMore: boolean;
-}
 
 const PAGE_SIZE = 20;
 
@@ -145,16 +140,13 @@ let trackedIdentifiers = $state<Set<string>>(new Set());
 
 async function loadTrackedIdentifiers(): Promise<void> {
 	try {
-		const params = new URLSearchParams({ forge });
-		if (forge === 'forgejo' && forgejoInstanceUrl) {
-			params.set('forgejoInstanceUrl', forgejoInstanceUrl);
-		}
-
-		const res = await fetch(`/api/repos/identifiers?${params}`);
-		if (!res.ok) return;
-
-		const body: { identifiers: string[] } = await res.json();
-		trackedIdentifiers = new Set(body.identifiers);
+		trackedIdentifiers = new Set(
+			await fetchRepoIdentifiers({
+				forge,
+				forgejoInstanceUrl:
+					forge === 'forgejo' ? forgejoInstanceUrl : undefined,
+			}),
+		);
 	} catch {
 		// Best effort -- Discover just won't exclude anything if this fails.
 	}
@@ -292,24 +284,18 @@ let untrackError = $state<string | null>(null);
 async function loadRepos(): Promise<void> {
 	try {
 		const filter = getForgeFilter();
-		const params = new URLSearchParams({
-			limit: String(PAGE_SIZE),
-			offset: String(offset),
+		const page = await fetchRepoPage({
+			limit: PAGE_SIZE,
+			offset,
+			forge: filter === 'all' ? undefined : filter,
 		});
-		if (filter !== 'all') params.set('forge', filter);
-
-		const res = await fetch(`/api/repos?${params}`);
-		if (!res.ok) {
-			error = 'Could not load repositories.';
-
-			return;
-		}
-
-		const body: RepoListResponse = await res.json();
-		repos = body.repos;
-		hasMore = body.hasMore;
-	} catch {
-		error = 'Could not reach the server.';
+		repos = page.repos;
+		hasMore = page.hasMore;
+	} catch (e) {
+		error =
+			e instanceof ApiError
+				? 'Could not load repositories.'
+				: 'Could not reach the server.';
 	}
 }
 
@@ -381,29 +367,21 @@ async function discoverRepos(): Promise<void> {
 	discoverError = null;
 
 	try {
-		const res = await fetch('/api/repos/discover', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				forge,
-				...(usingSavedToken ? {} : { token }),
-				...(forge === 'forgejo' ? { forgejoInstanceUrl } : {}),
-			}),
+		const found = await discoverReposRequest({
+			forge,
+			token: usingSavedToken ? undefined : token,
+			forgejoInstanceUrl: forge === 'forgejo' ? forgejoInstanceUrl : undefined,
 		});
-
-		if (!res.ok) {
-			const body = await res.json().catch(() => null);
-			discoverError = body?.message ?? 'Could not list repositories.';
-			discoveredRepos = null;
-
-			return;
-		}
-
-		const found: string[] = await res.json();
 		discoveredRepos = found.filter((id) => !trackedIdentifiers.has(id));
 		step = 'select';
-	} catch {
-		discoverError = 'Could not reach the server.';
+	} catch (e) {
+		if (e instanceof ApiError) {
+			discoverError =
+				(e as RepoApiError).serverMessage ?? 'Could not list repositories.';
+			discoveredRepos = null;
+		} else {
+			discoverError = 'Could not reach the server.';
+		}
 	} finally {
 		discoverBusy = false;
 	}
@@ -458,38 +436,34 @@ async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 	// hammer the forge API with N concurrent webhook-creation calls.
 	for (const identifier of selected) {
 		try {
-			const res = await fetch('/api/repos', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					forge,
-					identifier,
-					...(usingSavedToken ? {} : { token }),
-					...(forge === 'forgejo' ? { forgejoInstanceUrl } : {}),
-				}),
+			await registerRepo({
+				forge,
+				identifier,
+				token: usingSavedToken ? undefined : token,
+				forgejoInstanceUrl:
+					forge === 'forgejo' ? forgejoInstanceUrl : undefined,
 			});
-
-			if (res.ok) {
-				results.push({ identifier, ok: true });
-			} else {
-				const body = await res.json().catch(() => null);
+			results.push({ identifier, ok: true });
+		} catch (e) {
+			if (e instanceof ApiError) {
 				// Distinct from the generic fallback, and keyed on `code`
 				// rather than trusting the server's message string to stay
 				// this exact wording -- a repo Discover offered anyway
 				// (stale trackedIdentifiers, or two tabs racing) isn't a
 				// failure worth "Could not register.", it's a no-op.
+				const refused = e as RepoApiError;
 				const message =
-					body?.code === 'already_tracked'
+					refused.code === 'already_tracked'
 						? 'Already tracked.'
-						: (body?.message ?? 'Could not register.');
+						: (refused.serverMessage ?? 'Could not register.');
 				results.push({ identifier, ok: false, message });
+			} else {
+				results.push({
+					identifier,
+					ok: false,
+					message: 'Could not reach the server.',
+				});
 			}
-		} catch {
-			results.push({
-				identifier,
-				ok: false,
-				message: 'Could not reach the server.',
-			});
 		}
 	}
 
@@ -530,19 +504,15 @@ async function handleUntrack(): Promise<void> {
 	untrackError = null;
 
 	try {
-		const res = await fetch(`/api/repos/${untrackTarget.id}`, {
-			method: 'DELETE',
-		});
-		if (!res.ok) {
-			untrackError = 'Could not untrack the repository.';
-
-			return;
-		}
+		await untrackRepo(untrackTarget.id);
 
 		untrackTarget = null;
 		await Promise.all([loadRepos(), loadTrackedIdentifiers(), invalidateAll()]);
-	} catch {
-		untrackError = 'Could not reach the server.';
+	} catch (e) {
+		untrackError =
+			e instanceof ApiError
+				? 'Could not untrack the repository.'
+				: 'Could not reach the server.';
 	} finally {
 		untrackBusy = false;
 	}
