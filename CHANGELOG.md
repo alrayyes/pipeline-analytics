@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.92.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.91.0...v0.92.0) (2026-10-16)
+
+
+### Features
+
+* **web:** add WebMCP tools to read and change the account's settings ([#688](https://github.com/alrayyes/pipeline-analytics/issues/688)) ([a248aa3](https://github.com/alrayyes/pipeline-analytics/commit/a248aa38212ead3bb78bdf401688dbd77df370c9))
+
 ## [0.91.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.90.0...v0.91.0) (2026-10-16)
 
 
