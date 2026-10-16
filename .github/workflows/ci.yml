@@ -146,7 +146,7 @@ jobs:
       # rest live in the "Dependency advisories (Go)" ticket that
       # advisory-scan.yml keeps (#657).
       - name: govulncheck (gate)
-        uses: alrayyes/advisory-scan@425418a63e80eb10142fbd2e82127b7ef3a51d68 # post v0.1.0
+        uses: alrayyes/advisory-scan@9801551dad16ce63853b2babfda885365d368232 # v0.3.0
         with:
           mode: gate
           command: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
@@ -264,7 +264,7 @@ jobs:
       - run: bun run build
       # Same gate as the Go job's; see advisory-scan.yml for the ticket.
       - name: bun audit (gate)
-        uses: alrayyes/advisory-scan@425418a63e80eb10142fbd2e82127b7ef3a51d68 # post v0.1.0
+        uses: alrayyes/advisory-scan@9801551dad16ce63853b2babfda885365d368232 # v0.3.0
         with:
           mode: gate
           command: bun audit
