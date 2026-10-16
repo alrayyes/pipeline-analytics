@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.88.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.87.0...v0.88.0) (2026-10-16)
+
+
+### Features
+
+* **web:** give every WebMCP tool an input schema generated from the spec ([#669](https://github.com/alrayyes/pipeline-analytics/issues/669)) ([7f102aa](https://github.com/alrayyes/pipeline-analytics/commit/7f102aac23b7e77c2a3bf91c5ed30d552c7ed1dc))
+
 ## [0.87.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.86.0...v0.87.0) (2026-10-16)
 
 
