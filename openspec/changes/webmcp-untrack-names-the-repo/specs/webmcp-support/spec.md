@@ -10,7 +10,7 @@ be looked up, without refusing to ask.
 
 #### Scenario: A listed repository
 
-- **WHEN** the agent untracks a repository the list contains
+- **WHEN** the agent stops tracking a repository the list contains
 - **THEN** the question names its identifier
 
 #### Scenario: The lookup fails
