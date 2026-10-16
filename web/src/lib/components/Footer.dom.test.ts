@@ -132,4 +132,20 @@ describe('Footer', () => {
 		expect(link(footer, '0.56.1')?.hasAttribute('target')).toBe(false);
 		expect(link(footer, 'Privacy')?.hasAttribute('target')).toBe(false);
 	});
+	test('says nothing about a version when the version cannot be fetched', async () => {
+		network.restore();
+		network = fakeNetwork((url) => {
+			if (url.pathname === '/api/version') return json({}, 500);
+		});
+
+		const footer = await open();
+
+		expect(
+			network.requested.some((url) => url.pathname === '/api/version'),
+		).toBe(true);
+		expect(footer.textContent).not.toContain('dev build');
+		expect(footer.querySelector('a[href="/releases"]')).toBeNull();
+		// The rest of the footer is still there.
+		expect(link(footer, 'GitHub')).toBeDefined();
+	});
 });

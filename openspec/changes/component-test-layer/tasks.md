@@ -9,4 +9,5 @@
 - [x] 2e Overview page: a branch with no runs, and a branch list that cannot load
 - [x] 2f Footer: dev build, release link, privacy link and the new-tab links
 - [x] 2g Tab bar: disabled tabs with no repository, links with one, and the current view
+- [x] 2h Layout wiring, the Footer failure path and the Insights failure messages
 - [ ] 3 Archive once every page is moved
