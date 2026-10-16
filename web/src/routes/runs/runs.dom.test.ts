@@ -250,6 +250,7 @@ describe('Runs page actions', () => {
 		expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
 		button('Keep running', document.body).click();
 		await settle();
+		expect(document.querySelector('[role="alertdialog"]')).toBeNull();
 		expect(posted).toEqual([]);
 
 		button('Cancel run', card('preview-build')).click();
@@ -261,6 +262,21 @@ describe('Runs page actions', () => {
 		expect(
 			card('preview-build').querySelector('[role="alert"]')?.textContent,
 		).toContain('Actions write');
-		expect(posted).toEqual(['/api/runs/run-running/cancel']);
+		action = () => json({}, 202);
+		button('Cancel run', card('preview-build')).click();
+		await settle();
+		button(
+			'Cancel run',
+			document.querySelector<HTMLElement>('[role="alertdialog"]') ?? document,
+		).click();
+		await settle();
+
+		expect(
+			card('preview-build').querySelector('[role="status"]')?.textContent,
+		).toContain('Cancel requested');
+		expect(posted).toEqual([
+			'/api/runs/run-running/cancel',
+			'/api/runs/run-running/cancel',
+		]);
 	});
 });
