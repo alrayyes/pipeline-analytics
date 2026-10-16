@@ -40,8 +40,6 @@ const toolOperations: Record<string, string[]> = Object.fromEntries(
 const pendingOperations = new Set<string>([
 	'getVersion',
 	'getGitHubRateLimitInsights',
-	'getSettings',
-	'updateSettings',
 ]);
 
 const methods = ['get', 'post', 'put', 'patch', 'delete'] as const;

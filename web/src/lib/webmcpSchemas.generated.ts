@@ -517,5 +517,90 @@ export const inputSchemas = {
 			"repoId"
 		],
 		"additionalProperties": false
+	},
+	"get_settings": {
+		"type": "object",
+		"properties": {},
+		"required": [],
+		"additionalProperties": false
+	},
+	"update_settings": {
+		"type": "object",
+		"properties": {
+			"theme": {
+				"type": [
+					"string",
+					"null"
+				],
+				"enum": [
+					"light",
+					"dark",
+					"system",
+					null
+				],
+				"description": "The colour theme: light, dark, or system to follow the device. null clears it back to its default."
+			},
+			"forgeFilter": {
+				"type": [
+					"string",
+					"null"
+				],
+				"enum": [
+					"all",
+					"github",
+					"forgejo",
+					null
+				],
+				"description": "Which forge the dashboard shows: all, github or forgejo. null clears it back to its default."
+			},
+			"pipelinesHealthFilter": {
+				"type": [
+					"string",
+					"null"
+				],
+				"enum": [
+					"all",
+					"healthy",
+					"unhealthy",
+					null
+				],
+				"description": "The Pipelines page's health filter: all, healthy or unhealthy. null clears it back to its default."
+			},
+			"pipelinesRepoSelector": {
+				"type": [
+					"string",
+					"null"
+				],
+				"maxLength": 128,
+				"description": "The repository the Pipelines page is limited to, as an id from list_repos, or all for every repository. null clears it back to its default."
+			},
+			"pipelinesSortOrder": {
+				"type": [
+					"string",
+					"null"
+				],
+				"enum": [
+					"name",
+					"lastRun",
+					null
+				],
+				"description": "How the Pipelines page sorts: name, or lastRun for the most recently run first. null clears it back to its default."
+			},
+			"telemetryWindow": {
+				"type": [
+					"string",
+					"null"
+				],
+				"enum": [
+					"24h",
+					"7d",
+					"30d",
+					null
+				],
+				"description": "The window the telemetry pages cover: 24h, 7d or 30d. null clears it back to its default."
+			}
+		},
+		"required": [],
+		"additionalProperties": false
 	}
 } as const;
