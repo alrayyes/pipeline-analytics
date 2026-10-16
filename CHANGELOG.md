@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.93.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.93.0...v0.93.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **ci:** publish Lighthouse reports under names that do not change between deploys ([#693](https://github.com/alrayyes/pipeline-analytics/issues/693)) ([d3083b2](https://github.com/alrayyes/pipeline-analytics/commit/d3083b293cfeec5fef24c9737b1e294468bb3e48))
+
 ## [0.93.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.92.0...v0.93.0) (2026-10-16)
 
 
