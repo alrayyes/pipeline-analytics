@@ -18,3 +18,8 @@ name the id when the lookup fails or finds nothing, without refusing to ask.
 
 - **WHEN** the agent stops tracking an id nothing is tracked under
 - **THEN** the question names the id and the person is still asked
+
+#### Scenario: The lookup is slow
+
+- **WHEN** the lookup does not answer within three seconds
+- **THEN** the question names the id and the person is still asked
