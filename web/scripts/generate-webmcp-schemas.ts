@@ -22,7 +22,14 @@ type Parameter = {
 	schema?: Json;
 };
 
-type Operation = { operationId: string; parameters?: Parameter[] };
+type Operation = {
+	operationId: string;
+	parameters?: Parameter[];
+	requestBody?: {
+		required?: boolean;
+		content?: Record<string, { schema?: Json }>;
+	};
+};
 
 export type Spec = {
 	paths: Record<string, Json>;
@@ -101,6 +108,21 @@ export function operationInputSchema(
 			...(description ? { description } : {}),
 		};
 		if (param.required) required.push(name);
+	}
+
+	// A JSON body's properties are tool inputs beside the parameters. Its own
+	// required list only binds when the body is itself required.
+	const body = inline(
+		spec,
+		operation.requestBody?.content?.['application/json']?.schema,
+	) as Json | undefined;
+	for (const [name, schema] of Object.entries(
+		(body?.properties as Record<string, Json> | undefined) ?? {},
+	)) {
+		properties[name] = schema;
+	}
+	if (operation.requestBody?.required) {
+		required.push(...((body?.required as string[] | undefined) ?? []));
 	}
 
 	for (const [name, override] of Object.entries(overrides)) {

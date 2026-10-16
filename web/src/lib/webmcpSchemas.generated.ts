@@ -358,5 +358,44 @@ export const inputSchemas = {
 			"runId"
 		],
 		"additionalProperties": false
+	},
+	"quarantine_step": {
+		"type": "object",
+		"properties": {
+			"pipelineId": {
+				"type": "string"
+			},
+			"step": {
+				"type": "string",
+				"description": "The step's name as list_flaky_steps shows it, for example `lint/css`. Do not encode it."
+			},
+			"note": {
+				"type": "string",
+				"maxLength": 500,
+				"description": "Characters, not bytes. Optional."
+			}
+		},
+		"required": [
+			"pipelineId",
+			"step"
+		],
+		"additionalProperties": false
+	},
+	"unquarantine_step": {
+		"type": "object",
+		"properties": {
+			"pipelineId": {
+				"type": "string"
+			},
+			"step": {
+				"type": "string",
+				"description": "The step's name as list_flaky_steps shows it, for example `lint/css`. Do not encode it."
+			}
+		},
+		"required": [
+			"pipelineId",
+			"step"
+		],
+		"additionalProperties": false
 	}
 } as const;

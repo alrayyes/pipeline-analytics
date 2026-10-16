@@ -39,6 +39,13 @@ mock.module('./runActions.js', () => ({
 	cancelRun: cancelRunMock,
 	actionMessage: () => 'refused',
 }));
+const quarantineStepMock = mock(
+	(_pipelineId: string, _step: string, _note?: string) =>
+		Promise.resolve({ quarantined: true }),
+);
+const unquarantineStepMock = mock((_pipelineId: string, _step: string) =>
+	Promise.resolve({ quarantined: false }),
+);
 
 mock.module('./dashboardApi.js', () => ({
 	fetchPipelines: fetchPipelinesMock,
@@ -53,6 +60,8 @@ mock.module('./dashboardApi.js', () => ({
 	fetchRunSteps: fetchRunStepsMock,
 	fetchFlakyRuns: fetchFlakyRunsMock,
 	fetchUnhealthySteps: fetchUnhealthyStepsMock,
+	quarantineStep: quarantineStepMock,
+	unquarantineStep: unquarantineStepMock,
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
@@ -86,6 +95,8 @@ beforeEach(() => {
 	fetchUnhealthyStepsMock.mockClear();
 	rerunRunMock.mockClear();
 	cancelRunMock.mockClear();
+	quarantineStepMock.mockClear();
+	unquarantineStepMock.mockClear();
 });
 
 function findTool(
@@ -123,6 +134,8 @@ describe('registerWebMCPTools', () => {
 			'list_unhealthy_steps',
 			'rerun_run',
 			'cancel_run',
+			'quarantine_step',
+			'unquarantine_step',
 		]);
 	});
 
@@ -207,6 +220,8 @@ const allFetchMocks = [
 	fetchUnhealthyStepsMock,
 	rerunRunMock,
 	cancelRunMock,
+	quarantineStepMock,
+	unquarantineStepMock,
 ];
 
 // A tool that advertises a parameter must pass it on: an agent told it can

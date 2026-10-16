@@ -32,6 +32,30 @@ const spec: Spec = {
 			},
 		},
 		'/api/plain': { get: { operationId: 'getPlain' } },
+		'/api/things': {
+			post: {
+				operationId: 'makeThing',
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/ThingInput' },
+						},
+					},
+				},
+			},
+			put: {
+				operationId: 'putThing',
+				requestBody: {
+					required: false,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/ThingInput' },
+						},
+					},
+				},
+			},
+		},
 	},
 	components: {
 		parameters: {
@@ -43,7 +67,17 @@ const spec: Spec = {
 				schema: { $ref: '#/components/schemas/KindName' },
 			},
 		},
-		schemas: { KindName: { type: 'string', enum: ['a', 'b'] } },
+		schemas: {
+			KindName: { type: 'string', enum: ['a', 'b'] },
+			ThingInput: {
+				type: 'object',
+				required: ['name'],
+				properties: {
+					name: { type: 'string', maxLength: 5, description: 'Its name.' },
+					kind: { $ref: '#/components/schemas/KindName' },
+				},
+			},
+		},
 	},
 };
 
@@ -74,6 +108,22 @@ describe('operationInputSchema', () => {
 			required: [],
 			additionalProperties: false,
 		});
+	});
+
+	test("adds a JSON request body's properties, required when the body is", () => {
+		expect(operationInputSchema(spec, 'makeThing')).toEqual({
+			type: 'object',
+			properties: {
+				name: { type: 'string', maxLength: 5, description: 'Its name.' },
+				kind: { type: 'string', enum: ['a', 'b'] },
+			},
+			required: ['name'],
+			additionalProperties: false,
+		});
+	});
+
+	test('an optional body makes all of its properties optional', () => {
+		expect(operationInputSchema(spec, 'putThing').required).toEqual([]);
 	});
 
 	test('an unknown operation is an error naming it', () => {

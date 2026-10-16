@@ -22,7 +22,9 @@ import {
 	fetchRuns,
 	fetchUnhealthySteps,
 	type InsightsWindow,
+	quarantineStep,
 	type RunStatusFilter,
+	unquarantineStep,
 } from './dashboardApi.js';
 import {
 	actionMessage,
@@ -299,5 +301,34 @@ export function registerWebMCPTools(
 		inputSchema: inputSchemas.cancel_run,
 		annotations: { destructiveHint: true },
 		execute: (input, agent) => actOnRun('cancel', input, agent),
+	});
+
+	modelContext.registerTool({
+		name: 'quarantine_step',
+		description:
+			'Mark a flaky step as known for 30 days, with an optional note, so it stops making its pipeline unhealthy. Marking a step already quarantined renews it. Recorded in this service only; no forge is contacted. Takes a pipelineId and a step name from list_flaky_steps. The signed-in session is needed, as for the Flaky page button.',
+		inputSchema: inputSchemas.quarantine_step,
+		execute: async (input) =>
+			textResult(
+				await quarantineStep(
+					required(input, 'pipelineId'),
+					required(input, 'step'),
+					typeof input.note === 'string' ? input.note : undefined,
+				),
+			),
+	});
+
+	modelContext.registerTool({
+		name: 'unquarantine_step',
+		description:
+			"Clear a step's quarantine so it raises the flaky_step health signal again. A step with no mark is fine. Takes a pipelineId and a step name from list_flaky_steps.",
+		inputSchema: inputSchemas.unquarantine_step,
+		execute: async (input) =>
+			textResult(
+				await unquarantineStep(
+					required(input, 'pipelineId'),
+					required(input, 'step'),
+				),
+			),
 	});
 }

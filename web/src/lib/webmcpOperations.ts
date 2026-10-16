@@ -19,14 +19,21 @@ export const toolOperations: Record<string, string> = {
 	list_unhealthy_steps: 'listUnhealthySteps',
 	rerun_run: 'rerunRun',
 	cancel_run: 'cancelRun',
+	quarantine_step: 'quarantineStep',
+	unquarantine_step: 'unquarantineStep',
 };
 
 // Where a tool pages by default and the API doesn't. The spec says an omitted
 // `limit` returns everything, which is right for the endpoint and wrong for an
 // agent, so the tool's schema states its own default (#649).
+// The spec's wording is for raw HTTP callers, who encode a `/` themselves; the
+// tool encodes it, so an agent that did too would address a different step.
+const STEP_AS_LISTED =
+	"The step's name as list_flaky_steps shows it, for example `lint/css`. Do not encode it.";
+
 export const toolParameterOverrides: Record<
 	string,
-	Record<string, { default: number; description: string }>
+	Record<string, { default?: number; description: string }>
 > = {
 	list_pipelines: {
 		limit: {
@@ -39,6 +46,8 @@ export const toolParameterOverrides: Record<
 			description: 'Pipelines to skip before the returned page.',
 		},
 	},
+	quarantine_step: { step: { description: STEP_AS_LISTED } },
+	unquarantine_step: { step: { description: STEP_AS_LISTED } },
 	list_runs: {
 		limit: {
 			default: 20,
