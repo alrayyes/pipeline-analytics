@@ -1,7 +1,9 @@
+import { codecovVitePlugin } from '@codecov/vite-plugin';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { bundleAnalysisOptions } from './src/bundleAnalysis.ts';
 
 export default defineConfig({
 	plugins: [
@@ -29,5 +31,7 @@ export default defineConfig({
 				precompress: true,
 			}),
 		}),
+		// Last, so it sees the finished bundle (#421).
+		codecovVitePlugin(bundleAnalysisOptions(process.env)),
 	],
 });
