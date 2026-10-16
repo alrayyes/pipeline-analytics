@@ -84,6 +84,45 @@ describe.each([
 		expect(actionMock).not.toHaveBeenCalled();
 	});
 
+	test.each([
+		['a confirm that answers with a promise', () => Promise.resolve(false)],
+		['a confirm that answers with text', () => 'no'],
+	])('only a plain yes counts: %s', async (_label, answer) => {
+		// @ts-expect-error -- a non-native confirm that is not boolean
+		globalThis.confirm = answer;
+
+		await expect(
+			tools().get(name)?.execute({ runId: 'r1' }, { signal }),
+		).rejects.toThrow('declined');
+		expect(actionMock).not.toHaveBeenCalled();
+	});
+
+	test('does nothing when the agent reports the person said no', async () => {
+		const requestUserInteraction = mock(<T>(_ask: () => Promise<T> | T) =>
+			Promise.resolve(false as T),
+		);
+
+		await expect(
+			tools()
+				.get(name)
+				?.execute({ runId: 'r1' }, { signal, requestUserInteraction }),
+		).rejects.toThrow('declined');
+		expect(actionMock).not.toHaveBeenCalled();
+	});
+
+	test('does nothing when the agent answers with anything but true', async () => {
+		const requestUserInteraction = mock(<T>(_ask: () => Promise<T> | T) =>
+			Promise.resolve({ declined: true } as T),
+		);
+
+		await expect(
+			tools()
+				.get(name)
+				?.execute({ runId: 'r1' }, { signal, requestUserInteraction }),
+		).rejects.toThrow('declined');
+		expect(actionMock).not.toHaveBeenCalled();
+	});
+
 	test('asks through the agent when it offers requestUserInteraction', async () => {
 		const requestUserInteraction = mock(<T>(ask: () => Promise<T> | T) =>
 			ask(),

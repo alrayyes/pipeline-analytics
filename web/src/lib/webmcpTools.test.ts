@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const fetchPipelinesMock = mock(() =>
 	Promise.resolve({ pipelines: [], hasMore: false }),
@@ -64,6 +64,12 @@ type Tool = Parameters<RegisterToolFn>[0];
 function newRegisterToolMock() {
 	return mock((_tool: Tool, _options?: Parameters<RegisterToolFn>[1]) => {});
 }
+
+const originalConfirm = globalThis.confirm;
+
+afterEach(() => {
+	globalThis.confirm = originalConfirm;
+});
 
 beforeEach(() => {
 	fetchPipelinesMock.mockClear();
@@ -220,7 +226,6 @@ describe('advertised parameters', () => {
 	for (const [name, schema] of Object.entries(inputSchemas)) {
 		test(`${name} forwards every parameter its schema lists`, async () => {
 			// The write tools ask the person first; say yes for this check.
-			const original = globalThis.confirm;
 			globalThis.confirm = () => true;
 			const registerTool = newRegisterToolMock();
 			registerWebMCPTools({ registerTool });
@@ -245,7 +250,6 @@ describe('advertised parameters', () => {
 			const dropped = Object.entries(input)
 				.filter(([, value]) => !sent.includes(JSON.stringify(value)))
 				.map(([key]) => key);
-			globalThis.confirm = original;
 			expect(dropped).toEqual([]);
 		});
 	}

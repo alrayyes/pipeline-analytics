@@ -72,11 +72,12 @@ async function personConfirms(
 	const ask = () =>
 		typeof globalThis.confirm === 'function' && globalThis.confirm(question);
 
-	return Boolean(
-		agent.requestUserInteraction
-			? await agent.requestUserInteraction(ask)
-			: ask(),
-	);
+	// Only a plain true is a yes: a promise, a string or an object is not.
+	const answer = await (agent.requestUserInteraction
+		? agent.requestUserInteraction(ask)
+		: ask());
+
+	return answer === true;
 }
 
 async function actOnRun(
