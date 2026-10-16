@@ -310,7 +310,9 @@ docs, so you can check the project's health without opening a pipeline run:
 - [Coverage](https://apis.ryankes.eu/pipeline-analytics/reports/coverage/):
   Cobertura XML, with the Go HTML view and the native Go and lcov files beside it.
 - [Lighthouse](https://apis.ryankes.eu/pipeline-analytics/reports/lighthouse/):
-  the audit of the login page and the signed-in pages.
+  the audit of the login page and the signed-in pages, one
+  `<page>.report.html` and `.report.json` each, with names that stay the same
+  from one deploy to the next.
 
 [Codecov](https://codecov.io/gh/alrayyes/pipeline-analytics) also holds the
 test result history (flaky tests) and a bundle size report for each frontend

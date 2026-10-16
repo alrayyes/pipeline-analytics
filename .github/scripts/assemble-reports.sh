@@ -55,13 +55,60 @@ if [ ! -d "$artifacts/lighthouse-report" ]; then
 	exit 1
 fi
 
-mkdir -p "$out/lighthouse"
-find "$artifacts/lighthouse-report" -maxdepth 1 -type f \( -name '*.html' -o -name '*.json' \) -exec cp {} "$out/lighthouse/" \;
+# Lighthouse CI names each file for its URL and the minute it ran, so every
+# deploy would rename them. GitHub Pages serves manifest.json and the index with
+# max-age=600 behind a CDN, so for ten minutes a cached manifest would name files
+# the deploy removed. Publish one pair per audited page under a name that does not
+# change, <page>.report.html and <page>.report.json, and point the manifest at
+# those. The page name is the URL's path, with the root called home.
+lh_in="$artifacts/lighthouse-report"
+lh_out="$out/lighthouse"
 
-if [ -z "$(find "$out/lighthouse" -name '*.html' -print -quit)" ]; then
+if [ ! -f "$lh_in/manifest.json" ]; then
+	echo "assemble-reports: lighthouse-report has no manifest.json" >&2
+	exit 1
+fi
+
+mkdir -p "$lh_out"
+
+# One entry per URL: the representative run, or the first when none is marked.
+pages="$(jq -c 'group_by(.url) | map((map(select(.isRepresentativeRun))[0] // .[0])) | .[]' "$lh_in/manifest.json")"
+
+if [ -z "$pages" ]; then
 	echo "assemble-reports: lighthouse-report has no HTML report" >&2
 	exit 1
 fi
+
+manifest="[]"
+seen=" "
+while read -r entry; do
+	url="$(jq -r .url <<<"$entry")"
+	slug="$(sed -E 's|^[a-z]+://[^/]*||; s|[?#].*$||; s|^/+||; s|/+$||; s|/|-|g' <<<"$url")"
+	[ -n "$slug" ] || slug="home"
+
+	# Two URLs that share a name would overwrite each other's report.
+	case "$seen" in
+	*" $slug "*)
+		echo "assemble-reports: two Lighthouse reports are called $slug" >&2
+		exit 1
+		;;
+	esac
+	seen="$seen$slug "
+
+	for kind in html json; do
+		src="$lh_in/$(basename "$(jq -r ".${kind}Path" <<<"$entry")")"
+		if [ ! -f "$src" ]; then
+			echo "assemble-reports: missing $(basename "$src")" >&2
+			exit 1
+		fi
+		cp "$src" "$lh_out/$slug.report.$kind"
+	done
+
+	manifest="$(jq --argjson e "$entry" --arg slug "$slug" \
+		'. + [$e | .htmlPath = "\($slug).report.html" | .jsonPath = "\($slug).report.json"]' <<<"$manifest")"
+done <<<"$pages"
+
+jq . <<<"$manifest" >"$lh_out/manifest.json"
 
 index "$out/tests" "Test results"
 index "$out/coverage" "Coverage"
