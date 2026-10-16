@@ -24,6 +24,7 @@ import {
 	type InsightsWindow,
 	type RunStatusFilter,
 } from './dashboardApi.js';
+import { inputSchemas } from './webmcpSchemas.generated.js';
 
 type ModelContext = NonNullable<Document['modelContext']>;
 
@@ -64,13 +65,17 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'list_pipelines',
 		description:
-			'List tracked pipelines, grouped by repository, with their current health status.',
+			"List tracked pipelines, grouped by repository, with each one's current health status. Returns 20 pipelines from offset 0 unless limit and offset say otherwise; check hasMore for another page. Use a pipelineId from here with get_pipeline.",
+		inputSchema: inputSchemas.list_pipelines,
 		execute: async (input) => {
 			const data = await fetchPipelines({
 				limit: typeof input.limit === 'number' ? input.limit : 20,
 				offset: typeof input.offset === 'number' ? input.offset : 0,
 				forge: input.forge as 'github' | 'forgejo' | undefined,
 				repoId: input.repoId as string | undefined,
+				health: input.health as 'healthy' | 'unhealthy' | undefined,
+				sort: input.sort as 'name' | 'lastRun' | undefined,
+				window: input.window as string | undefined,
 			});
 
 			return textResult(data);
@@ -80,9 +85,12 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'get_pipeline',
 		description:
-			"Get a pipeline's health status and its duration and failure-rate trends.",
+			"Get one pipeline's health status and its duration and failure-rate trends. Takes a pipelineId from list_pipelines.",
+		inputSchema: inputSchemas.get_pipeline,
 		execute: async (input) => {
-			const data = await fetchPipeline(input.pipelineId as string);
+			const data = await fetchPipeline(input.pipelineId as string, undefined, {
+				window: input.window as string | undefined,
+			});
 
 			return textResult(data);
 		},
@@ -91,9 +99,12 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'get_repo_usage',
 		description:
-			"Get a repository's runner-minutes usage, broken down by workflow.",
+			"Get one repository's runner-minutes usage, broken down by workflow. Takes a repoId from list_pipelines.",
+		inputSchema: inputSchemas.get_repo_usage,
 		execute: async (input) => {
-			const data = await fetchRepoUsage(input.repoId as string);
+			const data = await fetchRepoUsage(input.repoId as string, undefined, {
+				window: input.window as string | undefined,
+			});
 
 			return textResult(data);
 		},
@@ -102,7 +113,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'list_pipeline_steps',
 		description:
-			"List a pipeline's steps with their outcome counts, to find where it fails.",
+			"List one pipeline's steps with their outcome counts, to find where it fails. Takes a pipelineId from list_pipelines.",
+		inputSchema: inputSchemas.list_pipeline_steps,
 		execute: async (input) =>
 			textResult(
 				await fetchPipelineSteps(input.pipelineId as string, {
@@ -114,7 +126,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'get_job_log',
 		description:
-			"Get the last lines of one job's log from a run, to read why a step failed.",
+			"Get the last lines of one job's log from a run, to read why a step failed. Takes the runId and the failed step's jobId from get_run_steps.",
+		inputSchema: inputSchemas.get_job_log,
 		execute: async (input) =>
 			textResult(
 				await fetchJobLog(input.runId as string, input.jobId as string, {
@@ -126,7 +139,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'get_failure_insights',
 		description:
-			'Get what failed over a window: failure rate, the steps that fail most, the categories and the pipelines.',
+			'Get what failed over a window (24h, 7d or 30d; 7d when omitted): the failure rate, the steps that fail most, the categories and the pipelines. Narrow it by forge, repoId or branch.',
+		inputSchema: inputSchemas.get_failure_insights,
 		execute: async (input) =>
 			textResult(
 				await fetchFailureInsights({
@@ -141,7 +155,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'list_runs',
 		description:
-			'List recent runs, newest first, filtered by status, repository, forge or branch.',
+			'List recent runs, newest first, filtered by status, repository, forge or branch. Returns 20 runs from offset 0 unless limit and offset say otherwise; check hasMore for another page. Open one with get_run_steps.',
+		inputSchema: inputSchemas.list_runs,
 		execute: async (input) =>
 			textResult(
 				await fetchRuns({
@@ -156,7 +171,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'list_flaky_steps',
 		description:
-			'List the steps that flake over a window, flakiest first, with their quarantine state.',
+			'List the steps that flake over a window, flakiest first, with their quarantine state. Narrow it by forge, repoId or branch.',
+		inputSchema: inputSchemas.list_flaky_steps,
 		execute: async (input) =>
 			textResult(
 				await fetchFlakySteps({
@@ -171,7 +187,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'list_branches',
 		description:
-			'List the branches that ran over a window, with their run counts.',
+			'List the branches that ran over a window, with their run counts, to find a branch value for the other tools.',
+		inputSchema: inputSchemas.list_branches,
 		execute: async (input) =>
 			textResult(
 				await fetchBranches({
@@ -185,7 +202,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'get_run_steps',
 		description:
-			"Get one run's steps with their outcomes and, for a failed step, its job id for get_job_log.",
+			"Get one run's steps with their outcomes and, for a failed step, its job id for get_job_log. Takes a runId from list_runs.",
+		inputSchema: inputSchemas.get_run_steps,
 		execute: async (input) =>
 			textResult(await fetchRunSteps(required(input, 'runId'))),
 	});
@@ -193,7 +211,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'list_pipeline_flaky_runs',
 		description:
-			'List the runs in which one step of a pipeline flaked, to open them with get_run_steps.',
+			'List the runs in which one step of a pipeline flaked, to open them with get_run_steps. Takes a pipelineId and a step name from list_flaky_steps.',
+		inputSchema: inputSchemas.list_pipeline_flaky_runs,
 		execute: async (input) =>
 			textResult(
 				await fetchFlakyRuns(required(input, 'pipelineId'), {
@@ -206,7 +225,8 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'list_unhealthy_steps',
 		description:
-			'List the pipelines that have a flaky or failing step over a window, with those steps.',
+			'List the pipelines that have a flaky or failing step over a window, with those steps. Pages with limit and offset.',
+		inputSchema: inputSchemas.list_unhealthy_steps,
 		execute: async (input) =>
 			textResult(
 				await fetchUnhealthySteps({

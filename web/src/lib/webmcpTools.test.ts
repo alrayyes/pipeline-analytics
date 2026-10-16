@@ -47,6 +47,7 @@ mock.module('./dashboardApi.js', () => ({
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
+const { inputSchemas } = await import('./webmcpSchemas.generated.js');
 
 type RegisterToolFn = NonNullable<Document['modelContext']>['registerTool'];
 type Tool = Parameters<RegisterToolFn>[0];
@@ -137,7 +138,9 @@ describe('registerWebMCPTools', () => {
 			{ signal: new AbortController().signal },
 		);
 
-		expect(fetchPipelineMock).toHaveBeenCalledWith('p1');
+		expect(fetchPipelineMock).toHaveBeenCalledWith('p1', undefined, {
+			window: undefined,
+		});
 		expect(result).toEqual({
 			content: [{ type: 'text', text: JSON.stringify({ id: 'p1' }) }],
 		});
@@ -153,7 +156,9 @@ describe('registerWebMCPTools', () => {
 			{ signal: new AbortController().signal },
 		);
 
-		expect(fetchRepoUsageMock).toHaveBeenCalledWith('r1');
+		expect(fetchRepoUsageMock).toHaveBeenCalledWith('r1', undefined, {
+			window: undefined,
+		});
 		expect(result).toEqual({
 			content: [
 				{
@@ -168,6 +173,65 @@ describe('registerWebMCPTools', () => {
 // What each read tool hands its fetch function. The tool's own logic is only
 // this mapping, so one call per tool pins it; the fetch functions and the
 // endpoints are tested where they live.
+const allFetchMocks = [
+	fetchPipelinesMock,
+	fetchPipelineMock,
+	fetchRepoUsageMock,
+	fetchPipelineStepsMock,
+	fetchJobLogMock,
+	fetchFailureInsightsMock,
+	fetchRunsMock,
+	fetchFlakyStepsMock,
+	fetchBranchesMock,
+	fetchRunStepsMock,
+	fetchFlakyRunsMock,
+	fetchUnhealthyStepsMock,
+];
+
+// A tool that advertises a parameter must pass it on: an agent told it can
+// filter by health would otherwise get the unfiltered list and no error (#649).
+describe('advertised parameters', () => {
+	function sentinel(
+		name: string,
+		schema: Record<string, unknown>,
+		index: number,
+	): unknown {
+		if (Array.isArray(schema.enum)) return schema.enum[0];
+		if (schema.type === 'integer') return 7 + index;
+
+		return `value-of-${name}`;
+	}
+
+	for (const [name, schema] of Object.entries(inputSchemas)) {
+		test(`${name} forwards every parameter its schema lists`, async () => {
+			const registerTool = newRegisterToolMock();
+			registerWebMCPTools({ registerTool });
+			const props = schema.properties as Record<
+				string,
+				Record<string, unknown>
+			>;
+			const input = Object.fromEntries(
+				Object.entries(props).map(([key, value], index) => [
+					key,
+					sentinel(key, value, index),
+				]),
+			);
+
+			await findTool(registerTool, name).execute(input, {
+				signal: new AbortController().signal,
+			});
+
+			const sent = JSON.stringify(
+				allFetchMocks.flatMap((fetchMock) => fetchMock.mock.calls),
+			);
+			const dropped = Object.entries(input)
+				.filter(([, value]) => !sent.includes(JSON.stringify(value)))
+				.map(([key]) => key);
+			expect(dropped).toEqual([]);
+		});
+	}
+});
+
 describe('read tools', () => {
 	const cases: [
 		string,
