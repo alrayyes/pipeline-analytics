@@ -55,6 +55,8 @@ const discoverReposMock = mock((_request: object) => Promise.resolve([]));
 const registerRepoMock = mock((_request: object) => Promise.resolve({}));
 const untrackRepoMock = mock((_repoId: string) => Promise.resolve());
 
+const fetchVersionMock = mock(() => Promise.resolve({ version: 'v1' }));
+const fetchGitHubRateLimitMock = mock(() => Promise.resolve([]));
 const loadSettingsMock = mock(() => Promise.resolve({ theme: 'dark' }));
 const saveSettingsMock = mock((_update: object) =>
 	Promise.resolve({ theme: 'dark' }),
@@ -88,6 +90,8 @@ mock.module('./dashboardApi.js', () => ({
 	fetchUnhealthySteps: fetchUnhealthyStepsMock,
 	quarantineStep: quarantineStepMock,
 	unquarantineStep: unquarantineStepMock,
+	fetchVersion: fetchVersionMock,
+	fetchGitHubRateLimit: fetchGitHubRateLimitMock,
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
@@ -128,6 +132,8 @@ beforeEach(() => {
 	discoverReposMock.mockClear();
 	registerRepoMock.mockClear();
 	untrackRepoMock.mockClear();
+	fetchVersionMock.mockClear();
+	fetchGitHubRateLimitMock.mockClear();
 	loadSettingsMock.mockClear();
 	saveSettingsMock.mockClear();
 });
@@ -174,6 +180,8 @@ describe('registerWebMCPTools', () => {
 			'discover_repos',
 			'register_repo',
 			'untrack_repo',
+			'get_version',
+			'get_github_rate_limit',
 			'get_settings',
 			'update_settings',
 		]);
@@ -267,6 +275,8 @@ const allFetchMocks = [
 	discoverReposMock,
 	registerRepoMock,
 	untrackRepoMock,
+	fetchVersionMock,
+	fetchGitHubRateLimitMock,
 	loadSettingsMock,
 	saveSettingsMock,
 ];

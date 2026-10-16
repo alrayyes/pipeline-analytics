@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import { fetchVersion } from '#lib/dashboardApi.js';
 import { page } from '$app/state';
 
 const repoUrl = 'https://github.com/alrayyes/pipeline-analytics';
@@ -9,9 +10,8 @@ const linkClass =
 let version = $state<string | null>(null);
 
 onMount(() => {
-	fetch('/api/version')
-		.then((res) => res.json())
-		.then((data: { version: string }) => {
+	fetchVersion()
+		.then((data) => {
 			version = data.version;
 		})
 		.catch(() => {

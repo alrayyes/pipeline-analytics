@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from 'bun:test';
 
 // Parity between openapi.yaml and the WebMCP tools (rules/mcp.md): every
-// operation is a tool, carries an x-agent-excluded reason in the spec, or is
-// on the temporary pending list below. The MCP server's twin is
+// operation is a tool or carries an x-agent-excluded reason in the spec, with
+// no third list to park one on. The MCP server's twin is
 // internal/httpserver/mcp_spec_parity_test.go, which reads the same
 // extension. Per-tool behaviour is webmcpTools.test.ts and the API's own tests.
 
@@ -21,6 +21,8 @@ mock.module('./dashboardApi.js', () => ({
 	fetchUnhealthySteps: () => Promise.resolve({}),
 	quarantineStep: () => Promise.resolve({}),
 	unquarantineStep: () => Promise.resolve({}),
+	fetchVersion: () => Promise.resolve({}),
+	fetchGitHubRateLimit: () => Promise.resolve([]),
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
@@ -33,14 +35,6 @@ const { toolOperations: toolOperationIds } = await import(
 const toolOperations: Record<string, string[]> = Object.fromEntries(
 	Object.entries(toolOperationIds).map(([tool, id]) => [tool, [id]]),
 );
-
-// Operations whose WebMCP tool is still to come under #615. It exists so the
-// parity test can land first; each tool pull request takes its operations off
-// and the last one deletes the list. "Nobody asked yet" is not an exclusion.
-const pendingOperations = new Set<string>([
-	'getVersion',
-	'getGitHubRateLimitInsights',
-]);
 
 const methods = ['get', 'post', 'put', 'patch', 'delete'] as const;
 
@@ -85,12 +79,12 @@ describe.skipIf(inStryker)('WebMCP parity with openapi.yaml', () => {
 		expect(unnamed).toEqual([]);
 	});
 
-	test('every operation has a tool, an exclusion reason or a pending entry', async () => {
+	test('every operation has a tool or an exclusion reason', async () => {
 		const covered = new Set(Object.values(toolOperations).flat());
 		const offenders = (await specOperations())
 			.filter((op) => !op['x-agent-excluded'])
 			.map((op) => op.operationId)
-			.filter((id) => !covered.has(id) && !pendingOperations.has(id));
+			.filter((id) => !covered.has(id));
 
 		expect(offenders).toEqual([]);
 	});
@@ -129,22 +123,5 @@ describe.skipIf(inStryker)('WebMCP parity with openapi.yaml', () => {
 		);
 
 		expect(missing).toEqual([]);
-	});
-
-	test('the pending list holds only operations still without a tool', async () => {
-		const covered = new Set(Object.values(toolOperations).flat());
-		const excluded = new Set(
-			(await specOperations())
-				.filter((op) => op['x-agent-excluded'])
-				.map((op) => op.operationId),
-		);
-		const declared = new Set(
-			(await specOperations()).map((op) => op.operationId),
-		);
-		const stale = [...pendingOperations].filter(
-			(id) => covered.has(id) || excluded.has(id) || !declared.has(id),
-		);
-
-		expect(stale).toEqual([]);
 	});
 });

@@ -13,6 +13,7 @@ import {
 	fetchFailureInsights,
 	fetchFlakyRuns,
 	fetchFlakySteps,
+	fetchGitHubRateLimit,
 	fetchJobLog,
 	fetchPipeline,
 	fetchPipelineSteps,
@@ -21,6 +22,7 @@ import {
 	fetchRunSteps,
 	fetchRuns,
 	fetchUnhealthySteps,
+	fetchVersion,
 	type InsightsWindow,
 	quarantineStep,
 	type RunStatusFilter,
@@ -467,6 +469,22 @@ export function registerWebMCPTools(
 
 			return textResult({ repoId, untracked: true });
 		},
+	});
+
+	modelContext.registerTool({
+		name: 'get_version',
+		description:
+			'Get the version of the running service, the one the page footer shows: a tagged release such as v1.2.3, or dev for an untagged local build.',
+		inputSchema: inputSchemas.get_version,
+		execute: async () => textResult(await fetchVersion()),
+	});
+
+	modelContext.registerTool({
+		name: 'get_github_rate_limit',
+		description:
+			'Get, for each GitHub token this service holds, the repositories it is used for and its most recently observed rate-limit status. The status comes from real API responses, so it is absent for a token not yet used. Tokens are masked to their last four characters.',
+		inputSchema: inputSchemas.get_github_rate_limit,
+		execute: async () => textResult({ tokens: await fetchGitHubRateLimit() }),
 	});
 
 	modelContext.registerTool({

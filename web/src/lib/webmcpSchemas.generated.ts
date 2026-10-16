@@ -602,5 +602,17 @@ export const inputSchemas = {
 		},
 		"required": [],
 		"additionalProperties": false
+	},
+	"get_version": {
+		"type": "object",
+		"properties": {},
+		"required": [],
+		"additionalProperties": false
+	},
+	"get_github_rate_limit": {
+		"type": "object",
+		"properties": {},
+		"required": [],
+		"additionalProperties": false
 	}
 } as const;
