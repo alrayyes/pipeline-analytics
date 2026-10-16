@@ -4,7 +4,7 @@
 // ApiError that also keeps the server's `code` and `message`, which the page
 // words for the person; a request that never arrives rejects as fetch does.
 
-import { ApiError } from './dashboardApi.js';
+import { ApiError } from './apiError.js';
 
 export type Forge = 'github' | 'forgejo';
 

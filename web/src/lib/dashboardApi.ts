@@ -3,6 +3,10 @@
 // same data call one function instead of the tool growing its own,
 // second path to the same API.
 
+import { ApiError } from './apiError.js';
+
+export { ApiError };
+
 export interface PipelineSummary {
 	id: string;
 	repoId: string;
@@ -206,18 +210,6 @@ export interface FlakyStepList {
 export interface UsageEntry {
 	workflow: string;
 	runnerMinutes: number;
-}
-
-// Carries the response status a caller needs to tell "not found" apart from
-// any other failure (the pipeline and usage pages both do), without every
-// caller re-parsing a generic Error's message to get it back.
-export class ApiError extends Error {
-	status: number;
-
-	constructor(status: number) {
-		super(`Request failed with status ${status}`);
-		this.status = status;
-	}
 }
 
 export interface PipelinesParams {
