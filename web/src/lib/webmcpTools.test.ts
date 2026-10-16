@@ -55,6 +55,16 @@ const discoverReposMock = mock((_request: object) => Promise.resolve([]));
 const registerRepoMock = mock((_request: object) => Promise.resolve({}));
 const untrackRepoMock = mock((_repoId: string) => Promise.resolve());
 
+const loadSettingsMock = mock(() => Promise.resolve({ theme: 'dark' }));
+const saveSettingsMock = mock((_update: object) =>
+	Promise.resolve({ theme: 'dark' }),
+);
+
+mock.module('./settingsSync.js', () => ({
+	loadSettings: loadSettingsMock,
+	saveSettings: saveSettingsMock,
+}));
+
 mock.module('./repoApi.js', () => ({
 	fetchRepoPage: fetchRepoPageMock,
 	fetchRepoIdentifiers: fetchRepoIdentifiersMock,
@@ -118,6 +128,8 @@ beforeEach(() => {
 	discoverReposMock.mockClear();
 	registerRepoMock.mockClear();
 	untrackRepoMock.mockClear();
+	loadSettingsMock.mockClear();
+	saveSettingsMock.mockClear();
 });
 
 function findTool(
@@ -162,6 +174,8 @@ describe('registerWebMCPTools', () => {
 			'discover_repos',
 			'register_repo',
 			'untrack_repo',
+			'get_settings',
+			'update_settings',
 		]);
 	});
 
@@ -253,6 +267,8 @@ const allFetchMocks = [
 	discoverReposMock,
 	registerRepoMock,
 	untrackRepoMock,
+	loadSettingsMock,
+	saveSettingsMock,
 ];
 
 // A tool that advertises a parameter must pass it on: an agent told it can

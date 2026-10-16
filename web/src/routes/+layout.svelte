@@ -12,6 +12,7 @@ import { registerServiceWorker } from '#lib/serviceWorker.js';
 import { initTelemetryWindow } from '#lib/telemetryWindow.svelte.js';
 import { initTheme } from '#lib/theme.svelte.js';
 import { registerWebMCPTools } from '#lib/webmcpTools.js';
+import { invalidateAll } from '$app/navigation';
 import { page } from '$app/state';
 
 let { data, children } = $props();
@@ -52,7 +53,7 @@ const showChrome = $derived(page.url.pathname !== '/login');
 // Tokens remembered in the browser before they were saved server-side (#462).
 onMount(purgeRememberedTokens);
 onMount(registerServiceWorker);
-onMount(registerWebMCPTools);
+onMount(() => registerWebMCPTools(undefined, { refreshPage: invalidateAll }));
 </script>
 
 <svelte:head>

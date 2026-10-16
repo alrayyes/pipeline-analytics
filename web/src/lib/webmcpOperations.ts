@@ -26,6 +26,8 @@ export const toolOperations: Record<string, string> = {
 	register_repo: 'registerRepo',
 	discover_repos: 'discoverRepos',
 	untrack_repo: 'untrackRepo',
+	get_settings: 'getSettings',
+	update_settings: 'updateSettings',
 };
 
 // Where a tool pages by default and the API doesn't. The spec says an omitted
@@ -43,6 +45,8 @@ const REPO_AS_LISTED =
 
 const INSTANCE =
 	"For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub.";
+
+const CLEARS = ' null clears it back to its default.';
 
 export const toolParameterOverrides: Record<
 	string,
@@ -79,6 +83,26 @@ export const toolParameterOverrides: Record<
 	},
 	discover_repos: { forgejoInstanceUrl: { description: INSTANCE } },
 	list_repo_identifiers: { forgejoInstanceUrl: { description: INSTANCE } },
+	update_settings: {
+		theme: {
+			description: `The colour theme: light, dark, or system to follow the device.${CLEARS}`,
+		},
+		forgeFilter: {
+			description: `Which forge the dashboard shows: all, github or forgejo.${CLEARS}`,
+		},
+		pipelinesHealthFilter: {
+			description: `The Pipelines page's health filter: all, healthy or unhealthy.${CLEARS}`,
+		},
+		pipelinesRepoSelector: {
+			description: `The repository the Pipelines page is limited to, as an id from list_repos, or all for every repository.${CLEARS}`,
+		},
+		pipelinesSortOrder: {
+			description: `How the Pipelines page sorts: name, or lastRun for the most recently run first.${CLEARS}`,
+		},
+		telemetryWindow: {
+			description: `The window the telemetry pages cover: 24h, 7d or 30d.${CLEARS}`,
+		},
+	},
 	untrack_repo: { repoId: { description: REPO_AS_LISTED } },
 	quarantine_step: { step: { description: STEP_AS_LISTED } },
 	unquarantine_step: { step: { description: STEP_AS_LISTED } },

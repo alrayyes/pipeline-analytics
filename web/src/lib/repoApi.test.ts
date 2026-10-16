@@ -4,7 +4,6 @@ import {
 	discoverRepos,
 	fetchRepoIdentifiers,
 	fetchRepoPage,
-	RepoApiError,
 	registerRepo,
 	untrackRepo,
 } from './repoApi.js';
@@ -115,7 +114,7 @@ describe('discoverRepos', () => {
 			fetchReturning(400, { code: 'no_saved_token', message: 'No token.' }),
 		).catch((e: unknown) => e);
 
-		expect(error).toBeInstanceOf(RepoApiError);
+		expect(error).toBeInstanceOf(ApiError);
 		expect(error).toMatchObject({
 			status: 400,
 			code: 'no_saved_token',
@@ -130,8 +129,8 @@ describe('discoverRepos', () => {
 		).catch((e: unknown) => e);
 
 		expect(error).toMatchObject({ status: 502 });
-		expect((error as RepoApiError).code).toBeUndefined();
-		expect((error as RepoApiError).serverMessage).toBeUndefined();
+		expect((error as ApiError).code).toBeUndefined();
+		expect((error as ApiError).serverMessage).toBeUndefined();
 	});
 });
 

@@ -40,6 +40,11 @@ import {
 	type RunActionKind,
 	rerunRun,
 } from './runActions.js';
+import {
+	loadSettings,
+	type SettingsUpdate,
+	saveSettings,
+} from './settingsSync.js';
 import { inputSchemas } from './webmcpSchemas.generated.js';
 
 type ModelContext = NonNullable<Document['modelContext']>;
@@ -138,6 +143,9 @@ export function registerWebMCPTools(
 	modelContext: ModelContext | undefined = typeof document === 'undefined'
 		? undefined
 		: document.modelContext,
+	// What the page does to show a change a tool made behind its back: the
+	// layout reruns its load, which re-seeds the settings stores.
+	options: { refreshPage?: () => unknown } = {},
 ): void {
 	if (!modelContext) return;
 
@@ -458,6 +466,31 @@ export function registerWebMCPTools(
 			await untrackRepo(repoId);
 
 			return textResult({ repoId, untracked: true });
+		},
+	});
+
+	modelContext.registerTool({
+		name: 'get_settings',
+		description:
+			"Get the signed-in account's dashboard settings: the theme, the forge filter, the Pipelines page's filters and sort, and the telemetry window, each with the default it falls back to.",
+		inputSchema: inputSchemas.get_settings,
+		execute: async () => textResult(await loadSettings()),
+	});
+
+	modelContext.registerTool({
+		name: 'update_settings',
+		description:
+			"Change the signed-in account's dashboard settings, the same ones the page's own controls save. Give only the settings to change: a value sets it, null clears it back to its default, and one left out is untouched. The server rejects the whole update if any value is invalid. Returns the settings after the change, and the open page picks them up.",
+		inputSchema: inputSchemas.update_settings,
+		execute: async (input) => {
+			const saved = await saveSettings(input as SettingsUpdate);
+			try {
+				await options.refreshPage?.();
+			} catch {
+				// The change is saved; the page shows it on its next navigation.
+			}
+
+			return textResult(saved);
 		},
 	});
 }
