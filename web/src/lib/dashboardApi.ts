@@ -229,6 +229,20 @@ export interface PipelinesParams {
 	// paging; leave them off for the default (every status, by name).
 	health?: 'healthy' | 'unhealthy';
 	sort?: 'name' | 'lastRun';
+	// The trailing run count or duration the trends cover; the server picks
+	// its own window when this is left off.
+	window?: string;
+}
+
+// The window the trend reads on one pipeline or repo take.
+export interface WindowParams {
+	window?: string;
+}
+
+function windowQuery(params: WindowParams): string {
+	return params.window
+		? `?${new URLSearchParams({ window: params.window })}`
+		: '';
 }
 
 export async function fetchPipelines(
@@ -243,6 +257,7 @@ export async function fetchPipelines(
 	if (params.repoId) searchParams.set('repoId', params.repoId);
 	if (params.health) searchParams.set('health', params.health);
 	if (params.sort) searchParams.set('sort', params.sort);
+	if (params.window) searchParams.set('window', params.window);
 
 	const res = await fetchFn(`/api/pipelines?${searchParams}`);
 	if (!res.ok) throw new ApiError(res.status);
@@ -269,8 +284,9 @@ export async function fetchRepos(
 export async function fetchPipeline(
 	id: string,
 	fetchFn: typeof fetch = fetch,
+	params: WindowParams = {},
 ): Promise<PipelineDetail> {
-	const res = await fetchFn(`/api/pipelines/${id}`);
+	const res = await fetchFn(`/api/pipelines/${id}${windowQuery(params)}`);
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as PipelineDetail;
@@ -299,8 +315,9 @@ export async function fetchPipelineSteps(
 export async function fetchRepoUsage(
 	repoId: string,
 	fetchFn: typeof fetch = fetch,
+	params: WindowParams = {},
 ): Promise<UsageEntry[]> {
-	const res = await fetchFn(`/api/repos/${repoId}/usage`);
+	const res = await fetchFn(`/api/repos/${repoId}/usage${windowQuery(params)}`);
 	if (!res.ok) throw new ApiError(res.status);
 
 	return (await res.json()) as UsageEntry[];

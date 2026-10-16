@@ -73,6 +73,9 @@ export function registerWebMCPTools(
 				offset: typeof input.offset === 'number' ? input.offset : 0,
 				forge: input.forge as 'github' | 'forgejo' | undefined,
 				repoId: input.repoId as string | undefined,
+				health: input.health as 'healthy' | 'unhealthy' | undefined,
+				sort: input.sort as 'name' | 'lastRun' | undefined,
+				window: input.window as string | undefined,
 			});
 
 			return textResult(data);
@@ -85,7 +88,9 @@ export function registerWebMCPTools(
 			"Get one pipeline's health status and its duration and failure-rate trends. Takes a pipelineId from list_pipelines.",
 		inputSchema: inputSchemas.get_pipeline,
 		execute: async (input) => {
-			const data = await fetchPipeline(input.pipelineId as string);
+			const data = await fetchPipeline(input.pipelineId as string, undefined, {
+				window: input.window as string | undefined,
+			});
 
 			return textResult(data);
 		},
@@ -97,7 +102,9 @@ export function registerWebMCPTools(
 			"Get one repository's runner-minutes usage, broken down by workflow. Takes a repoId from list_pipelines.",
 		inputSchema: inputSchemas.get_repo_usage,
 		execute: async (input) => {
-			const data = await fetchRepoUsage(input.repoId as string);
+			const data = await fetchRepoUsage(input.repoId as string, undefined, {
+				window: input.window as string | undefined,
+			});
 
 			return textResult(data);
 		},

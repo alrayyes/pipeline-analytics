@@ -839,3 +839,47 @@ describe('fetchUnhealthySteps', () => {
 		await expect(fetchUnhealthySteps({}, fetchFn)).rejects.toThrow(ApiError);
 	});
 });
+
+describe('window on the pipeline reads', () => {
+	function recorder() {
+		const urls: string[] = [];
+		const fetchFn: FetchMock = (input) => {
+			urls.push(String(input));
+
+			return Promise.resolve(jsonResponse([]));
+		};
+
+		return { urls, fetchFn: fetchFn as typeof fetch };
+	}
+
+	test('fetchPipelines sends the window when one is given', async () => {
+		const { urls, fetchFn } = recorder();
+
+		await fetchPipelines({ limit: 5, offset: 0, window: '30' }, fetchFn);
+
+		expect(new URL(urls[0] ?? '', 'http://x').searchParams.get('window')).toBe(
+			'30',
+		);
+	});
+
+	test('fetchPipeline sends the window when one is given, and none otherwise', async () => {
+		const { urls, fetchFn } = recorder();
+
+		await fetchPipeline('p1', fetchFn, { window: '30' });
+		await fetchPipeline('p1', fetchFn);
+
+		expect(urls).toEqual(['/api/pipelines/p1?window=30', '/api/pipelines/p1']);
+	});
+
+	test('fetchRepoUsage sends the window when one is given, and none otherwise', async () => {
+		const { urls, fetchFn } = recorder();
+
+		await fetchRepoUsage('r1', fetchFn, { window: '30' });
+		await fetchRepoUsage('r1', fetchFn);
+
+		expect(urls).toEqual([
+			'/api/repos/r1/usage?window=30',
+			'/api/repos/r1/usage',
+		]);
+	});
+});
