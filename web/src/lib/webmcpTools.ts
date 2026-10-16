@@ -24,6 +24,12 @@ import {
 	type InsightsWindow,
 	type RunStatusFilter,
 } from './dashboardApi.js';
+import {
+	actionMessage,
+	cancelRun,
+	type RunActionKind,
+	rerunRun,
+} from './runActions.js';
 import { inputSchemas } from './webmcpSchemas.generated.js';
 
 type ModelContext = NonNullable<Document['modelContext']>;
@@ -49,6 +55,45 @@ function required(input: Record<string, unknown>, key: string): string {
 	}
 
 	return value;
+}
+
+type Agent = Parameters<
+	NonNullable<Parameters<ModelContext['registerTool']>[0]['execute']>
+>[1];
+
+// A write the person has not just said yes to does not happen. The question is
+// put through the agent's requestUserInteraction when it has one, and a browser
+// confirm() otherwise; a page with neither answers no, never yes. This is the
+// Runs page's "Cancel run?" dialog for a caller that has no click to give.
+async function personConfirms(
+	agent: Agent,
+	question: string,
+): Promise<boolean> {
+	const ask = () =>
+		typeof globalThis.confirm === 'function' && globalThis.confirm(question);
+
+	return Boolean(
+		agent.requestUserInteraction
+			? await agent.requestUserInteraction(ask)
+			: ask(),
+	);
+}
+
+async function actOnRun(
+	kind: RunActionKind,
+	input: Record<string, unknown>,
+	agent: Agent,
+) {
+	const runId = required(input, 'runId');
+	const verb = kind === 'rerun' ? 're-run' : 'cancel';
+	if (!(await personConfirms(agent, `Let the agent ${verb} run ${runId}?`))) {
+		throw new Error(`The person declined to ${verb} run ${runId}`);
+	}
+
+	const result = await (kind === 'rerun' ? rerunRun : cancelRun)(runId);
+	if (!result.ok) throw new Error(actionMessage(kind, result));
+
+	return textResult({ runId, action: kind, accepted: true });
 }
 
 function textResult(data: unknown) {
@@ -235,5 +280,23 @@ export function registerWebMCPTools(
 					offset: typeof input.offset === 'number' ? input.offset : undefined,
 				}),
 			),
+	});
+
+	modelContext.registerTool({
+		name: 'rerun_run',
+		description:
+			'Ask the forge to re-run a finished run, from the run list. Asks the person to confirm first and does nothing if they decline. The forge acts on its own time, so accepted means it took the request, not that the run has started.',
+		inputSchema: inputSchemas.rerun_run,
+		annotations: { destructiveHint: true },
+		execute: (input, agent) => actOnRun('rerun', input, agent),
+	});
+
+	modelContext.registerTool({
+		name: 'cancel_run',
+		description:
+			'Ask the forge to cancel a run that has not finished, from the run list. Asks the person to confirm first and does nothing if they decline. The forge acts on its own time, so accepted means it took the request, not that the run has stopped.',
+		inputSchema: inputSchemas.cancel_run,
+		annotations: { destructiveHint: true },
+		execute: (input, agent) => actOnRun('cancel', input, agent),
 	});
 }

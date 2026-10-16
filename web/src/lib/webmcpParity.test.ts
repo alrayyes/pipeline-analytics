@@ -44,8 +44,6 @@ const pendingOperations = new Set<string>([
 	'untrackRepo',
 	'quarantineStep',
 	'unquarantineStep',
-	'rerunRun',
-	'cancelRun',
 	'getGitHubRateLimitInsights',
 	'getSettings',
 	'updateSettings',

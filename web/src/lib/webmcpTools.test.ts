@@ -31,6 +31,15 @@ const fetchUnhealthyStepsMock = mock(
 		Promise.resolve({ groups: [], hasMore: false }),
 );
 
+const rerunRunMock = mock((_runId: string) => Promise.resolve({ ok: true }));
+const cancelRunMock = mock((_runId: string) => Promise.resolve({ ok: true }));
+
+mock.module('./runActions.js', () => ({
+	rerunRun: rerunRunMock,
+	cancelRun: cancelRunMock,
+	actionMessage: () => 'refused',
+}));
+
 mock.module('./dashboardApi.js', () => ({
 	fetchPipelines: fetchPipelinesMock,
 	fetchPipeline: fetchPipelineMock,
@@ -69,6 +78,8 @@ beforeEach(() => {
 	fetchRunStepsMock.mockClear();
 	fetchFlakyRunsMock.mockClear();
 	fetchUnhealthyStepsMock.mockClear();
+	rerunRunMock.mockClear();
+	cancelRunMock.mockClear();
 });
 
 function findTool(
@@ -104,6 +115,8 @@ describe('registerWebMCPTools', () => {
 			'get_run_steps',
 			'list_pipeline_flaky_runs',
 			'list_unhealthy_steps',
+			'rerun_run',
+			'cancel_run',
 		]);
 	});
 
@@ -186,6 +199,8 @@ const allFetchMocks = [
 	fetchRunStepsMock,
 	fetchFlakyRunsMock,
 	fetchUnhealthyStepsMock,
+	rerunRunMock,
+	cancelRunMock,
 ];
 
 // A tool that advertises a parameter must pass it on: an agent told it can
@@ -204,6 +219,9 @@ describe('advertised parameters', () => {
 
 	for (const [name, schema] of Object.entries(inputSchemas)) {
 		test(`${name} forwards every parameter its schema lists`, async () => {
+			// The write tools ask the person first; say yes for this check.
+			const original = globalThis.confirm;
+			globalThis.confirm = () => true;
 			const registerTool = newRegisterToolMock();
 			registerWebMCPTools({ registerTool });
 			const props = schema.properties as Record<
@@ -227,6 +245,7 @@ describe('advertised parameters', () => {
 			const dropped = Object.entries(input)
 				.filter(([, value]) => !sent.includes(JSON.stringify(value)))
 				.map(([key]) => key);
+			globalThis.confirm = original;
 			expect(dropped).toEqual([]);
 		});
 	}

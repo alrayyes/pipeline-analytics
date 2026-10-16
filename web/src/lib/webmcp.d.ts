@@ -21,7 +21,14 @@ declare global {
 					annotations?: Record<string, unknown>;
 					execute: (
 						input: Record<string, unknown>,
-						context: { signal: AbortSignal },
+						agent: {
+							signal: AbortSignal;
+							// Lets a tool put a question to the person at the keyboard
+							// before it acts (draft spec's `agent.requestUserInteraction`).
+							requestUserInteraction?: <T>(
+								ask: () => Promise<T> | T,
+							) => Promise<T> | T;
+						},
 					) => Promise<{ content: { type: 'text'; text: string }[] }>;
 				},
 				options?: { signal?: AbortSignal },
