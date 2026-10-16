@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.94.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.0...v0.94.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **web:** look the repository up by id in the untrack confirmation ([#708](https://github.com/alrayyes/pipeline-analytics/issues/708)) ([5199c62](https://github.com/alrayyes/pipeline-analytics/commit/5199c62923d0be77ebc623f1ab7c458be1019bce))
+
 ## [0.94.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.93.2...v0.94.0) (2026-10-16)
 
 
