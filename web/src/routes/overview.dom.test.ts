@@ -8,6 +8,7 @@ import {
 	test,
 } from 'bun:test';
 import { mount, unmount } from 'svelte';
+import { clearBranch, setBranch } from '#lib/branchFilter.svelte.js';
 import { initTelemetryWindow } from '#lib/telemetryWindow.svelte.js';
 import { removeDom } from '../../test/dom.js';
 import { fakeNetwork, json, radio, settle } from '../../test/page.js';
@@ -49,6 +50,7 @@ const latestFailure = {
 let network: ReturnType<typeof fakeNetwork>;
 let respondInsights: (url: URL) => Response;
 let failedRuns: unknown[];
+let respondBranches: () => Response;
 let app: ReturnType<typeof mount> | undefined;
 
 function insightRequests(): URL[] {
@@ -60,6 +62,8 @@ function insightRequests(): URL[] {
 beforeEach(() => {
 	localStorage.clear();
 	initTelemetryWindow();
+	clearBranch();
+	respondBranches = () => json({ branches: [] });
 	respondInsights = () => json(insights);
 	failedRuns = [];
 
@@ -68,7 +72,7 @@ beforeEach(() => {
 		if (url.pathname === '/api/runs') {
 			return json({ runs: failedRuns, hasMore: false });
 		}
-		if (url.pathname === '/api/branches') return json({ branches: [] });
+		if (url.pathname === '/api/branches') return respondBranches();
 	});
 });
 
@@ -144,6 +148,41 @@ describe('Overview page', () => {
 
 		expect(document.querySelector('[role="alert"]')?.textContent).toContain(
 			"Couldn't load the overview",
+		);
+	});
+
+	test('a branch with no runs shows an empty state, not zeros', async () => {
+		setBranch('feat/quiet');
+		respondInsights = (url) =>
+			json(
+				url.searchParams.get('branch') === 'feat/quiet'
+					? { ...insights, totalRuns: 0, failedRuns: 0, passRate: undefined }
+					: insights,
+			);
+
+		await open();
+
+		expect(document.body.textContent).toContain(
+			'No runs on feat/quiet in this window.',
+		);
+		expect(document.body.textContent).not.toContain('Pass rate');
+		// The latest-failure card is part of the overview, so it follows the branch.
+		expect(
+			network.requested
+				.filter((url) => url.pathname === '/api/runs')
+				.at(-1)
+				?.searchParams.get('branch'),
+		).toBe('feat/quiet');
+	});
+
+	test('the figures still load when the branch list cannot', async () => {
+		respondBranches = () => json({}, 500);
+
+		await open();
+
+		expect(document.body.textContent).toContain('Pass rate');
+		expect(document.querySelector('#branch-filter')?.textContent).toContain(
+			'All branches',
 		);
 	});
 });
