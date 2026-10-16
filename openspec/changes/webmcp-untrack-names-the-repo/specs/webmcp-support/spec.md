@@ -15,10 +15,10 @@ be looked up, without refusing to ask.
 
 #### Scenario: The lookup fails
 
-- **WHEN** the list cannot be fetched
+- **WHEN** the lookup fails
 - **THEN** the question names the repository id and the person is still asked
 
 #### Scenario: The lookup is slow
 
-- **WHEN** the list does not answer within three seconds
+- **WHEN** the lookup does not answer within three seconds
 - **THEN** the question names the repository id and the person is still asked
