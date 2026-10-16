@@ -39,10 +39,11 @@ Codecov. CI passes it the `CODECOV_TOKEN` secret that coverage and test results
 already use. With no token (a local build, a fork, a Dependabot run) the plugin
 does a dry run and uploads nothing, so the build is unchanged.
 
-The dashboard also registers read-only
+The dashboard also registers
 [WebMCP](https://github.com/webmachinelearning/webmcp) tools on mount (see
 `web/src/lib/webmcpOperations.ts` for the list), so an in-browser agent sharing
-the page can read the same data it renders. This is feature-detected
+the page can read the same data it renders. A tool that writes asks the person
+at the keyboard to confirm each call first. This is feature-detected
 (`web/src/lib/webmcpTools.ts`) and safe to ignore — WebMCP is a pre-stable
 draft with no browser shipping it stably yet, and registration is a no-op
 everywhere else.

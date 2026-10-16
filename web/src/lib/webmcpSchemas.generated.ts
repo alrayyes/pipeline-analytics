@@ -334,5 +334,29 @@ export const inputSchemas = {
 		},
 		"required": [],
 		"additionalProperties": false
+	},
+	"rerun_run": {
+		"type": "object",
+		"properties": {
+			"runId": {
+				"type": "string"
+			}
+		},
+		"required": [
+			"runId"
+		],
+		"additionalProperties": false
+	},
+	"cancel_run": {
+		"type": "object",
+		"properties": {
+			"runId": {
+				"type": "string"
+			}
+		},
+		"required": [
+			"runId"
+		],
+		"additionalProperties": false
 	}
 } as const;

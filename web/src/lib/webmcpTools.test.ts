@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const fetchPipelinesMock = mock(() =>
 	Promise.resolve({ pipelines: [], hasMore: false }),
@@ -31,6 +31,15 @@ const fetchUnhealthyStepsMock = mock(
 		Promise.resolve({ groups: [], hasMore: false }),
 );
 
+const rerunRunMock = mock((_runId: string) => Promise.resolve({ ok: true }));
+const cancelRunMock = mock((_runId: string) => Promise.resolve({ ok: true }));
+
+mock.module('./runActions.js', () => ({
+	rerunRun: rerunRunMock,
+	cancelRun: cancelRunMock,
+	actionMessage: () => 'refused',
+}));
+
 mock.module('./dashboardApi.js', () => ({
 	fetchPipelines: fetchPipelinesMock,
 	fetchPipeline: fetchPipelineMock,
@@ -56,6 +65,12 @@ function newRegisterToolMock() {
 	return mock((_tool: Tool, _options?: Parameters<RegisterToolFn>[1]) => {});
 }
 
+const originalConfirm = globalThis.confirm;
+
+afterEach(() => {
+	globalThis.confirm = originalConfirm;
+});
+
 beforeEach(() => {
 	fetchPipelinesMock.mockClear();
 	fetchPipelineMock.mockClear();
@@ -69,6 +84,8 @@ beforeEach(() => {
 	fetchRunStepsMock.mockClear();
 	fetchFlakyRunsMock.mockClear();
 	fetchUnhealthyStepsMock.mockClear();
+	rerunRunMock.mockClear();
+	cancelRunMock.mockClear();
 });
 
 function findTool(
@@ -104,6 +121,8 @@ describe('registerWebMCPTools', () => {
 			'get_run_steps',
 			'list_pipeline_flaky_runs',
 			'list_unhealthy_steps',
+			'rerun_run',
+			'cancel_run',
 		]);
 	});
 
@@ -186,6 +205,8 @@ const allFetchMocks = [
 	fetchRunStepsMock,
 	fetchFlakyRunsMock,
 	fetchUnhealthyStepsMock,
+	rerunRunMock,
+	cancelRunMock,
 ];
 
 // A tool that advertises a parameter must pass it on: an agent told it can
@@ -204,6 +225,8 @@ describe('advertised parameters', () => {
 
 	for (const [name, schema] of Object.entries(inputSchemas)) {
 		test(`${name} forwards every parameter its schema lists`, async () => {
+			// The write tools ask the person first; say yes for this check.
+			globalThis.confirm = () => true;
 			const registerTool = newRegisterToolMock();
 			registerWebMCPTools({ registerTool });
 			const props = schema.properties as Record<
