@@ -595,3 +595,8 @@ jobs:
           curl --fail --silent --show-error --location --retry 6 --retry-delay 10 \
             --retry-all-errors --output coverage.xml "${PAGE_URL%/}/reports/coverage/coverage.xml"
           grep -q '<coverage ' coverage.xml
+          # A Lighthouse report under its stable name, the one a cached
+          # manifest keeps pointing at.
+          curl --fail --silent --show-error --location --retry 6 --retry-delay 10 \
+            --retry-all-errors --output login.report.html "${PAGE_URL%/}/reports/lighthouse/login.report.html"
+          grep -q -i '<html' login.report.html
