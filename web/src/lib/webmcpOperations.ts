@@ -19,6 +19,8 @@ export const toolOperations: Record<string, string> = {
 	list_unhealthy_steps: 'listUnhealthySteps',
 	rerun_run: 'rerunRun',
 	cancel_run: 'cancelRun',
+	quarantine_step: 'quarantineStep',
+	unquarantine_step: 'unquarantineStep',
 };
 
 // Where a tool pages by default and the API doesn't. The spec says an omitted

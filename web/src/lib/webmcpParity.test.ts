@@ -19,6 +19,8 @@ mock.module('./dashboardApi.js', () => ({
 	fetchRunSteps: () => Promise.resolve({}),
 	fetchFlakyRuns: () => Promise.resolve([]),
 	fetchUnhealthySteps: () => Promise.resolve({}),
+	quarantineStep: () => Promise.resolve({}),
+	unquarantineStep: () => Promise.resolve({}),
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
@@ -42,8 +44,6 @@ const pendingOperations = new Set<string>([
 	'listRepoIdentifiers',
 	'discoverRepos',
 	'untrackRepo',
-	'quarantineStep',
-	'unquarantineStep',
 	'getGitHubRateLimitInsights',
 	'getSettings',
 	'updateSettings',
