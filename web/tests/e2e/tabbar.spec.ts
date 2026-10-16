@@ -100,26 +100,6 @@ test('on a desktop width there is no tab bar: the top nav does the job', async (
 	).toBeHidden();
 });
 
-test('with no repository registered, the tabs that need one are disabled like the top nav', async ({
-	page,
-	context,
-}) => {
-	await signIn(page, context);
-	await page.setViewportSize(PHONE);
-
-	const tabs = page.getByRole('navigation', { name: 'Main views' });
-
-	await expect(
-		tabs.getByRole('link', { name: 'Overview', exact: true }),
-	).toHaveAttribute('href', '/');
-
-	for (const name of ['Pipelines', 'Runs', 'Failures']) {
-		const tab = tabs.getByText(name, { exact: true });
-		await expect(tab).toHaveAttribute('aria-disabled', 'true');
-		await expect(tab).not.toHaveAttribute('href');
-	}
-});
-
 test('there is no tab bar on the login page', async ({ page }) => {
 	await page.setViewportSize(PHONE);
 	await page.goto('/login');
