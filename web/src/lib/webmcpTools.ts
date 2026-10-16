@@ -142,11 +142,19 @@ function textResult(data: unknown) {
 }
 
 // The name a person would recognise for a repository id, for the question they
-// are asked. The id alone ("r1") means nothing to them. Best effort: a failed or
-// empty lookup names the id, so the confirmation never depends on it.
+// are asked. The id alone ("r1") means nothing to them. Best effort: a failed,
+// slow or empty lookup, or a repository past the first 500, names the id, so the
+// confirmation never depends on it. There is no get-by-id endpoint to ask
+// instead.
+const NAME_LOOKUP_MS = 3000;
+
 async function repoName(repoId: string): Promise<string> {
 	try {
-		const { repos } = await fetchRepoPage({ limit: 500, offset: 0 });
+		const { repos } = await fetchRepoPage(
+			{ limit: 500, offset: 0 },
+			(url, init) =>
+				fetch(url, { ...init, signal: AbortSignal.timeout(NAME_LOOKUP_MS) }),
+		);
 
 		return repos?.find((r) => r.id === repoId)?.identifier ?? repoId;
 	} catch {
@@ -488,7 +496,7 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'get_version',
 		description:
-			'Get the version of the running service, the one the page footer shows: a tagged release such as 1.2.3, or dev for an untagged local build.',
+			'Get the version of the running service, the one the page footer shows: a tagged release such as v1.2.3, or dev for an untagged local build.',
 		inputSchema: inputSchemas.get_version,
 		execute: async () => textResult(await fetchVersion()),
 	});

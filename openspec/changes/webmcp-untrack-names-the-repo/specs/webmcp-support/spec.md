@@ -17,3 +17,8 @@ be looked up, without refusing to ask.
 
 - **WHEN** the list cannot be fetched
 - **THEN** the question names the repository id and the person is still asked
+
+#### Scenario: The lookup is slow
+
+- **WHEN** the list does not answer within three seconds
+- **THEN** the question names the repository id and the person is still asked
