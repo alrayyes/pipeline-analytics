@@ -437,7 +437,7 @@ export const inputSchemas = {
 			},
 			"forgejoInstanceUrl": {
 				"type": "string",
-				"description": "Restricts to one Forgejo instance. Ignored for GitHub."
+				"description": "For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub."
 			}
 		},
 		"required": [
@@ -457,12 +457,14 @@ export const inputSchemas = {
 			},
 			"identifier": {
 				"type": "string",
-				"maxLength": 200
+				"maxLength": 200,
+				"description": "The repository as owner/name, for example `alrayyes/pipeline-analytics`, as discover_repos lists it. At most 200 characters."
 			},
 			"forgejoInstanceUrl": {
 				"type": "string",
 				"format": "uri",
-				"maxLength": 2048
+				"maxLength": 2048,
+				"description": "For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub."
 			},
 			"token": {
 				"type": "string",
@@ -489,7 +491,8 @@ export const inputSchemas = {
 			"forgejoInstanceUrl": {
 				"type": "string",
 				"format": "uri",
-				"maxLength": 2048
+				"maxLength": 2048,
+				"description": "For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub."
 			},
 			"token": {
 				"type": "string",

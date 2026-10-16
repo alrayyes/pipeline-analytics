@@ -41,6 +41,9 @@ const STEP_AS_LISTED =
 const REPO_AS_LISTED =
 	"The repository's id as list_repos reports it. Do not encode it.";
 
+const INSTANCE =
+	"For Forgejo, the instance's URL, for example `https://git.example.com`. Not used for GitHub.";
+
 export const toolParameterOverrides: Record<
 	string,
 	Record<string, { default?: number; description: string }>
@@ -67,6 +70,15 @@ export const toolParameterOverrides: Record<
 			description: 'Repositories to skip before the returned page.',
 		},
 	},
+	register_repo: {
+		identifier: {
+			description:
+				'The repository as owner/name, for example `alrayyes/pipeline-analytics`, as discover_repos lists it. At most 200 characters.',
+		},
+		forgejoInstanceUrl: { description: INSTANCE },
+	},
+	discover_repos: { forgejoInstanceUrl: { description: INSTANCE } },
+	list_repo_identifiers: { forgejoInstanceUrl: { description: INSTANCE } },
 	untrack_repo: { repoId: { description: REPO_AS_LISTED } },
 	quarantine_step: { step: { description: STEP_AS_LISTED } },
 	unquarantine_step: { step: { description: STEP_AS_LISTED } },

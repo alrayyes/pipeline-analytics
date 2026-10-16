@@ -16,8 +16,9 @@ An in-browser agent sharing the Repositories page cannot do what the page does.
 - **Registering and untracking ask the person first**, as re-run and cancel do.
   Registering stores a token and creates a webhook on the forge; untracking
   deletes the repository's stored runs, jobs and steps. Both are annotated
-  `destructiveHint`. The question names the repository and what the call does,
-  and never repeats a token.
+  `destructiveHint`. The question names what the call does and the forge and
+  identifier (for register) or the repository id (for untrack), and never
+  repeats a token.
 - **Discovery and the two reads do not ask.** `discover_repos` registers
   nothing and stores nothing; the page runs it from a form without a dialog.
 - **A token is an optional input, as it is on the MCP server.** Omitting it uses
@@ -27,6 +28,9 @@ An in-browser agent sharing the Repositories page cannot do what the page does.
   description for it says so, as for a step name.
 - **Paging matches the other list tools:** `list_repos` returns 20 from offset 0
   unless told otherwise, where the endpoint returns everything.
+
+- **Order of merging.** The main spec's "No write tool" requirement is replaced by
+  the `webmcp-run-actions` change; this one assumes that replacement.
 
 ## What Changes
 

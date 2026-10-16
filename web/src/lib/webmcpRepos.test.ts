@@ -308,6 +308,35 @@ describe('untrack_repo', () => {
 	});
 });
 
+describe('a forge that is neither github nor forgejo', () => {
+	test.each([
+		['list_repo_identifiers', {}],
+		['discover_repos', {}],
+		['register_repo', { identifier: 'a/b' }],
+	])('%s fails before asking anyone or sending', async (name, rest) => {
+		await expect(
+			tool(name).execute({ forge: 'gitlab', ...rest }, { signal }),
+		).rejects.toThrow('forge must be github or forgejo');
+		expect(confirmMock).not.toHaveBeenCalled();
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('the generated schemas tell an agent what to pass', () => {
+	test.each([
+		['register_repo', 'identifier', 'discover_repos'],
+		['register_repo', 'forgejoInstanceUrl', 'Forgejo'],
+		['discover_repos', 'forgejoInstanceUrl', 'Forgejo'],
+	] as const)('%s.%s mentions %s', (name, key, fragment) => {
+		const props = inputSchemas[name].properties as Record<
+			string,
+			{ description?: string }
+		>;
+
+		expect(props[key]?.description).toContain(fragment);
+	});
+});
+
 describe('the write tools are marked destructive', () => {
 	test.each(['register_repo', 'untrack_repo'])('%s', (name) => {
 		expect(tool(name).annotations).toEqual({ destructiveHint: true });

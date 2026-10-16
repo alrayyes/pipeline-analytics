@@ -90,6 +90,17 @@ async function personConfirms(
 	return answer === true;
 }
 
+// The spec's enum, checked before a person is asked about a call the server
+// would refuse anyway.
+function forgeArg(input: Record<string, unknown>): RepoForge {
+	const forge = required(input, 'forge');
+	if (forge !== 'github' && forge !== 'forgejo') {
+		throw new Error('forge must be github or forgejo');
+	}
+
+	return forge;
+}
+
 async function mustConfirm(
 	agent: Agent,
 	question: string,
@@ -375,7 +386,7 @@ export function registerWebMCPTools(
 		execute: async (input) =>
 			textResult({
 				identifiers: await fetchRepoIdentifiers({
-					forge: required(input, 'forge') as RepoForge,
+					forge: forgeArg(input),
 					forgejoInstanceUrl:
 						typeof input.forgejoInstanceUrl === 'string'
 							? input.forgejoInstanceUrl
@@ -392,7 +403,7 @@ export function registerWebMCPTools(
 		execute: async (input) =>
 			textResult({
 				identifiers: await discoverRepos({
-					forge: required(input, 'forge') as RepoForge,
+					forge: forgeArg(input),
 					forgejoInstanceUrl:
 						typeof input.forgejoInstanceUrl === 'string'
 							? input.forgejoInstanceUrl
@@ -409,7 +420,7 @@ export function registerWebMCPTools(
 		inputSchema: inputSchemas.register_repo,
 		annotations: { destructiveHint: true },
 		execute: async (input, agent) => {
-			const forge = required(input, 'forge') as RepoForge;
+			const forge = forgeArg(input);
 			const identifier = required(input, 'identifier');
 			await mustConfirm(
 				agent,
