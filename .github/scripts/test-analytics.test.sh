@@ -9,6 +9,10 @@
 #    the case Test Analytics exists to explain.
 #  - the Dependabot guard stays, since those runs get no CODECOV_TOKEN.
 #
+# It also checks the bundle analysis upload (#421): the frontend build has to
+# register @codecov/vite-plugin and get CODECOV_TOKEN, or the plugin does a dry
+# run in CI and nothing is ever reported.
+#
 # Runs in the always-on `changes` job.
 set -euo pipefail
 
@@ -30,5 +34,8 @@ check "no hyphenated report-type" "$(grep -c 'report-type' "$file" || true)" 0
 check "both uploads run after a failing test" "$(grep -c "if: \${{ !cancelled() && github.actor != 'dependabot\[bot\]' }}" "$file" || true)" 2
 check "go suite writes JUnit" "$(grep -c 'gotestsum.*--junitfile' "$file" || true)" 1
 check "frontend suite writes JUnit" "$(grep -c -- '--reporter=junit' "$here/../../web/package.json" || true)" 1
+check "vite config registers the Codecov plugin" "$(grep -c 'codecovVitePlugin(' "$here/../../web/vite.config.ts" || true)" 1
+check "plugin is a pinned devDependency" "$(grep -c '"@codecov/vite-plugin": "[0-9]' "$here/../../web/package.json" || true)" 1
+check "frontend build gets CODECOV_TOKEN" "$(grep -A2 -- '- run: bun run build$' "$file" | grep -c 'CODECOV_TOKEN: \${{ secrets.CODECOV_TOKEN }}' || true)" 1
 
 [ "$failures" -eq 0 ]

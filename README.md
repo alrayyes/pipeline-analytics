@@ -312,6 +312,10 @@ docs, so you can check the project's health without opening a pipeline run:
 - [Lighthouse](https://apis.ryankes.eu/pipeline-analytics/reports/lighthouse/):
   the audit of the login page and the signed-in pages.
 
+[Codecov](https://codecov.io/gh/alrayyes/pipeline-analytics) also holds the
+test result history (flaky tests) and a bundle size report for each frontend
+build.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).

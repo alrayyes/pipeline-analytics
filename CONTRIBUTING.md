@@ -34,6 +34,11 @@ straight into `internal/webassets/dist`, which the Go binary embeds via
 which turns `CHANGELOG.md` into `releases.json` for the release history page.
 That file is generated and not committed; edit the changelog, not the JSON.
 
+The build also runs `@codecov/vite-plugin`, which uploads bundle analysis to
+Codecov. CI passes it the `CODECOV_TOKEN` secret that coverage and test results
+already use. With no token (a local build, a fork, a Dependabot run) the plugin
+does a dry run and uploads nothing, so the build is unchanged.
+
 The dashboard also registers three read-only
 [WebMCP](https://github.com/webmachinelearning/webmcp) tools
 (`list_pipelines`, `get_pipeline`, `get_repo_usage`) on mount, so an
@@ -75,7 +80,7 @@ bun run lint           # biome
 bun run test           # unit and component tests (bun:test)
 bun run test:coverage  # same, plus a coverage report and `junit.xml`
 bun run test:mutation  # mutation testing (Stryker), fails on a surviving mutant
-bun run build
+bun run build          # also uploads bundle analysis when CODECOV_TOKEN is set
 bun audit
 bun run test:e2e        # Playwright, builds the real binary and runs against it
 ./scripts/lighthouse.sh # Lighthouse CI on /login and the signed-in pages, builds the real binary too

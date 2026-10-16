@@ -261,7 +261,12 @@ jobs:
           files: web/junit.xml
           flags: frontend
           fail_ci_if_error: false
+      # The build uploads bundle analysis through @codecov/vite-plugin. Without
+      # a token (Dependabot, a fork) the plugin does a dry run, so this step
+      # still passes (web/src/bundleAnalysis.ts).
       - run: bun run build
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       # Same gate as the Go job's; see advisory-scan.yml for the ticket.
       - name: bun audit (gate)
         uses: alrayyes/advisory-scan@9801551dad16ce63853b2babfda885365d368232 # v0.3.0
