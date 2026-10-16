@@ -8,6 +8,7 @@ import {
 	fetchFailureInsights,
 	fetchFlakyRuns,
 	fetchFlakySteps,
+	fetchGitHubRateLimit,
 	fetchJobLog,
 	fetchPipeline,
 	fetchPipelineSteps,
@@ -17,6 +18,7 @@ import {
 	fetchRunSteps,
 	fetchRuns,
 	fetchUnhealthySteps,
+	fetchVersion,
 	type PipelineDetail,
 	quarantineStep,
 	type RunSummary,
@@ -881,5 +883,62 @@ describe('window on the pipeline reads', () => {
 			'/api/repos/r1/usage?window=30',
 			'/api/repos/r1/usage',
 		]);
+	});
+});
+
+describe('fetchVersion', () => {
+	test('reads the running build version', async () => {
+		let requestedUrl: string | undefined;
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+
+			return Promise.resolve(jsonResponse({ version: '1.2.3' }));
+		};
+
+		const result = await fetchVersion(fetchFn as unknown as typeof fetch);
+
+		expect(requestedUrl).toBe('/api/version');
+		expect(result).toEqual({ version: '1.2.3' });
+	});
+
+	test('throws an ApiError carrying the status on a failed response', async () => {
+		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 503));
+
+		const error = await fetchVersion(fetchFn as unknown as typeof fetch).catch(
+			(e: unknown) => e,
+		);
+
+		expect(error).toBeInstanceOf(ApiError);
+		expect((error as ApiError).status).toBe(503);
+	});
+});
+
+describe('fetchGitHubRateLimit', () => {
+	test('reads the per-token usage list', async () => {
+		let requestedUrl: string | undefined;
+		const tokens = [{ tokenMasked: '****1234', repos: ['a/b'] }];
+		const fetchFn: FetchMock = (input) => {
+			requestedUrl = String(input);
+
+			return Promise.resolve(jsonResponse(tokens));
+		};
+
+		const result = await fetchGitHubRateLimit(
+			fetchFn as unknown as typeof fetch,
+		);
+
+		expect(requestedUrl).toBe('/api/insights/github-rate-limit');
+		expect(result).toEqual(tokens);
+	});
+
+	test('throws an ApiError carrying the status on a failed response', async () => {
+		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 401));
+
+		const error = await fetchGitHubRateLimit(
+			fetchFn as unknown as typeof fetch,
+		).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(ApiError);
+		expect((error as ApiError).status).toBe(401);
 	});
 });
