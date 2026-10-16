@@ -18,4 +18,6 @@ says why that operation is out.
 
 ## Impact
 
-- Modified capability: `webmcp-support`.
+- Added requirement to `webmcp-support`. The MCP server already fails on an
+  operation that is both a tool and excluded (`mcp-endpoint`), so only the
+  WebMCP side needed it.
