@@ -14,36 +14,25 @@ import {
 	TableHeader,
 	TableRow,
 } from '#lib/components/ui/table/index.js';
+import {
+	ApiError,
+	fetchGitHubRateLimit,
+	type GitHubTokenUsage,
+	type RateLimitStatus,
+} from '#lib/dashboardApi.js';
 import { formatRelativeTime } from '#lib/relativeTime.js';
-
-interface RateLimitStatus {
-	limit: number;
-	remaining: number;
-	used: number;
-	resetAt: string;
-}
-
-interface GitHubTokenUsage {
-	tokenMasked: string;
-	repos: string[];
-	status?: RateLimitStatus;
-}
 
 let tokens = $state<GitHubTokenUsage[] | null>(null);
 let error = $state<string | null>(null);
 
 async function load(): Promise<void> {
 	try {
-		const res = await fetch('/api/insights/github-rate-limit');
-		if (!res.ok) {
-			error = 'Could not load GitHub API usage.';
-
-			return;
-		}
-
-		tokens = await res.json();
-	} catch {
-		error = 'Could not reach the server.';
+		tokens = await fetchGitHubRateLimit();
+	} catch (e) {
+		error =
+			e instanceof ApiError
+				? 'Could not load GitHub API usage.'
+				: 'Could not reach the server.';
 	}
 }
 

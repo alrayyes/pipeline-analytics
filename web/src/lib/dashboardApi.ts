@@ -495,6 +495,45 @@ export async function fetchRunSteps(
 	return (await res.json()) as RunDetail;
 }
 
+export interface BuildVersion {
+	version: string;
+}
+
+// The running build's version, which the footer shows. A failed response
+// throws an ApiError; the footer treats that as no version to show.
+export async function fetchVersion(
+	fetchFn: typeof fetch = fetch,
+): Promise<BuildVersion> {
+	const res = await fetchFn('/api/version');
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as BuildVersion;
+}
+
+export interface RateLimitStatus {
+	limit: number;
+	remaining: number;
+	used: number;
+	resetAt: string;
+}
+
+export interface GitHubTokenUsage {
+	tokenMasked: string;
+	repos: string[];
+	status?: RateLimitStatus;
+}
+
+// GitHub REST rate-limit use per token, for the Insights page. A failed
+// response throws an ApiError carrying the status.
+export async function fetchGitHubRateLimit(
+	fetchFn: typeof fetch = fetch,
+): Promise<GitHubTokenUsage[]> {
+	const res = await fetchFn('/api/insights/github-rate-limit');
+	if (!res.ok) throw new ApiError(res.status);
+
+	return (await res.json()) as GitHubTokenUsage[];
+}
+
 export interface FlakyRun {
 	runId: string;
 	startedAt?: string;
