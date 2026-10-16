@@ -31,6 +31,9 @@ export class RepoApiError extends ApiError {
 		super(status);
 		this.code = code;
 		this.serverMessage = serverMessage;
+		// An agent reads only the message, and the server's own wording is what
+		// says what to fix.
+		if (serverMessage) this.message = `${this.message}: ${serverMessage}`;
 	}
 }
 

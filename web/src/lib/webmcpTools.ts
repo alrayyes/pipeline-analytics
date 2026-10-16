@@ -27,6 +27,14 @@ import {
 	unquarantineStep,
 } from './dashboardApi.js';
 import {
+	discoverRepos,
+	fetchRepoIdentifiers,
+	fetchRepoPage,
+	type Forge as RepoForge,
+	registerRepo,
+	untrackRepo,
+} from './repoApi.js';
+import {
 	actionMessage,
 	cancelRun,
 	type RunActionKind,
@@ -82,6 +90,16 @@ async function personConfirms(
 	return answer === true;
 }
 
+async function mustConfirm(
+	agent: Agent,
+	question: string,
+	declined: string,
+): Promise<void> {
+	if (!(await personConfirms(agent, question))) {
+		throw new Error(declined);
+	}
+}
+
 async function actOnRun(
 	kind: RunActionKind,
 	input: Record<string, unknown>,
@@ -89,9 +107,11 @@ async function actOnRun(
 ) {
 	const runId = required(input, 'runId');
 	const verb = kind === 'rerun' ? 're-run' : 'cancel';
-	if (!(await personConfirms(agent, `Let the agent ${verb} run ${runId}?`))) {
-		throw new Error(`The person declined to ${verb} run ${runId}`);
-	}
+	await mustConfirm(
+		agent,
+		`Let the agent ${verb} run ${runId}?`,
+		`The person declined to ${verb} run ${runId}`,
+	);
 
 	const result = await (kind === 'rerun' ? rerunRun : cancelRun)(runId);
 	if (!result.ok) throw new Error(actionMessage(kind, result));
@@ -330,5 +350,103 @@ export function registerWebMCPTools(
 					required(input, 'step'),
 				),
 			),
+	});
+
+	modelContext.registerTool({
+		name: 'list_repos',
+		description:
+			"List the tracked repositories, with each one's forge, ingestion status and masked token. Returns 20 repositories from offset 0 unless limit and offset say otherwise; check hasMore for another page. Use an id from here with untrack_repo.",
+		inputSchema: inputSchemas.list_repos,
+		execute: async (input) =>
+			textResult(
+				await fetchRepoPage({
+					limit: typeof input.limit === 'number' ? input.limit : 20,
+					offset: typeof input.offset === 'number' ? input.offset : 0,
+					forge: input.forge as RepoForge | undefined,
+				}),
+			),
+	});
+
+	modelContext.registerTool({
+		name: 'list_repo_identifiers',
+		description:
+			'List every tracked repository of one forge as owner/name, unpaginated, to see whether one is already tracked. For Forgejo, narrow it to one instance.',
+		inputSchema: inputSchemas.list_repo_identifiers,
+		execute: async (input) =>
+			textResult({
+				identifiers: await fetchRepoIdentifiers({
+					forge: required(input, 'forge') as RepoForge,
+					forgejoInstanceUrl:
+						typeof input.forgejoInstanceUrl === 'string'
+							? input.forgejoInstanceUrl
+							: undefined,
+				}),
+			}),
+	});
+
+	modelContext.registerTool({
+		name: 'discover_repos',
+		description:
+			'List the repositories a token can reach on a forge, as owner/name to pass to register_repo. Omit the token to use the one saved for the forge and instance; a token you pass is used for this one lookup and never stored. Nothing is registered.',
+		inputSchema: inputSchemas.discover_repos,
+		execute: async (input) =>
+			textResult({
+				identifiers: await discoverRepos({
+					forge: required(input, 'forge') as RepoForge,
+					forgejoInstanceUrl:
+						typeof input.forgejoInstanceUrl === 'string'
+							? input.forgejoInstanceUrl
+							: undefined,
+					token: typeof input.token === 'string' ? input.token : undefined,
+				}),
+			}),
+	});
+
+	modelContext.registerTool({
+		name: 'register_repo',
+		description:
+			'Start tracking a repository: store its token encrypted, create a webhook on the forge and begin ingesting its runs. Asks the person to confirm first and does nothing if they decline. Omit the token to use the one saved for the forge and instance. Refused for an archived repository, a fork or a mirror, or one already tracked. Takes an identifier from discover_repos.',
+		inputSchema: inputSchemas.register_repo,
+		annotations: { destructiveHint: true },
+		execute: async (input, agent) => {
+			const forge = required(input, 'forge') as RepoForge;
+			const identifier = required(input, 'identifier');
+			await mustConfirm(
+				agent,
+				`Let the agent start tracking ${identifier} on ${forge}? This creates a webhook on the repository.`,
+				`The person declined to track ${identifier}`,
+			);
+
+			return textResult(
+				await registerRepo({
+					forge,
+					identifier,
+					forgejoInstanceUrl:
+						typeof input.forgejoInstanceUrl === 'string'
+							? input.forgejoInstanceUrl
+							: undefined,
+					token: typeof input.token === 'string' ? input.token : undefined,
+				}),
+			);
+		},
+	});
+
+	modelContext.registerTool({
+		name: 'untrack_repo',
+		description:
+			'Stop tracking a repository and delete its stored runs, jobs and steps. The webhook on the forge stays. Asks the person to confirm first and does nothing if they decline. Takes a repository id from list_repos.',
+		inputSchema: inputSchemas.untrack_repo,
+		annotations: { destructiveHint: true },
+		execute: async (input, agent) => {
+			const repoId = required(input, 'repoId');
+			await mustConfirm(
+				agent,
+				`Let the agent stop tracking repository ${repoId}? Its stored runs, jobs and steps are deleted.`,
+				`The person declined to untrack repository ${repoId}`,
+			);
+			await untrackRepo(repoId);
+
+			return textResult({ repoId, untracked: true });
+		},
 	});
 }

@@ -135,6 +135,25 @@ describe('discoverRepos', () => {
 	});
 });
 
+describe('a refusal read as text', () => {
+	test("is the status followed by the server's message", async () => {
+		const error = await registerRepo(
+			{ forge: 'github', identifier: 'a/b' },
+			fetchReturning(409, { code: 'already_tracked', message: 'Already.' }),
+		).catch((e: unknown) => e as Error);
+
+		expect(error.message).toBe('Request failed with status 409: Already.');
+	});
+
+	test('is only the status when the server said nothing more', async () => {
+		const error = await untrackRepo('r', fetchReturning(404)).catch(
+			(e: unknown) => e as Error,
+		);
+
+		expect(error.message).toBe('Request failed with status 404');
+	});
+});
+
 describe('registerRepo', () => {
 	test('posts the registration and returns the repo', async () => {
 		const repo = { id: 'r1', forge: 'github', identifier: 'a/b' };
