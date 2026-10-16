@@ -127,6 +127,18 @@ test('registers a passkey, sees the pipeline overview, logs out, then logs back 
 	const dashboardScan = await scanSettled(page);
 	expect(dashboardScan.violations).toEqual([]);
 
+	// The phone tab bar gets the same no-repository answer from the layout; the
+	// states behind it are asserted in TabBar.dom.test.ts, so only the wiring is
+	// checked here.
+	const desktop = page.viewportSize();
+	await page.setViewportSize({ width: 390, height: 844 });
+	const tabs = page.getByRole('navigation', { name: 'Main views' });
+	await expect(tabs.getByText('Pipelines', { exact: true })).toHaveAttribute(
+		'aria-disabled',
+		'true',
+	);
+	if (desktop) await page.setViewportSize(desktop);
+
 	// The header's mobile menu (#171): a phone-width viewport can't fit the
 	// nav links and CTA in one row, so they collapse behind a toggle there
 	// instead. Checked here, still at zero repos, rather than in a separate
