@@ -30,6 +30,7 @@ import {
 } from './dashboardApi.js';
 import {
 	discoverRepos,
+	fetchRepo,
 	fetchRepoIdentifiers,
 	fetchRepoPage,
 	type Forge as RepoForge,
@@ -407,6 +408,20 @@ export function registerWebMCPTools(
 					forge: input.forge as RepoForge | undefined,
 				}),
 			),
+	});
+
+	modelContext.registerTool({
+		name: 'get_repo',
+		description:
+			'Get one tracked repository by id: its forge, identifier, ingestion status and masked token. Takes a repository id from list_repos. Fails if no repository is tracked under that id.',
+		inputSchema: inputSchemas.get_repo,
+		execute: async (input) => {
+			const repoId = required(input, 'repoId');
+			const repo = await fetchRepo(repoId);
+			if (!repo) throw new Error(`repository ${repoId} not found`);
+
+			return textResult(repo);
+		},
 	});
 
 	modelContext.registerTool({

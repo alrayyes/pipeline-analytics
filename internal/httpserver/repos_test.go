@@ -766,6 +766,65 @@ func TestReposIdentifiers(t *testing.T) {
 	})
 }
 
+func TestReposGet(t *testing.T) {
+	t.Parallel()
+
+	get := func(srv testServer, id string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos/"+id, nil)))
+
+		return rec
+	}
+
+	t.Run("returns the repo with its token masked as the list does", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		id := seedRepoWithToken(t, srv, "alrayyes/pipeline-analytics", "ghp_supersecrettoken1234")
+
+		rec := get(srv, id)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var got map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		require.Equal(t, id, got["id"])
+		require.Equal(t, "alrayyes/pipeline-analytics", got["identifier"])
+		require.Equal(t, "****1234", got["tokenMasked"])
+	})
+
+	t.Run("never carries the token itself", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+		id := seedRepoWithToken(t, srv, "alrayyes/pipeline-analytics", "ghp_supersecrettoken1234")
+
+		require.NotContains(t, get(srv, id).Body.String(), "supersecrettoken")
+	})
+
+	t.Run("an unknown id is a 404 with the API's error body", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		rec := get(srv, "does-not-exist")
+
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		require.JSONEq(t, `{"code":"not_found","message":"repo not found"}`, rec.Body.String())
+	})
+
+	t.Run("rejects an unauthenticated request", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServer(t, nil)
+
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/repos/some-id", nil))
+
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}
+
 func TestReposUntrack(t *testing.T) {
 	t.Parallel()
 

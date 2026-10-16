@@ -35,6 +35,7 @@ var mcpToolEndpoints = []mcpToolEndpoint{
 	{tool: "list_branches", operation: "listBranches", path: "/api/branches"},
 	{tool: "get_version", operation: "getVersion", path: "/api/version"},
 	{tool: "list_repos", operation: "listRepos", path: "/api/repos"},
+	{tool: "get_repo", operation: "getRepo", path: "/api/repos/{repoId}"},
 	{tool: "list_repo_identifiers", operation: "listRepoIdentifiers", path: "/api/repos/identifiers"},
 	{tool: "get_github_rate_limit", operation: "getGitHubRateLimitInsights", path: "/api/insights/github-rate-limit"},
 	{tool: "get_settings", operation: "getSettings", path: "/api/settings"},

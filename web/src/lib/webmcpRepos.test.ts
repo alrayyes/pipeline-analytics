@@ -87,6 +87,52 @@ describe('list_repos', () => {
 	});
 });
 
+describe('get_repo', () => {
+	test('fetches the repository by its id, encoded, and returns it', async () => {
+		const repo = { id: 'r 1', identifier: 'alrayyes/payments' };
+		answer(200, repo);
+
+		const result = await tool('get_repo').execute(
+			{ repoId: 'r 1' },
+			{ signal },
+		);
+
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/repos/r%201');
+		expect(result.content[0]?.text).toBe(JSON.stringify(repo));
+	});
+
+	test('says the repository was not found when the server answers 404', async () => {
+		answer(404, { code: 'not_found', message: 'repo not found' });
+
+		await expect(
+			tool('get_repo').execute({ repoId: 'r9' }, { signal }),
+		).rejects.toThrow('not found');
+	});
+
+	test('fails with the status on any other refusal', async () => {
+		answer(500, {});
+
+		await expect(
+			tool('get_repo').execute({ repoId: 'r9' }, { signal }),
+		).rejects.toThrow('500');
+	});
+
+	test('says repoId is required before sending', async () => {
+		await expect(tool('get_repo').execute({}, { signal })).rejects.toThrow(
+			'repoId is required',
+		);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	test('tells the agent to pass the id unencoded, as the tool encodes it', () => {
+		const description = (
+			inputSchemas.get_repo.properties.repoId as { description: string }
+		).description;
+
+		expect(description).toContain('Do not encode');
+	});
+});
+
 describe('list_repo_identifiers', () => {
 	test('sends the forge and the instance and wraps the identifiers', async () => {
 		answer(200, { identifiers: ['a/b'] });
@@ -386,10 +432,12 @@ describe('the write tools are marked destructive', () => {
 		expect(tool(name).annotations).toEqual({ destructiveHint: true });
 	});
 
-	test.each(['list_repos', 'list_repo_identifiers', 'discover_repos'])(
-		'%s is not',
-		(name) => {
-			expect(tool(name).annotations).toBeUndefined();
-		},
-	);
+	test.each([
+		'list_repos',
+		'get_repo',
+		'list_repo_identifiers',
+		'discover_repos',
+	])('%s is not', (name) => {
+		expect(tool(name).annotations).toBeUndefined();
+	});
 });

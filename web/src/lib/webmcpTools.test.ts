@@ -50,6 +50,7 @@ const unquarantineStepMock = mock((_pipelineId: string, _step: string) =>
 const fetchRepoPageMock = mock((_params: object) =>
 	Promise.resolve({ repos: [], hasMore: false }),
 );
+const fetchRepoMock = mock((_repoId: string) => Promise.resolve({}));
 const fetchRepoIdentifiersMock = mock((_params: object) => Promise.resolve([]));
 const discoverReposMock = mock((_request: object) => Promise.resolve([]));
 const registerRepoMock = mock((_request: object) => Promise.resolve({}));
@@ -69,6 +70,7 @@ mock.module('./settingsSync.js', () => ({
 
 mock.module('./repoApi.js', () => ({
 	fetchRepoPage: fetchRepoPageMock,
+	fetchRepo: fetchRepoMock,
 	fetchRepoIdentifiers: fetchRepoIdentifiersMock,
 	discoverRepos: discoverReposMock,
 	registerRepo: registerRepoMock,
@@ -128,6 +130,7 @@ beforeEach(() => {
 	quarantineStepMock.mockClear();
 	unquarantineStepMock.mockClear();
 	fetchRepoPageMock.mockClear();
+	fetchRepoMock.mockClear();
 	fetchRepoIdentifiersMock.mockClear();
 	discoverReposMock.mockClear();
 	registerRepoMock.mockClear();
@@ -176,6 +179,7 @@ describe('registerWebMCPTools', () => {
 			'quarantine_step',
 			'unquarantine_step',
 			'list_repos',
+			'get_repo',
 			'list_repo_identifiers',
 			'discover_repos',
 			'register_repo',
@@ -271,6 +275,7 @@ const allFetchMocks = [
 	quarantineStepMock,
 	unquarantineStepMock,
 	fetchRepoPageMock,
+	fetchRepoMock,
 	fetchRepoIdentifiersMock,
 	discoverReposMock,
 	registerRepoMock,
