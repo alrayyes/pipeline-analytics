@@ -22,23 +22,15 @@ mock.module('./dashboardApi.js', () => ({
 }));
 
 const { registerWebMCPTools } = await import('./webmcpTools.js');
+const { toolOperations: toolOperationIds } = await import(
+	'./webmcpOperations.js'
+);
 
-// Each registered WebMCP tool and the operations it covers. A tool may fold
-// several operations; it may not leave one out.
-const toolOperations: Record<string, string[]> = {
-	list_pipelines: ['listPipelines'],
-	get_pipeline: ['getPipeline'],
-	get_repo_usage: ['getRepoUsage'],
-	list_pipeline_steps: ['getPipelineSteps'],
-	get_job_log: ['getJobLog'],
-	get_failure_insights: ['getFailureInsights'],
-	list_runs: ['listRuns'],
-	list_flaky_steps: ['listFlakySteps'],
-	list_branches: ['listBranches'],
-	get_run_steps: ['getRunSteps'],
-	list_pipeline_flaky_runs: ['listFlakyRuns'],
-	list_unhealthy_steps: ['listUnhealthySteps'],
-};
+// Each registered WebMCP tool and its operation (webmcpOperations.ts). A tool
+// may fold several operations; it may not leave one out.
+const toolOperations: Record<string, string[]> = Object.fromEntries(
+	Object.entries(toolOperationIds).map(([tool, id]) => [tool, [id]]),
+);
 
 // Operations whose WebMCP tool is still to come under #615. It exists so the
 // parity test can land first; each tool pull request takes its operations off
