@@ -140,6 +140,9 @@ describe('Footer', () => {
 
 		const footer = await open();
 
+		expect(
+			network.requested.some((url) => url.pathname === '/api/version'),
+		).toBe(true);
 		expect(footer.textContent).not.toContain('dev build');
 		expect(footer.querySelector('a[href="/releases"]')).toBeNull();
 		// The rest of the footer is still there.
