@@ -144,20 +144,17 @@ function textResult(data: unknown) {
 
 // The name a person would recognise for a repository id, for the question they
 // are asked. The id alone ("r1") means nothing to them. Best effort: a failed,
-// slow or empty lookup, or a repository past the first 500, names the id, so the
-// confirmation never depends on it. There is no get-by-id endpoint to ask
-// instead.
+// slow or empty lookup, or an id nothing is tracked under, names the id, so the
+// confirmation never depends on it.
 const NAME_LOOKUP_MS = 3000;
 
 async function repoName(repoId: string): Promise<string> {
 	try {
-		const { repos } = await fetchRepoPage(
-			{ limit: 500, offset: 0 },
-			(url, init) =>
-				fetch(url, { ...init, signal: AbortSignal.timeout(NAME_LOOKUP_MS) }),
+		const repo = await fetchRepo(repoId, (url, init) =>
+			fetch(url, { ...init, signal: AbortSignal.timeout(NAME_LOOKUP_MS) }),
 		);
 
-		return repos?.find((r) => r.id === repoId)?.identifier ?? repoId;
+		return repo?.identifier ?? repoId;
 	} catch {
 		return repoId;
 	}
