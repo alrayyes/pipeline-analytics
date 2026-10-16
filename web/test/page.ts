@@ -37,14 +37,16 @@ const realFetch = globalThis.fetch;
 // Replaces fetch with a fake that records every URL it is asked for and answers
 // from `answer`; a URL it returns nothing for gets an empty object. `restore`
 // puts the real one back.
-export function fakeNetwork(answer: (url: URL) => Response | undefined) {
+export function fakeNetwork(
+	answer: (url: URL, init?: RequestInit) => Response | undefined,
+) {
 	const requested: URL[] = [];
 
-	globalThis.fetch = (async (input: RequestInfo | URL) => {
+	globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = new URL(String(input), 'http://localhost');
 		requested.push(url);
 
-		return answer(url) ?? json({});
+		return answer(url, init) ?? json({});
 	}) as typeof fetch;
 
 	return {
