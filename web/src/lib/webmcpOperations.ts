@@ -28,6 +28,8 @@ export const toolOperations: Record<string, string> = {
 	untrack_repo: 'untrackRepo',
 	get_settings: 'getSettings',
 	update_settings: 'updateSettings',
+	get_version: 'getVersion',
+	get_github_rate_limit: 'getGitHubRateLimitInsights',
 };
 
 // Where a tool pages by default and the API doesn't. The spec says an omitted
