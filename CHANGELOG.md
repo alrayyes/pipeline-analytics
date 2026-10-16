@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.93.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.92.0...v0.93.0) (2026-10-16)
+
+
+### Features
+
+* **web:** add WebMCP tools for the version and GitHub rate-limit use ([#691](https://github.com/alrayyes/pipeline-analytics/issues/691)) ([cd5a1d2](https://github.com/alrayyes/pipeline-analytics/commit/cd5a1d266e75447143f55760a9c6aaf248c5cb4c))
+
 ## [0.92.0](https://github.com/alrayyes/pipeline-analytics/compare/v0.91.0...v0.92.0) (2026-10-16)
 
 
