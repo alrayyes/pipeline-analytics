@@ -367,7 +367,7 @@ export const inputSchemas = {
 			},
 			"step": {
 				"type": "string",
-				"description": "The step's name, percent-encoded when it contains a `/`."
+				"description": "The step's name as list_flaky_steps shows it, for example `lint/css`. Do not encode it."
 			},
 			"note": {
 				"type": "string",
@@ -389,7 +389,7 @@ export const inputSchemas = {
 			},
 			"step": {
 				"type": "string",
-				"description": "The step's name, percent-encoded when it contains a `/`."
+				"description": "The step's name as list_flaky_steps shows it, for example `lint/css`. Do not encode it."
 			}
 		},
 		"required": [

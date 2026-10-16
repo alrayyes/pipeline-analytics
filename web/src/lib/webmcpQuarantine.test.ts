@@ -103,3 +103,16 @@ describe('unquarantine_step', () => {
 		).rejects.toThrow('step is required');
 	});
 });
+
+describe('quarantine tool schemas', () => {
+	test('tell an agent to pass the step name as listed, since the tool encodes it', async () => {
+		const { inputSchemas } = await import('./webmcpSchemas.generated.js');
+
+		for (const tool of ['quarantine_step', 'unquarantine_step'] as const) {
+			const description = inputSchemas[tool].properties.step.description;
+
+			expect(description).not.toContain('percent-encoded');
+			expect(description).toContain('Do not encode');
+		}
+	});
+});
