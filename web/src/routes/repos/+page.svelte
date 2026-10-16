@@ -48,7 +48,6 @@ import {
 	fetchRepoIdentifiers,
 	fetchRepoPage,
 	type TrackedRepo as Repo,
-	RepoApiError,
 	registerRepo,
 	untrackRepo,
 } from '#lib/repoApi.js';
@@ -376,8 +375,7 @@ async function discoverRepos(): Promise<void> {
 		step = 'select';
 	} catch (e) {
 		if (e instanceof ApiError) {
-			discoverError =
-				(e as RepoApiError).serverMessage ?? 'Could not list repositories.';
+			discoverError = e.serverMessage ?? 'Could not list repositories.';
 			discoveredRepos = null;
 		} else {
 			discoverError = 'Could not reach the server.';
@@ -451,7 +449,7 @@ async function handleFollowSelected(event: SubmitEvent): Promise<void> {
 				// this exact wording -- a repo Discover offered anyway
 				// (stale trackedIdentifiers, or two tabs racing) isn't a
 				// failure worth "Could not register.", it's a no-op.
-				const refused = e as RepoApiError;
+				const refused = e;
 				const message =
 					refused.code === 'already_tracked'
 						? 'Already tracked.'

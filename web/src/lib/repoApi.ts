@@ -4,7 +4,7 @@
 // ApiError that also keeps the server's `code` and `message`, which the page
 // words for the person; a request that never arrives rejects as fetch does.
 
-import { ApiError } from './apiError.js';
+import { refusal } from './apiError.js';
 
 export type Forge = 'github' | 'forgejo';
 
@@ -21,29 +21,6 @@ export interface TrackedRepo {
 export interface RepoPage {
 	repos: TrackedRepo[];
 	hasMore: boolean;
-}
-
-export class RepoApiError extends ApiError {
-	code?: string;
-	serverMessage?: string;
-
-	constructor(status: number, code?: string, serverMessage?: string) {
-		super(status);
-		this.code = code;
-		this.serverMessage = serverMessage;
-		// An agent reads only the message, and the server's own wording is what
-		// says what to fix.
-		if (serverMessage) this.message = `${this.message}: ${serverMessage}`;
-	}
-}
-
-async function refusal(res: Response): Promise<RepoApiError> {
-	const body = (await res.json().catch(() => null)) as {
-		code?: string;
-		message?: string;
-	} | null;
-
-	return new RepoApiError(res.status, body?.code, body?.message);
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
