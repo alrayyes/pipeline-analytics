@@ -89,6 +89,16 @@ describe.skipIf(inStryker)('WebMCP parity with openapi.yaml', () => {
 		expect(offenders).toEqual([]);
 	});
 
+	test('no operation is both a tool and excluded', async () => {
+		const covered = new Set(Object.values(toolOperations).flat());
+		const both = (await specOperations())
+			.filter((op) => 'x-agent-excluded' in op)
+			.map((op) => op.operationId)
+			.filter((id) => covered.has(id));
+
+		expect(both).toEqual([]);
+	});
+
 	test('an exclusion states its reason', async () => {
 		const blank = (await specOperations())
 			.filter((op) => 'x-agent-excluded' in op)
