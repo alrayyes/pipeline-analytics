@@ -243,7 +243,11 @@ describe('register_repo', () => {
 });
 
 describe('untrack_repo', () => {
-	test('asks the person first, then sends the DELETE the page sends', async () => {
+	test('asks the person first, naming the repository, then sends the DELETE the page sends', async () => {
+		answer(200, {
+			repos: [{ id: 'r 1', forge: 'github', identifier: 'alrayyes/payments' }],
+			hasMore: false,
+		});
 		answer(204);
 
 		const result = await tool('untrack_repo').execute(
@@ -252,13 +256,24 @@ describe('untrack_repo', () => {
 		);
 
 		const question = confirmMock.mock.calls[0]?.[0] ?? '';
-		expect(question).toContain('r 1');
+		expect(question).toContain('alrayyes/payments');
 		expect(question).toContain('deleted');
-		expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/repos/r%201');
-		expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('DELETE');
+		const sent = fetchMock.mock.calls.at(-1);
+		expect(sent?.[0]).toBe('/api/repos/r%201');
+		expect(sent?.[1]?.method).toBe('DELETE');
 		expect(result.content[0]?.text).toBe(
 			JSON.stringify({ repoId: 'r 1', untracked: true }),
 		);
+	});
+
+	test('names the id when the repository cannot be looked up', async () => {
+		answer(500, {});
+		answer(204);
+
+		await tool('untrack_repo').execute({ repoId: 'r9' }, { signal });
+
+		expect(confirmMock.mock.calls[0]?.[0]).toContain('r9');
+		expect(fetchMock.mock.calls.at(-1)?.[1]?.method).toBe('DELETE');
 	});
 
 	test('does nothing when the person declines', async () => {
@@ -267,7 +282,9 @@ describe('untrack_repo', () => {
 		await expect(
 			tool('untrack_repo').execute({ repoId: 'r1' }, { signal }),
 		).rejects.toThrow('declined');
-		expect(fetchMock).not.toHaveBeenCalled();
+		expect(
+			fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE'),
+		).toHaveLength(0);
 	});
 
 	test('does nothing when the agent reports the person said no', async () => {
@@ -281,7 +298,9 @@ describe('untrack_repo', () => {
 				{ signal, requestUserInteraction },
 			),
 		).rejects.toThrow('declined');
-		expect(fetchMock).not.toHaveBeenCalled();
+		expect(
+			fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE'),
+		).toHaveLength(0);
 	});
 
 	test('says repoId is required before asking anyone', async () => {
@@ -292,6 +311,7 @@ describe('untrack_repo', () => {
 	});
 
 	test('fails with the status when the repo is gone', async () => {
+		answer(200, { repos: [], hasMore: false });
 		answer(404, {});
 
 		await expect(

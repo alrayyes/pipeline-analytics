@@ -141,6 +141,19 @@ function textResult(data: unknown) {
 	return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] };
 }
 
+// The name a person would recognise for a repository id, for the question they
+// are asked. The id alone ("r1") means nothing to them. Best effort: a failed or
+// empty lookup names the id, so the confirmation never depends on it.
+async function repoName(repoId: string): Promise<string> {
+	try {
+		const { repos } = await fetchRepoPage({ limit: 500, offset: 0 });
+
+		return repos?.find((r) => r.id === repoId)?.identifier ?? repoId;
+	} catch {
+		return repoId;
+	}
+}
+
 export function registerWebMCPTools(
 	modelContext: ModelContext | undefined = typeof document === 'undefined'
 		? undefined
@@ -460,10 +473,11 @@ export function registerWebMCPTools(
 		annotations: { destructiveHint: true },
 		execute: async (input, agent) => {
 			const repoId = required(input, 'repoId');
+			const name = await repoName(repoId);
 			await mustConfirm(
 				agent,
-				`Let the agent stop tracking repository ${repoId}? Its stored runs, jobs and steps are deleted.`,
-				`The person declined to untrack repository ${repoId}`,
+				`Let the agent stop tracking repository ${name}? Its stored runs, jobs and steps are deleted.`,
+				`The person declined to untrack repository ${name}`,
 			);
 			await untrackRepo(repoId);
 
@@ -474,7 +488,7 @@ export function registerWebMCPTools(
 	modelContext.registerTool({
 		name: 'get_version',
 		description:
-			'Get the version of the running service, the one the page footer shows: a tagged release such as v1.2.3, or dev for an untagged local build.',
+			'Get the version of the running service, the one the page footer shows: a tagged release such as 1.2.3, or dev for an untagged local build.',
 		inputSchema: inputSchemas.get_version,
 		execute: async () => textResult(await fetchVersion()),
 	});
