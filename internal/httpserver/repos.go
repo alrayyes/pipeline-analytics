@@ -241,6 +241,29 @@ func (h *reposHandler) discoverRepos(ctx context.Context, in repoDiscoveryDTO) (
 	return repos, nil
 }
 
+func (h *reposHandler) get(w http.ResponseWriter, r *http.Request) {
+	repo, problem := h.trackedRepo(r.Context(), r.PathValue("repoId"))
+	if problem != nil {
+		writeError(w, problem.status, problem.code, problem.message)
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toRepoDTO(repo))
+}
+
+// trackedRepo is the lookup by id, shared with the MCP get_repo tool. Like the
+// usage endpoint, it treats any store error as not found: the port promises no
+// sentinel, and the sqlite adapter's lives a layer below.
+func (h *reposHandler) trackedRepo(ctx context.Context, repoID string) (ingestion.Repo, *apiProblem) {
+	repo, err := h.store.GetRepo(ctx, repoID)
+	if err != nil {
+		return ingestion.Repo{}, &apiProblem{http.StatusNotFound, "not_found", "repo not found"}
+	}
+
+	return repo, nil
+}
+
 func (h *reposHandler) untrack(w http.ResponseWriter, r *http.Request) {
 	if problem := h.untrackRepo(r.Context(), r.PathValue("repoId")); problem != nil {
 		writeError(w, problem.status, problem.code, problem.message)

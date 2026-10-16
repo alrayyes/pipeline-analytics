@@ -25,6 +25,11 @@ func (h *mcpHandler) addRepoTools(server *mcp.Server) {
 	}, h.listRepos)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_repo",
+		Description: "Get one tracked repository by id, with its forge, identifier, ingestion status and masked token. Takes an id from list_repos. Matches GET /api/repos/{repoId}.",
+	}, h.getRepo)
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_repo_identifiers",
 		Description: "List the identifiers of the repos tracked on one forge, for a Forgejo forge on one instance. A forge is required. Matches GET /api/repos/identifiers.",
 	}, h.listRepoIdentifiers)
@@ -63,6 +68,19 @@ func (h *mcpHandler) listRepos(ctx context.Context, _ *mcp.CallToolRequest, in l
 	}
 
 	return nil, toRepoListDTO(repos, hasMore), nil
+}
+
+type getRepoInput struct {
+	RepoID string `json:"repoId" jsonschema:"the repository's id, as list_repos reports it"`
+}
+
+func (h *mcpHandler) getRepo(ctx context.Context, _ *mcp.CallToolRequest, in getRepoInput) (*mcp.CallToolResult, repoDTO, error) {
+	repo, problem := (&reposHandler{store: h.repos}).trackedRepo(ctx, in.RepoID)
+	if problem != nil {
+		return nil, repoDTO{}, problemError(problem)
+	}
+
+	return nil, toRepoDTO(repo), nil
 }
 
 type listRepoIdentifiersInput struct {

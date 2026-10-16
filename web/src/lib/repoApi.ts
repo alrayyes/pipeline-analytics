@@ -41,6 +41,19 @@ export async function fetchRepoPage(
 	return (await res.json()) as RepoPage;
 }
 
+// One repository by id, or undefined when none is tracked under it, so a
+// caller that only wants its name can tell "gone" from "could not ask".
+export async function fetchRepo(
+	repoId: string,
+	fetchFn: typeof fetch = fetch,
+): Promise<TrackedRepo | undefined> {
+	const res = await fetchFn(`/api/repos/${encodeURIComponent(repoId)}`);
+	if (res.status === 404) return undefined;
+	if (!res.ok) throw await refusal(res);
+
+	return (await res.json()) as TrackedRepo;
+}
+
 // Every tracked identifier, unpaginated: Discover's "already tracked" check
 // cannot rely on whichever page of the list is showing (#197).
 export async function fetchRepoIdentifiers(

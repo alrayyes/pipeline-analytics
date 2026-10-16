@@ -207,6 +207,7 @@ func TestMCPToolsList(t *testing.T) {
 		"list_branches",
 		"get_version",
 		"list_repos",
+		"get_repo",
 		"list_repo_identifiers",
 		"get_github_rate_limit",
 		"get_settings",
@@ -651,6 +652,29 @@ func TestMCPListRepos(t *testing.T) {
 		require.Len(t, got.Repos, 1)
 		require.Equal(t, secondID, got.Repos[0]["id"])
 		require.False(t, got.HasMore)
+	})
+}
+
+func TestMCPGetRepo(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, nil)
+	id := seedRepoWithToken(t, srv, "alrayyes/first", "ghp_supersecrettoken1234")
+	session := connectMCP(t, srv)
+
+	t.Run("returns the repo with the token masked", func(t *testing.T) {
+		t.Parallel()
+
+		got := callTool[map[string]any](t, session, "get_repo", map[string]any{"repoId": id})
+
+		require.Equal(t, "alrayyes/first", got["identifier"])
+		require.Equal(t, "****1234", got["tokenMasked"])
+	})
+
+	t.Run("an unknown repo is not found", func(t *testing.T) {
+		t.Parallel()
+
+		require.Contains(t, toolFailure(t, session, "get_repo", map[string]any{"repoId": "no-such-repo"}), "not found")
 	})
 }
 

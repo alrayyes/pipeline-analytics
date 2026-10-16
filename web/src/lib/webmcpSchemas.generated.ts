@@ -425,6 +425,19 @@ export const inputSchemas = {
 		"required": [],
 		"additionalProperties": false
 	},
+	"get_repo": {
+		"type": "object",
+		"properties": {
+			"repoId": {
+				"type": "string",
+				"description": "The repository's id as list_repos reports it. Do not encode it."
+			}
+		},
+		"required": [
+			"repoId"
+		],
+		"additionalProperties": false
+	},
 	"list_repo_identifiers": {
 		"type": "object",
 		"properties": {
