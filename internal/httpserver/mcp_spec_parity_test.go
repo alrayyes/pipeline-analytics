@@ -56,8 +56,8 @@ const agentExcludedExtension = "x-agent-excluded"
 // TestEveryOperationHasAnMCPTool is the other half of
 // TestMCPToolSchemasMatchOpenAPI: that one checks the tools that exist, this
 // one notices an operation nobody gave a tool. It reads every operation ID
-// in openapi.yaml, any method, and wants a tool, an x-agent-excluded reason,
-// .
+// in openapi.yaml, any method, and wants a tool or an x-agent-excluded reason,
+// and not both.
 func TestEveryOperationHasAnMCPTool(t *testing.T) {
 	t.Parallel()
 
