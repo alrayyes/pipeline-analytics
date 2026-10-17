@@ -140,6 +140,24 @@ func TestJobLogService_Tail(t *testing.T) {
 		require.ErrorIs(t, err, errFakeBoom)
 	})
 
+	t.Run("a job whose repo is no longer tracked is an unknown job", func(t *testing.T) {
+		t.Parallel()
+
+		located := fakeLocator{location: ingestion.JobLocation{RepoID: "r1"}}
+
+		_, err := ingestion.NewJobLogService(located, fakeLogRepos{repoErr: ingestion.ErrRepoNotFound}, nil).Tail(context.Background(), "run", "job", 10)
+		require.ErrorIs(t, err, ingestion.ErrJobNotFound)
+	})
+
+	t.Run("a repo lookup failure is not an unknown job", func(t *testing.T) {
+		t.Parallel()
+
+		located := fakeLocator{location: ingestion.JobLocation{RepoID: "r1"}}
+
+		_, err := ingestion.NewJobLogService(located, fakeLogRepos{repoErr: errFakeBoom}, nil).Tail(context.Background(), "run", "job", 10)
+		require.NotErrorIs(t, err, ingestion.ErrJobNotFound)
+	})
+
 	t.Run("a repo or token lookup failure is an error", func(t *testing.T) {
 		t.Parallel()
 

@@ -90,6 +90,10 @@ func (s *JobLogService) Tail(ctx context.Context, runID, jobID string, lines int
 	}
 
 	repo, err := s.repos.GetRepo(ctx, location.RepoID)
+	if errors.Is(err, ErrRepoNotFound) {
+		return JobLogResult{}, ErrJobNotFound
+	}
+
 	if err != nil {
 		return JobLogResult{}, fmt.Errorf("get repo: %w", err)
 	}

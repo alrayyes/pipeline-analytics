@@ -117,6 +117,28 @@ func TestRunActionService_Rerun(t *testing.T) {
 		require.ErrorIs(t, err, errFakeBoom)
 	})
 
+	t.Run("a run whose repo is no longer tracked is an unknown run", func(t *testing.T) {
+		t.Parallel()
+
+		repos := githubRepos()
+		repos.repoErr = ingestion.ErrRepoNotFound
+
+		err := newActionService(failed, nil, repos, &fakeActor{}).Rerun(context.Background(), "run1")
+
+		require.ErrorIs(t, err, ingestion.ErrRunNotFound)
+	})
+
+	t.Run("a repo lookup failure is not an unknown run", func(t *testing.T) {
+		t.Parallel()
+
+		repos := githubRepos()
+		repos.repoErr = errFakeBoom
+
+		err := newActionService(failed, nil, repos, &fakeActor{}).Rerun(context.Background(), "run1")
+
+		require.NotErrorIs(t, err, ingestion.ErrRunNotFound)
+	})
+
 	t.Run("a token lookup failure is an error", func(t *testing.T) {
 		t.Parallel()
 

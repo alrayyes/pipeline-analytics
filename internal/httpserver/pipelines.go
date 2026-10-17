@@ -336,8 +336,8 @@ type usageHandler struct {
 func (h *usageHandler) get(w http.ResponseWriter, r *http.Request) {
 	repoID := r.PathValue("repoId")
 
-	if _, err := h.repos.GetRepo(r.Context(), repoID); err != nil {
-		writeError(w, http.StatusNotFound, "not_found", "repo not found")
+	if _, problem := (&reposHandler{store: h.repos}).trackedRepo(r.Context(), repoID); problem != nil {
+		writeError(w, problem.status, problem.code, problem.message)
 
 		return
 	}
