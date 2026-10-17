@@ -153,7 +153,8 @@ Two CI checks have no hook, on purpose: `govulncheck` and `bun audit`.
 Both read advisory databases that change without a commit, so a local pass
 proves nothing the pipeline won't re-check. `lefthook.yml` says so too, and
 `.github/scripts/lefthook-parity.test.sh` fails when any other check loses
-its hook.
+its hook. To run the Go one yourself, paste `govulncheck ./...` from the
+repository root.
 
 In CI both run as a gate through the shared `alrayyes/advisory-scan` action: a
 pull request fails only on an advisory it introduces over its base, so a newly
