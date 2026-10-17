@@ -243,7 +243,7 @@ func TestStore_SetReconcileETag_UnknownRepo(t *testing.T) {
 	store := newTestStore(t)
 
 	err := store.SetReconcileETag(context.Background(), "does-not-exist", `"v1"`)
-	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
+	require.ErrorIs(t, err, ingestion.ErrRepoNotFound)
 }
 
 func TestStore_DeleteRepo(t *testing.T) {
@@ -262,7 +262,7 @@ func TestStore_DeleteRepo(t *testing.T) {
 	require.NoError(t, store.DeleteRepo(ctx, created.ID))
 
 	_, err = store.GetRepo(ctx, created.ID)
-	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
+	require.ErrorIs(t, err, ingestion.ErrRepoNotFound)
 }
 
 func TestStore_DeleteRepo_UnknownRepo(t *testing.T) {
@@ -271,7 +271,7 @@ func TestStore_DeleteRepo_UnknownRepo(t *testing.T) {
 	store := newTestStore(t)
 
 	err := store.DeleteRepo(context.Background(), "does-not-exist")
-	require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
+	require.ErrorIs(t, err, ingestion.ErrRepoNotFound)
 }
 
 func TestStore_CreateRepo_AlreadyTracked(t *testing.T) {

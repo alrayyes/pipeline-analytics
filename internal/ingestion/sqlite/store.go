@@ -164,9 +164,6 @@ func (s *Store) ListRepos(ctx context.Context, filter ingestion.RepoListFilter) 
 	return repos, hasMore, nil
 }
 
-// ErrRepoNotFound is returned when no repo matches the requested id.
-var ErrRepoNotFound = errors.New("repo not found")
-
 // GetRepo implements ingestion.Store.
 func (s *Store) GetRepo(ctx context.Context, id string) (ingestion.Repo, error) {
 	row := s.db.QueryRowContext(ctx, `
@@ -176,7 +173,7 @@ func (s *Store) GetRepo(ctx context.Context, id string) (ingestion.Repo, error) 
 
 	repo, err := scanRepo(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ingestion.Repo{}, ErrRepoNotFound
+		return ingestion.Repo{}, ingestion.ErrRepoNotFound
 	}
 
 	if err != nil {
@@ -222,7 +219,7 @@ func (s *Store) DeleteRepo(ctx context.Context, id string) error {
 	}
 
 	if rows == 0 {
-		return ErrRepoNotFound
+		return ingestion.ErrRepoNotFound
 	}
 
 	return nil
@@ -241,7 +238,7 @@ func (s *Store) SetReconcileETag(ctx context.Context, id string, etag string) er
 	}
 
 	if rows == 0 {
-		return ErrRepoNotFound
+		return ingestion.ErrRepoNotFound
 	}
 
 	return nil
@@ -263,7 +260,7 @@ func (s *Store) SetIngestionStatus(ctx context.Context, id string, status ingest
 	}
 
 	if rows == 0 {
-		return ErrRepoNotFound
+		return ingestion.ErrRepoNotFound
 	}
 
 	return nil
@@ -275,7 +272,7 @@ func (s *Store) RepoToken(ctx context.Context, id string) (string, error) {
 
 	err := s.db.QueryRowContext(ctx, "SELECT token_encrypted FROM repos WHERE id = ?", id).Scan(&encrypted)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrRepoNotFound
+		return "", ingestion.ErrRepoNotFound
 	}
 
 	if err != nil {

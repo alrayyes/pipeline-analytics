@@ -676,6 +676,19 @@ func TestMCPGetRepo(t *testing.T) {
 
 		require.Contains(t, toolFailure(t, session, "get_repo", map[string]any{"repoId": "no-such-repo"}), "not found")
 	})
+
+	t.Run("a store failure is an error, not a not-found", func(t *testing.T) {
+		t.Parallel()
+
+		failing := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+			return failingGetStore{Store: s}
+		})
+		failingSession := connectMCP(t, failing)
+
+		message := toolFailure(t, failingSession, "get_repo", map[string]any{"repoId": "any-id"})
+
+		require.NotContains(t, message, "not found")
+	})
 }
 
 func TestMCPListRepoIdentifiers(t *testing.T) {

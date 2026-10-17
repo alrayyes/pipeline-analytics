@@ -37,7 +37,7 @@ func TestStore_RepoByIdentifier(t *testing.T) {
 		t.Parallel()
 
 		_, err := store.RepoByIdentifier(ctx, ingestion.ForgeForgejo, "alrayyes/pipeline-analytics")
-		require.ErrorIs(t, err, sqlite.ErrRepoNotFound)
+		require.ErrorIs(t, err, ingestion.ErrRepoNotFound)
 	})
 }
 

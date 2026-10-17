@@ -252,13 +252,19 @@ func (h *reposHandler) get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toRepoDTO(repo))
 }
 
-// trackedRepo is the lookup by id, shared with the MCP get_repo tool. Like the
-// usage endpoint, it treats any store error as not found: the port promises no
-// sentinel, and the sqlite adapter's lives a layer below.
+// trackedRepo is the lookup by id, shared with the MCP get_repo tool. Only the
+// store's not-found sentinel is a 404; any other error is a store failure, which
+// is logged and answered 500 without its detail.
 func (h *reposHandler) trackedRepo(ctx context.Context, repoID string) (ingestion.Repo, *apiProblem) {
 	repo, err := h.store.GetRepo(ctx, repoID)
-	if err != nil {
+	if errors.Is(err, ingestion.ErrRepoNotFound) {
 		return ingestion.Repo{}, &apiProblem{http.StatusNotFound, "not_found", "repo not found"}
+	}
+
+	if err != nil {
+		slog.ErrorContext(ctx, "get repo failed", slog.String("repo_id", repoID), slog.Any("error", err))
+
+		return ingestion.Repo{}, &apiProblem{http.StatusInternalServerError, "internal_error", "get repo"}
 	}
 
 	return repo, nil
