@@ -280,10 +280,18 @@ func (h *reposHandler) untrack(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// untrackRepo is the removal, shared with the MCP untrack_repo tool.
+// untrackRepo is the removal, shared with the MCP untrack_repo tool. Like
+// trackedRepo, only the not-found sentinel is a 404.
 func (h *reposHandler) untrackRepo(ctx context.Context, repoID string) *apiProblem {
-	if err := h.store.DeleteRepo(ctx, repoID); err != nil {
+	err := h.store.DeleteRepo(ctx, repoID)
+	if errors.Is(err, ingestion.ErrRepoNotFound) {
 		return &apiProblem{http.StatusNotFound, "not_found", "repo not found"}
+	}
+
+	if err != nil {
+		slog.ErrorContext(ctx, "untrack repo failed", slog.String("repo_id", repoID), slog.Any("error", err))
+
+		return &apiProblem{http.StatusInternalServerError, "internal_error", "untrack repo"}
 	}
 
 	return nil

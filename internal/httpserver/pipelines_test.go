@@ -696,6 +696,21 @@ func TestRepoUsage(t *testing.T) {
 
 		require.Equal(t, http.StatusNotFound, rec.Code)
 	})
+
+	t.Run("a store failure is a 500 with no detail, not a 404", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+			return failingGetStore{Store: s}
+		})
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos/any-id/usage", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		require.JSONEq(t, `{"code":"internal_error","message":"get repo"}`, rec.Body.String())
+	})
 }
 
 // pipelineIDFromList looks up the pipeline id GET /api/pipelines reports

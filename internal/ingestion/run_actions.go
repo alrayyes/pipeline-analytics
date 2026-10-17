@@ -117,6 +117,10 @@ func (s *RunActionService) act(ctx context.Context, runID string, action RunActi
 	}
 
 	repo, err := s.repos.GetRepo(ctx, run.RepoID)
+	if errors.Is(err, ErrRepoNotFound) {
+		return ErrRunNotFound
+	}
+
 	if err != nil {
 		return fmt.Errorf("get repo: %w", err)
 	}

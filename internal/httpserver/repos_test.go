@@ -106,6 +106,16 @@ func (failingGetStore) GetRepo(context.Context, string) (ingestion.Repo, error) 
 	return ingestion.Repo{}, errDatabaseLocked
 }
 
+// failingDeleteStore is a store whose repo removal fails the way a database
+// does, with an error that isn't ingestion.ErrRepoNotFound.
+type failingDeleteStore struct {
+	ingestion.Store
+}
+
+func (failingDeleteStore) DeleteRepo(context.Context, string) error {
+	return errDatabaseLocked
+}
+
 // newTestServerWithStore is newTestServerWithAssets, but the handlers read
 // through wrap(store) when wrap is set -- for exercising a store failure.
 func newTestServerWithStore(t *testing.T, forgeErr error, assets fs.FS, wrap func(ingestion.Store) ingestion.Store) testServer {
@@ -924,6 +934,21 @@ func TestReposUntrack(t *testing.T) {
 		srv.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("a store failure is a 500 with no detail, not a 404", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+			return failingDeleteStore{Store: s}
+		})
+
+		req := srv.authenticated(httptest.NewRequest(http.MethodDelete, "/api/repos/any-id", nil))
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		require.JSONEq(t, `{"code":"internal_error","message":"untrack repo"}`, rec.Body.String())
 	})
 
 	t.Run("rejects an unauthenticated request", func(t *testing.T) {

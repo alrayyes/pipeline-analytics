@@ -361,6 +361,19 @@ func TestMCPGetRepoUsage(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, res.IsError)
 	})
+
+	t.Run("a store failure is an internal error, not a not-found", func(t *testing.T) {
+		t.Parallel()
+
+		failing := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+			return failingGetStore{Store: s}
+		})
+
+		message := toolFailure(t, connectMCP(t, failing), "get_repo_usage", map[string]any{"repoId": "any-id"})
+
+		require.Contains(t, message, "internal_error")
+		require.NotContains(t, message, "not found")
+	})
 }
 
 func TestMCPListUnhealthySteps(t *testing.T) {

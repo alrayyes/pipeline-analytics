@@ -254,6 +254,19 @@ func TestMCPUntrackRepo(t *testing.T) {
 		require.Contains(t, toolFailure(t, connectMCP(t, srv), "untrack_repo", map[string]any{"repoId": "no-such-repo"}), "not_found")
 	})
 
+	t.Run("a store failure is an internal error, not a not-found", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+			return failingDeleteStore{Store: s}
+		})
+
+		message := toolFailure(t, connectMCP(t, srv), "untrack_repo", map[string]any{"repoId": "any-id"})
+
+		require.Contains(t, message, "internal_error")
+		require.NotContains(t, message, "not_found")
+	})
+
 	t.Run("an API token may untrack, as the endpoint allows", func(t *testing.T) {
 		t.Parallel()
 

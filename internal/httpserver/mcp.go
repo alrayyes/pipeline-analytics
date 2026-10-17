@@ -13,14 +13,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// errRepoNotFound is a local sentinel for a tool call naming an untracked
-// repo -- ingestion.Store's GetRepo doesn't guarantee one at the port
-// level, only its sqlite adapter does, and reaching into that adapter's
-// error from here would cross the layer the REST handlers already keep
-// (repos.go's usageHandler.get treats any GetRepo error as not-found the
-// same way).
-var errRepoNotFound = errors.New("repo not found")
-
 // errInvalidToolInput is a tool argument outside what its schema allows.
 var errInvalidToolInput = errors.New("invalid tool input")
 
@@ -272,8 +264,8 @@ type usageResultDTO struct {
 }
 
 func (h *mcpHandler) getRepoUsage(ctx context.Context, _ *mcp.CallToolRequest, in repoUsageInput) (*mcp.CallToolResult, usageResultDTO, error) {
-	if _, err := h.repos.GetRepo(ctx, in.RepoID); err != nil {
-		return nil, usageResultDTO{}, fmt.Errorf("%w: %s", errRepoNotFound, in.RepoID)
+	if _, problem := (&reposHandler{store: h.repos}).trackedRepo(ctx, in.RepoID); problem != nil {
+		return nil, usageResultDTO{}, problemError(problem)
 	}
 
 	window := metrics.ParseWindow(in.Window)
