@@ -63,7 +63,8 @@ only: `PUT /api/pipelines/{pipelineId}/steps/{step}/quarantine`, `DELETE` to
 clear). It stays in the flaky list, labelled, with every figure unchanged, but
 it stops making its pipeline unhealthy and stops counting in the flaky-step
 ratio. The mark lasts 30 days unless renewed, lives in this server only, and
-never touches the forge. API tokens and the MCP tools can read it, not set it.
+never touches the forge. An API token can read it, not set it, and the MCP
+quarantine tools need a session too.
 
 Open a run and a failed step has a **Show log** button: the last 200 lines of
 that step's job log, fetched from the forge when you ask and never stored, with
@@ -257,10 +258,14 @@ at <https://alrayyes.github.io/pipeline-analytics/docs/api/>.
 
 `POST /api/mcp` serves an [MCP](https://modelcontextprotocol.io) server over
 the Streamable HTTP transport, exposing the same pipeline health, trend,
-flaky-step, usage, run and failure-insight data the dashboard and REST API do,
-as eleven read-only tools. Every read endpoint that serves pipeline data has a
-tool; a test fails when one doesn't, unless it's listed with a reason. It
-needs the same bearer API token as the REST API — issue one with a
+flaky-step, usage, run and failure-insight data the dashboard and REST API do.
+Most tools read. Some act, through the same code as their endpoints: they
+re-run or cancel a run, quarantine or un-quarantine a flaky step, change your
+settings, and register, discover or untrack a repository. The run and
+quarantine tools need a signed-in session, not an API token. Every REST
+operation has a tool; a test fails when one doesn't, unless it's listed with a
+reason, so ask the server for its tool list rather than trusting a number
+here. It needs the same bearer API token as the REST API — issue one with a
 logged-in session, either from Settings → API tokens (pick 30 days, 90 days
 or 1 year; the token is shown once) or with `curl -X POST https://<your-server>/api/auth/tokens
 --cookie "session=<your-session-cookie>"`. A token lasts 90 days unless you
