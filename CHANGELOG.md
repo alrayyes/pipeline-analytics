@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.94.2](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.1...v0.94.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **api:** answer 500, not 404, when the repo lookup hits a store failure ([#715](https://github.com/alrayyes/pipeline-analytics/issues/715)) ([120eba4](https://github.com/alrayyes/pipeline-analytics/commit/120eba478da7aa00e74405128f41a1a7f47ec995))
+
 ## [0.94.1](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.0...v0.94.1) (2026-10-16)
 
 
