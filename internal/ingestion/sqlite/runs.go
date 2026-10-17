@@ -19,7 +19,7 @@ func (s *Store) RepoByIdentifier(ctx context.Context, forge ingestion.Forge, ide
 
 	repo, err := scanRepo(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ingestion.Repo{}, ErrRepoNotFound
+		return ingestion.Repo{}, ingestion.ErrRepoNotFound
 	}
 
 	if err != nil {

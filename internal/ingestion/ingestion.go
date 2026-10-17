@@ -13,6 +13,10 @@ import (
 // forge, identifier, and (for Forgejo) instance URL is already tracked.
 var ErrRepoAlreadyTracked = errors.New("repo already tracked")
 
+// ErrRepoNotFound is returned by a Store when no repo matches the requested
+// id. Any other error from a lookup is a store failure, not a missing repo.
+var ErrRepoNotFound = errors.New("repo not found")
+
 // Returned by Register when the repo being registered is archived, a fork,
 // or a mirror -- checked authoritatively via GetRepo, not trusted from a
 // prior Discover result.
@@ -92,6 +96,8 @@ type Store interface {
 	// tracked" check that has to see every tracked repo, not just the page
 	// a paginated list happens to be showing.
 	ListRepoIdentifiers(ctx context.Context, forge Forge, instanceURL string) ([]string, error)
+	// GetRepo returns the repo with the id, or ErrRepoNotFound when none
+	// matches.
 	GetRepo(ctx context.Context, id string) (Repo, error)
 	// DeleteRepo stops tracking a repo. The schema's ON DELETE CASCADE
 	// removes its stored runs, jobs, and steps along with it -- it does

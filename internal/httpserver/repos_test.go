@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -90,6 +91,26 @@ func newTestServer(t *testing.T, forgeErr error) testServer {
 func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testServer {
 	t.Helper()
 
+	return newTestServerWithStore(t, forgeErr, assets, nil)
+}
+
+var errDatabaseLocked = errors.New("database is locked")
+
+// failingGetStore is a store whose repo lookup fails the way a database does,
+// with an error that isn't ingestion.ErrRepoNotFound.
+type failingGetStore struct {
+	ingestion.Store
+}
+
+func (failingGetStore) GetRepo(context.Context, string) (ingestion.Repo, error) {
+	return ingestion.Repo{}, errDatabaseLocked
+}
+
+// newTestServerWithStore is newTestServerWithAssets, but the handlers read
+// through wrap(store) when wrap is set -- for exercising a store failure.
+func newTestServerWithStore(t *testing.T, forgeErr error, assets fs.FS, wrap func(ingestion.Store) ingestion.Store) testServer {
+	t.Helper()
+
 	conn, err := db.Open(":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
@@ -108,9 +129,14 @@ func newTestServerWithAssets(t *testing.T, forgeErr error, assets fs.FS) testSer
 	sessionID, err := authStore.CreateSession(ctx, user.ID)
 	require.NoError(t, err)
 
+	var readStore ingestion.Store = ingestionStore
+	if wrap != nil {
+		readStore = wrap(ingestionStore)
+	}
+
 	handler := httpserver.New(httpserver.Deps{
 		Registrar:      registrar,
-		IngestionStore: ingestionStore,
+		IngestionStore: readStore,
 		RunStore:       ingestionStore,
 		Metrics:        metrics.NewService(metricssqlite.NewStore(conn)),
 		AuthStore:      authStore,
@@ -813,6 +839,30 @@ func TestReposGet(t *testing.T) {
 		require.JSONEq(t, `{"code":"not_found","message":"repo not found"}`, rec.Body.String())
 	})
 
+	t.Run("a store failure is a 500, not a 404", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+			return failingGetStore{Store: s}
+		})
+
+		rec := get(srv, "any-id")
+
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("a store failure carries the internal_error body and no detail", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+			return failingGetStore{Store: s}
+		})
+
+		rec := get(srv, "any-id")
+
+		require.JSONEq(t, `{"code":"internal_error","message":"get repo"}`, rec.Body.String())
+	})
+
 	t.Run("rejects an unauthenticated request", func(t *testing.T) {
 		t.Parallel()
 
@@ -894,3 +944,21 @@ var errPermissionDenied = permissionDeniedError{}
 type permissionDeniedError struct{}
 
 func (permissionDeniedError) Error() string { return "permission denied" }
+
+// Not parallel, for the reason TestReposRegister_LogsFailures gives.
+func TestReposGet_LogsStoreFailures(t *testing.T) {
+	var buf bytes.Buffer
+
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	srv := newTestServerWithStore(t, nil, testAssets, func(s ingestion.Store) ingestion.Store {
+		return failingGetStore{Store: s}
+	})
+
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, srv.authenticated(httptest.NewRequest(http.MethodGet, "/api/repos/any-id", nil)))
+
+	require.Contains(t, buf.String(), "database is locked")
+}
