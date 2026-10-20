@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.94.4](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.3...v0.94.4) (2026-10-20)
+
+
+### Bug Fixes
+
+* **web:** make the table scroll container keyboard reachable ([#726](https://github.com/alrayyes/pipeline-analytics/issues/726)) ([6663dc5](https://github.com/alrayyes/pipeline-analytics/commit/6663dc53ff7c403b9cd630bff1a7be09e1a98bdc))
+
 ## [0.94.3](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.2...v0.94.3) (2026-10-17)
 
 
