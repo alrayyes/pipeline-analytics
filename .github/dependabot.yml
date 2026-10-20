@@ -64,6 +64,11 @@ updates:
       # when CI moves to bun 1.4 and the timeout is sorted (#620).
       - dependency-name: "@hughescr/stryker-bun-runner"
         versions: [">=1.5.0"]
+      # 4.7.7 ignores the tsconfig's extends under --tsgo and reports 50
+      # errors in code 4.7.6 passes. Drop this once a later release is clean
+      # (#729).
+      - dependency-name: svelte-check
+        versions: ["4.7.7"]
     # Split by dependency type as well, so a group of dev-only bumps takes
     # prefix-development (chore) and a group that ships takes fix; one mixed
     # group would release or not for the wrong reason.
