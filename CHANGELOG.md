@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.94.5](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.4...v0.94.5) (2026-10-20)
+
+
+### Bug Fixes
+
+* bump github.com/getkin/kin-openapi ([#720](https://github.com/alrayyes/pipeline-analytics/issues/720)) ([2f17e26](https://github.com/alrayyes/pipeline-analytics/commit/2f17e26440e16a2dc379996b2e327129a7ecaa64))
+* bump layerchart ([#721](https://github.com/alrayyes/pipeline-analytics/issues/721)) ([45e658c](https://github.com/alrayyes/pipeline-analytics/commit/45e658c62ac5b3738817f5c87f5e10c0e47fb5aa))
+
 ## [0.94.4](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.3...v0.94.4) (2026-10-20)
 
 
