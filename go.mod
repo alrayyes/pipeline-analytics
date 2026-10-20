@@ -5,7 +5,7 @@ go 1.27.1
 require (
 	code.gitea.io/sdk/gitea v0.25.1
 	github.com/descope/virtualwebauthn v1.0.5
-	github.com/getkin/kin-openapi v0.149.0
+	github.com/getkin/kin-openapi v0.151.0
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/google/go-github/v75 v75.0.0
 	github.com/google/jsonschema-go v0.4.3
