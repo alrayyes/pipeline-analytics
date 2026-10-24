@@ -27,7 +27,7 @@ check() {
 		return 1
 	fi
 
-	for file in "$dir"/*.yml; do
+	for file in "$dir"/*.yml "$dir"/*.yaml; do
 		[ -e "$file" ] || continue
 		if grep -Eq 'playwright install' "$file"; then
 			echo "  $(basename "$file") still runs 'playwright install'; the image has the browsers"
@@ -40,6 +40,10 @@ check() {
 				bad=1
 			elif [ "${BASH_REMATCH[1]}" != "$lib" ]; then
 				echo "  $(basename "$file"): image is for Playwright ${BASH_REMATCH[1]} but $lockfile locks $lib"
+				bad=1
+			fi
+			if ! grep -Eq '^[[:space:]]+options:.*--ipc=host' "$file"; then
+				echo "  $(basename "$file"): the container needs 'options: --ipc=host' for Chromium"
 				bad=1
 			fi
 		done < <(grep -E '^[[:space:]]+image: ghcr\.io/alrayyes/ci-playwright' "$file" | sed -E 's/^[[:space:]]+image:[[:space:]]+//' || true)
@@ -75,7 +79,7 @@ digest="sha256:$(printf 'a%.0s' {1..64})"
 
 fixture() { # fixture <name> <image> [extra step line]
 	mkdir -p "$tmp/$1"
-	printf 'jobs:\n  e2e:\n    container:\n      image: %s\n    steps:\n      - run: echo hi\n%s\n' "$2" "${3:-}" >"$tmp/$1/ci.yml"
+	printf 'jobs:\n  e2e:\n    container:\n      image: %s\n      options: %s\n    steps:\n      - run: echo hi\n%s\n' "$2" "${IPC:---ipc=host}" "${3:-}" >"$tmp/$1/ci.yml"
 }
 printf '    "@playwright/test": ["@playwright/test@1.64.1", "", {}],\n' >"$tmp/lock"
 
@@ -84,6 +88,7 @@ fixture older "ghcr.io/alrayyes/ci-playwright:1.63.0@$digest"
 fixture nodigest "ghcr.io/alrayyes/ci-playwright:1.64.1"
 fixture mcr "mcr.microsoft.com/playwright:v1.64.1-noble@$digest"
 fixture reinstall "ghcr.io/alrayyes/ci-playwright:1.64.1@$digest" '      - run: bunx playwright install --with-deps chromium'
+IPC=--init fixture noipc "ghcr.io/alrayyes/ci-playwright:1.64.1@$digest"
 mkdir -p "$tmp/none" && printf 'jobs: {}\n' >"$tmp/none/ci.yml"
 fixture split "ghcr.io/alrayyes/ci-playwright:1.64.1@$digest"
 printf 'jobs:\n  s:\n    container:\n      image: ghcr.io/alrayyes/ci-playwright:1.64.1@sha256:%s\n' "$(printf 'b%.0s' {1..64})" >"$tmp/split/release.yml"
@@ -93,6 +98,7 @@ expect "a tag older than the lockfile fails" fail "$tmp/older" "$tmp/lock"
 expect "a tag with no digest fails" fail "$tmp/nodigest" "$tmp/lock"
 expect "another registry's image fails" fail "$tmp/mcr" "$tmp/lock"
 expect "a leftover playwright install fails" fail "$tmp/reinstall" "$tmp/lock"
+expect "a container without --ipc=host fails" fail "$tmp/noipc" "$tmp/lock"
 expect "no job on the image fails" fail "$tmp/none" "$tmp/lock"
 expect "two workflows on different digests fail" fail "$tmp/split" "$tmp/lock"
 
