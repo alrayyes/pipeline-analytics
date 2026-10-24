@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.94.6](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.5...v0.94.6) (2026-10-24)
+
+
+### Bug Fixes
+
+* **docker:** bump pinned ca-certificates to 20261020-r0 ([#737](https://github.com/alrayyes/pipeline-analytics/issues/737)) ([c204c74](https://github.com/alrayyes/pipeline-analytics/commit/c204c74c9b01641ddf209f767d821ea4db17ad95)), closes [#736](https://github.com/alrayyes/pipeline-analytics/issues/736)
+
 ## [0.94.5](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.4...v0.94.5) (2026-10-20)
 
 
