@@ -26,6 +26,7 @@ expect "goreleaser check hook, guarded by the goreleaser group" 'hook-guard\.sh 
 expect "goreleaser check runs" 'goreleaser/goreleaser:v[0-9.]+ check'
 expect "redocly lint hook, guarded by the api group" 'hook-guard\.sh --push api -- bunx @redocly/cli lint'
 expect "go.mod formatting check, guarded by the go group" 'go mod edit -fmt -print go\.mod'
+expect "playwright image check, guarded by the web group" 'hook-guard\.sh --push web -- \.github/scripts/playwright-image\.test\.sh'
 expect "output: [failure] at the top level" '^output: \[failure\]$'
 expect "govulncheck named CI-only" '^# CI-only.*govulncheck'
 expect "bun audit named CI-only" '^# CI-only.*bun audit'

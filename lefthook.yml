@@ -156,6 +156,11 @@ pre-push:
     frontend-mutation:
       root: "web/"
       run: ../.github/scripts/hook-guard.sh --push web -- bun run test:mutation
+    # The Playwright jobs' image tag must be the locked @playwright/test
+    # version; the same script ci.yml's `changes` job runs. The web group also
+    # covers web/bun.lock, and a ci.yml edit turns every group on.
+    playwright-image:
+      run: .github/scripts/hook-guard.sh --push web -- .github/scripts/playwright-image.test.sh
     # The Dockerfile only COPYs a prebuilt binary (go-releases.md), so this
     # rebuilds that binary itself before building the image, same shape as
     # ci.yml's docker job.

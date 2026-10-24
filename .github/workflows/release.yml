@@ -191,6 +191,15 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Prebuilt image (alrayyes/ci-playwright): Playwright's browsers, Bun, git and
+    # gh are already in it, so no step downloads Chromium or runs apt. The tag
+    # must be the @playwright/test version in web/bun.lock exactly;
+    # .github/scripts/playwright-image.test.sh fails the `changes` job when they
+    # differ, so bump both together. It has no Go, so setup-go stays.
+    container:
+      image: ghcr.io/alrayyes/ci-playwright:1.64.1@sha256:e44eec3f49f8fad2dbfb926fd8cbd0cadf1b9ebca94a960a45daac90a3bd9258
+      # Chromium shares memory through IPC; Playwright's Docker guide asks for this.
+      options: --ipc=host
     permissions:
       contents: write
       pull-requests: write
@@ -206,13 +215,11 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.27.2"
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.3.14"
+      # The container runs as root over a workspace the runner owns, so git
+      # (go's VCS stamping) otherwise fails with dubious ownership.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - working-directory: web
         run: bun install --frozen-lockfile
-      - working-directory: web
-        run: bunx playwright install --with-deps chromium
       - run: ./web/scripts/capture-screenshots.sh
       # capture-screenshots.sh also rewrites README.md's screenshot section
       # from web/scripts/screenshot-routes.ts, so a page added since the last
