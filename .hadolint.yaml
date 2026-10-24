@@ -1,0 +1,12 @@
+# DL3018 wants a version on every apk package. This image can't give it one: an apk
+# version belongs to the Alpine branch the base image is built on, not to the
+# Dockerfile, and Alpine keeps one build per branch and prunes the rest. The pin broke
+# the build twice (#167, #736), because nothing bumps it in step: Dependabot reads FROM
+# lines and no other. The base image digest stays pinned, and that is what a rebuild
+# reproduces.
+#
+# Disabled here rather than inline, so a later `apk add` gets the same pass. Read this
+# again before adding a package, and if the argument no longer fits, move the ignore
+# inline on the line that needs it.
+ignored:
+  - DL3018

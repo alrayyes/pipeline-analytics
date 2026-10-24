@@ -160,7 +160,7 @@ pre-push:
     # rebuilds that binary itself before building the image, same shape as
     # ci.yml's docker job.
     hadolint:
-      run: .github/scripts/hook-guard.sh --push docker -- sh -c 'docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile'
+      run: .github/scripts/hook-guard.sh --push docker -- sh -c 'docker run --rm -i -v "$PWD/.hadolint.yaml:/.hadolint.yaml:ro" hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint --config /.hadolint.yaml - < Dockerfile'
     docker-build:
       run: .github/scripts/hook-guard.sh --push docker -- sh -c 'go build -o pipeline-analytics ./cmd/pipeline-analytics && docker build -t pipeline-analytics:pre-push . && rm -f pipeline-analytics'
     # Whole tree, not just the prose files mechanics/style below check --
