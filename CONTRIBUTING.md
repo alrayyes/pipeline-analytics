@@ -14,7 +14,17 @@ usable if you want to run it locally, poke at the code, or send a fix.
 - [golangci-lint](https://golangci-lint.run) v2, pinned version in
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - [Playwright](https://playwright.dev) needs a Chromium download the first
-  time you run the E2E suite: `cd web && bunx playwright install --with-deps chromium`.
+  time you run the E2E suite on your own machine:
+  `cd web && bunx playwright install --with-deps chromium`. CI doesn't: the
+  `e2e` job and the release workflow's screenshot job run in the prebuilt
+  [`ghcr.io/alrayyes/ci-playwright`](https://github.com/alrayyes/ci-playwright)
+  image, which carries the browsers, Bun, git and the GitHub CLI. Its tag must equal the
+  `@playwright/test` version in `web/bun.lock`, and its digest is pinned in
+  [`ci.yml`](.github/workflows/ci.yml) and
+  [`release.yml`](.github/workflows/release.yml).
+  `.github/scripts/playwright-image.test.sh` fails the `changes` job and the
+  pre-push hook when they drift, so a Playwright bump changes the lockfile and
+  both image lines together.
 - Docker — used to build or test the container image, and to run every Go
   git hook below against a pinned `go`/`golangci-lint`, not whatever's on
   your `PATH`.
