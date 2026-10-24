@@ -8,7 +8,7 @@ FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cab
 # mounted on it inherits that ownership: Docker copies the image directory's
 # owner onto an empty volume, and without the directory the volume comes up
 # root-owned and the server can't open its database.
-RUN apk add --no-cache ca-certificates=20260909-r0 && \
+RUN apk add --no-cache ca-certificates=20261020-r0 && \
     addgroup -S -g 10001 pipeline-analytics && \
     adduser -S -u 10001 -G pipeline-analytics pipeline-analytics && \
     mkdir /data && \
