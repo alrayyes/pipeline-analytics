@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.94.7](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.6...v0.94.7) (2026-10-24)
+
+
+### Bug Fixes
+
+* **docker:** stop pinning apk package versions ([#741](https://github.com/alrayyes/pipeline-analytics/issues/741)) ([425fe53](https://github.com/alrayyes/pipeline-analytics/commit/425fe530dba8b85dd926ad790ce61a78958d832c)), closes [#740](https://github.com/alrayyes/pipeline-analytics/issues/740)
+
 ## [0.94.6](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.5...v0.94.6) (2026-10-24)
 
 
