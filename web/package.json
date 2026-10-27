@@ -48,7 +48,7 @@
 	},
 	"dependencies": {
 		"dompurify": "3.4.17",
-		"layerchart": "2.8.0",
+		"layerchart": "2.9.1",
 		"marked": "18.1.1"
 	},
 	"devDependencies": {
