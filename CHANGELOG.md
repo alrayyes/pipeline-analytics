@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.94.8](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.7...v0.94.8) (2026-11-04)
+
+
+### Bug Fixes
+
+* bump alpine from `294b683` to `be26560` ([#746](https://github.com/alrayyes/pipeline-analytics/issues/746)) ([8b3c4f3](https://github.com/alrayyes/pipeline-analytics/commit/8b3c4f368547a424a4c13d6a2f8d7e926b3c751e))
+* bump layerchart ([#747](https://github.com/alrayyes/pipeline-analytics/issues/747)) ([21f894c](https://github.com/alrayyes/pipeline-analytics/commit/21f894c90facc1ed816cd5d2e5c0c5517bf0c8d2))
+* bump the go-minor-and-patch group across 1 directory with 2 updates ([#749](https://github.com/alrayyes/pipeline-analytics/issues/749)) ([1dbd09f](https://github.com/alrayyes/pipeline-analytics/commit/1dbd09f9e74813846dbcc8cea409713dbae8aacd))
+* bump the web-bun-prod-minor-and-patch group across 1 directory with 2 updates ([#753](https://github.com/alrayyes/pipeline-analytics/issues/753)) ([a241c24](https://github.com/alrayyes/pipeline-analytics/commit/a241c2484283380366d20f92a91cd1e53cbe2948))
+
 ## [0.94.7](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.6...v0.94.7) (2026-10-24)
 
 
