@@ -176,14 +176,15 @@ pre-push:
     markdown-lint:
       run: .github/scripts/hook-guard.sh --push mdlint -- bunx markdownlint-cli2 "**/*.md"
     # LTeX in pre-push too, not just CI (markdown.md) -- same image CI
-    # pulls, so nothing new to keep current on a contributor's machine.
+    # pulls, through the same script. It takes only the Markdown in the push
+    # (a change to .ltex.json or the script checks all of it), so a push with
+    # no prose never starts the JVM. CI checks everything.
     prose-mechanics:
-      run: >
-        .github/scripts/hook-guard.sh --push ltex --
-        docker run --rm -v "$(pwd):/data" -w /data
-        ghcr.io/alrayyes/ltex-cli-plus@sha256:00c30809802234d6c43b0ce0b295075bd0aff9c576aaba57433bc8baf314398c
-        --client-configuration=/data/.ltex.json
-        README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md openspec/specs
+      glob:
+        - "*.md"
+        - ".ltex.json"
+        - "scripts/lint-mechanics.sh"
+      run: scripts/lint-mechanics.sh {push_files}
     # Blocks here, unlike pre-commit's advisory `|| true` copy above --
     # matches CI's own style job (linting.md: hook and CI run the same
     # commands so they can't drift), same file list and all.

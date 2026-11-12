@@ -27,7 +27,7 @@ declare -A pattern=(
 	[goreleaser]='^\.goreleaser\.ya?ml$'
 	[md]='\.(md|ya?ml)$|^\.prettier|^package\.json$|^bun\.lock$'
 	[mdlint]='\.md$|^\.markdownlint|^package\.json$|^bun\.lock$'
-	[ltex]='^(README|CONTRIBUTING|SECURITY)\.md$|^\.github/PULL_REQUEST_TEMPLATE\.md$|^openspec/specs/|^\.ltex\.json$'
+	[ltex]='^(README|CONTRIBUTING|SECURITY)\.md$|^\.github/PULL_REQUEST_TEMPLATE\.md$|^openspec/specs/|^\.ltex\.json$|^scripts/lint-mechanics\.sh$'
 	[vale]='^(README|CONTRIBUTING|SECURITY)\.md$|^\.github/PULL_REQUEST_TEMPLATE\.md$|^styles/|^\.vale\.ini$|^scripts/lint-prose\.sh$'
 )
 
