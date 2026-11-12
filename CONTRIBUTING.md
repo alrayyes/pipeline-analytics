@@ -182,9 +182,9 @@ same files, and a path added to `changes.sh` reaches both. To add a hook,
 name its CI group as the guard's first argument; an unknown group fails the
 hook instead of skipping it.
 
-LTeX+ (grammar and spelling) runs through
+Grammar and spelling checks run through
 [`scripts/lint-mechanics.sh`](scripts/lint-mechanics.sh), which the hook and CI
-both call. In CI it checks every document on the list. In `pre-push` it checks
+both call. In CI, it checks every document on the list. In `pre-push`, it checks
 only the Markdown in your push, and all of it when `.ltex.json` or the script
 changed, so a push with no prose never starts the JVM. The image is pinned by
 digest in the script.
