@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.94.9](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.8...v0.94.9) (2026-11-12)
+
+
+### Bug Fixes
+
+* bump marked ([#759](https://github.com/alrayyes/pipeline-analytics/issues/759)) ([09563aa](https://github.com/alrayyes/pipeline-analytics/commit/09563aa4d7be67ac1a84bbcfd2e86683c7416d65))
+* bump the go-minor-and-patch group across 1 directory with 3 updates ([#760](https://github.com/alrayyes/pipeline-analytics/issues/760)) ([9fedeec](https://github.com/alrayyes/pipeline-analytics/commit/9fedeeccf31dcf925956b083e8881bba0eeb5b50))
+* **ci:** unblock main: Playwright pin, svelte-check, Forgejo image ([#767](https://github.com/alrayyes/pipeline-analytics/issues/767)) ([ade831f](https://github.com/alrayyes/pipeline-analytics/commit/ade831f408d5e0946219c7c30589cad1df0e3ade))
+
 ## [0.94.8](https://github.com/alrayyes/pipeline-analytics/compare/v0.94.7...v0.94.8) (2026-11-04)
 
 
