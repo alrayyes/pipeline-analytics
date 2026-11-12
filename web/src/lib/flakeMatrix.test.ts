@@ -13,6 +13,7 @@ const step = (
 	flakeRate: 0.25,
 	runCount: recentOutcomes.length,
 	recentOutcomes,
+	quarantined: false,
 	...overrides,
 });
 

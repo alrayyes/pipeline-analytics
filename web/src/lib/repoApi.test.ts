@@ -5,8 +5,10 @@ import {
 	fetchRepoIdentifiers,
 	fetchRepoPage,
 	registerRepo,
+	type TrackedRepo,
 	untrackRepo,
 } from './repoApi.js';
+import { rejection } from './testing/rejection.js';
 
 function fetchReturning(status: number, body?: unknown) {
 	return mock((_url: string, _init?: RequestInit) =>
@@ -136,18 +138,18 @@ describe('discoverRepos', () => {
 
 describe('a refusal read as text', () => {
 	test("is the status followed by the server's message", async () => {
-		const error = await registerRepo(
-			{ forge: 'github', identifier: 'a/b' },
-			fetchReturning(409, { code: 'already_tracked', message: 'Already.' }),
-		).catch((e: unknown) => e as Error);
+		const error = await rejection(
+			registerRepo(
+				{ forge: 'github', identifier: 'a/b' },
+				fetchReturning(409, { code: 'already_tracked', message: 'Already.' }),
+			),
+		);
 
 		expect(error.message).toBe('Request failed with status 409: Already.');
 	});
 
 	test('is only the status when the server said nothing more', async () => {
-		const error = await untrackRepo('r', fetchReturning(404)).catch(
-			(e: unknown) => e as Error,
-		);
+		const error = await rejection(untrackRepo('r', fetchReturning(404)));
 
 		expect(error.message).toBe('Request failed with status 404');
 	});
@@ -155,7 +157,13 @@ describe('a refusal read as text', () => {
 
 describe('registerRepo', () => {
 	test('posts the registration and returns the repo', async () => {
-		const repo = { id: 'r1', forge: 'github', identifier: 'a/b' };
+		const repo: TrackedRepo = {
+			id: 'r1',
+			forge: 'github',
+			identifier: 'a/b',
+			tokenMasked: 'ghp_••••',
+			ingestionStatus: 'pending',
+		};
 		const fetchFn = fetchReturning(201, repo);
 
 		const registered = await registerRepo(

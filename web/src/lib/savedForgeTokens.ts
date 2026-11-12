@@ -2,6 +2,7 @@
 // repositories. The server returns only the masked form, never the token
 // (#462), so nothing here can show or reuse one -- registration and
 // discovery are sent with no `token` and the server uses the saved one.
+import type { Fetcher } from './fetcher.js';
 
 export interface SavedForgeToken {
 	id: string;
@@ -17,7 +18,7 @@ export interface SaveForgeTokenInput {
 }
 
 export async function listForgeTokens(
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<SavedForgeToken[]> {
 	const res = await fetchFn('/api/forge-tokens');
 	if (!res.ok) throw new Error('Could not load saved tokens.');
@@ -29,7 +30,7 @@ export async function listForgeTokens(
 // own message when it refuses, so the form can show why.
 export async function saveForgeToken(
 	input: SaveForgeTokenInput,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<SavedForgeToken> {
 	const res = await fetchFn('/api/forge-tokens', {
 		method: 'PUT',
@@ -56,7 +57,7 @@ export async function saveForgeToken(
 
 export async function deleteForgeToken(
 	id: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<void> {
 	const res = await fetchFn(`/api/forge-tokens/${encodeURIComponent(id)}`, {
 		method: 'DELETE',

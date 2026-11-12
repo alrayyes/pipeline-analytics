@@ -4,6 +4,7 @@
 // the request/response shape only needs to be gotten right once.
 
 import { refusal } from './apiError.js';
+import type { Fetcher } from './fetcher.js';
 
 export interface SettingsValues {
 	theme: 'light' | 'dark' | 'system';
@@ -25,7 +26,7 @@ export interface ServerSettings extends SettingsValues {
 // tool: a refusal throws an ApiError. `signal` lets a caller bound how long
 // it's willing to wait (#251).
 export async function loadSettings(
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 	signal?: AbortSignal,
 ): Promise<ServerSettings> {
 	const res = await fetchFn('/api/settings', { signal });
@@ -40,7 +41,7 @@ export async function loadSettings(
 // caller (a user-triggered patch, not a load). An aborted or refused request
 // is the same null as any other failed fetch.
 export async function fetchSettings(
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 	signal?: AbortSignal,
 ): Promise<ServerSettings | null> {
 	try {
@@ -58,7 +59,7 @@ export type SettingsUpdate = Partial<
 // an ApiError carrying the server's message.
 export async function saveSettings(
 	update: SettingsUpdate,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<ServerSettings> {
 	const res = await fetchFn('/api/settings', {
 		method: 'PATCH',

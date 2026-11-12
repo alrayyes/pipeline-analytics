@@ -6,6 +6,7 @@ import {
 	patchSettings,
 	saveSettings,
 } from './settingsSync.js';
+import { rejection } from './testing/rejection.js';
 
 const settings = { theme: 'dark', defaults: { theme: 'system' } };
 
@@ -57,10 +58,12 @@ describe('saveSettings', () => {
 	});
 
 	test("keeps the server's message when it rejects the update", async () => {
-		const error = await saveSettings(
-			{ theme: 'blue' },
-			fetchReturning(400, { code: 'bad_request', message: 'theme: invalid' }),
-		).catch((e: unknown) => e as Error);
+		const error = await rejection(
+			saveSettings(
+				{ theme: 'blue' },
+				fetchReturning(400, { code: 'bad_request', message: 'theme: invalid' }),
+			),
+		);
 
 		expect(error).toBeInstanceOf(ApiError);
 		expect(error.message).toBe(
@@ -75,7 +78,8 @@ describe('the best-effort callers keep their old behaviour', () => {
 	});
 
 	test('fetchSettings answers null when the request never arrives', async () => {
-		const failing = (() => Promise.reject(new Error('down'))) as typeof fetch;
+		const failing = (() =>
+			Promise.reject(new Error('down'))) as unknown as typeof fetch;
 
 		expect(await fetchSettings(failing)).toBeNull();
 	});

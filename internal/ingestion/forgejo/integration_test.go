@@ -26,7 +26,7 @@ func TestIntegration_ForgejoWebhookEvents(t *testing.T) {
 
 	ctx := context.Background()
 
-	container, err := tcforgejo.Run(ctx, "codeberg.org/forgejo/forgejo:11")
+	container, err := tcforgejo.Run(ctx, "data.forgejo.org/forgejo/forgejo:11@sha256:946243edbab116d5bb78b73ea68af6f3d69229ba1b1ed958dd82c3481167f3e0")
 	require.NoError(t, err)
 	testcontainers.CleanupContainer(t, container)
 

@@ -1,4 +1,4 @@
-import type { HandleClientError } from '@sveltejs/kit';
+import type { HandleClientError } from '@sveltejs/kit/hooks';
 import { shapeError } from '#lib/errors.js';
 
 // The app renders client-side (ssr = false), so this is where an error from

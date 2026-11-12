@@ -7,6 +7,7 @@ describe('preload', () => {
 			preload({
 				type: 'font',
 				path: '/_app/immutable/assets/inter-latin-wght-normal.Dx4kXJAl.woff2',
+				filename: 'inter-latin-wght-normal.Dx4kXJAl.woff2',
 			}),
 		).toBe(true);
 	});
@@ -17,6 +18,7 @@ describe('preload', () => {
 				preload({
 					type: 'font',
 					path: `/_app/immutable/assets/inter-${subset}-wght-normal.Dx4kXJAl.woff2`,
+					filename: `inter-${subset}-wght-normal.Dx4kXJAl.woff2`,
 				}),
 			).toBe(false);
 		}

@@ -1,4 +1,8 @@
-import type { Handle, HandleServerError, ResolveOptions } from '@sveltejs/kit';
+import type {
+	Handle,
+	HandleServerError,
+	ResolveOptions,
+} from '@sveltejs/kit/hooks';
 import { shapeError } from '#lib/errors.js';
 
 // The sheet is inlined into index.html (inlineStyleThreshold, vite.config.ts),

@@ -257,7 +257,7 @@ describe('registerWebMCPTools', () => {
 // What each read tool hands its fetch function. The tool's own logic is only
 // this mapping, so one call per tool pins it; the fetch functions and the
 // endpoints are tested where they live.
-const allFetchMocks = [
+const allFetchMocks: { mock: { calls: readonly (readonly unknown[])[] } }[] = [
 	fetchPipelinesMock,
 	fetchPipelineMock,
 	fetchRepoUsageMock,

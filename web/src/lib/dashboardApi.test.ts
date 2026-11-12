@@ -48,7 +48,7 @@ describe('fetchPipelines', () => {
 
 		const result = await fetchPipelines(
 			{ limit: 20, offset: 20, forge: 'github', repoId: 'r1' },
-			fetchFn as typeof fetch,
+			fetchFn,
 		);
 
 		expect(requestedUrl).toBe(
@@ -71,7 +71,7 @@ describe('fetchPipelines', () => {
 
 		await fetchPipelines(
 			{ limit: 20, offset: 0, health: 'unhealthy', sort: 'lastRun' },
-			fetchFn as typeof fetch,
+			fetchFn,
 		);
 
 		expect(requestedUrl).toBe(
@@ -86,7 +86,7 @@ describe('fetchPipelines', () => {
 			return Promise.resolve(jsonResponse({ pipelines: [], hasMore: false }));
 		};
 
-		await fetchPipelines({ limit: 20, offset: 0 }, fetchFn as typeof fetch);
+		await fetchPipelines({ limit: 20, offset: 0 }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/pipelines?limit=20&offset=0');
 	});
@@ -98,7 +98,7 @@ describe('fetchPipelines', () => {
 			return Promise.resolve(jsonResponse({ pipelines: [], hasMore: false }));
 		};
 
-		await fetchPipelines({ limit: 20, offset: 0 }, fetchFn as typeof fetch);
+		await fetchPipelines({ limit: 20, offset: 0 }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/pipelines?limit=20&offset=0');
 	});
@@ -108,7 +108,7 @@ describe('fetchPipelines', () => {
 			Promise.resolve(new Response(null, { status: 500 }));
 
 		await expect(
-			fetchPipelines({ limit: 20, offset: 0 }, fetchFn as typeof fetch),
+			fetchPipelines({ limit: 20, offset: 0 }, fetchFn),
 		).rejects.toThrow(ApiError);
 	});
 });
@@ -122,7 +122,7 @@ describe('fetchRepos', () => {
 				}),
 			);
 
-		await expect(fetchRepos(fetchFn as typeof fetch)).resolves.toEqual([
+		await expect(fetchRepos(fetchFn)).resolves.toEqual([
 			{ id: '1', forge: 'github', identifier: 'org/repo' },
 		]);
 	});
@@ -131,13 +131,13 @@ describe('fetchRepos', () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(new Response(null, { status: 500 }));
 
-		await expect(fetchRepos(fetchFn as typeof fetch)).resolves.toEqual([]);
+		await expect(fetchRepos(fetchFn)).resolves.toEqual([]);
 	});
 
 	test('resolves to an empty list when the request itself fails', async () => {
 		const fetchFn: FetchMock = () => Promise.reject(new Error('network error'));
 
-		await expect(fetchRepos(fetchFn as typeof fetch)).resolves.toEqual([]);
+		await expect(fetchRepos(fetchFn)).resolves.toEqual([]);
 	});
 });
 
@@ -157,9 +157,7 @@ describe('fetchPipeline', () => {
 			return Promise.resolve(jsonResponse(detail));
 		};
 
-		await expect(fetchPipeline('1', fetchFn as typeof fetch)).resolves.toEqual(
-			detail,
-		);
+		await expect(fetchPipeline('1', fetchFn)).resolves.toEqual(detail);
 		expect(requestedUrl).toBe('/api/pipelines/1');
 	});
 
@@ -168,7 +166,7 @@ describe('fetchPipeline', () => {
 			Promise.resolve(new Response(null, { status: 404 }));
 
 		try {
-			await fetchPipeline('missing', fetchFn as typeof fetch);
+			await fetchPipeline('missing', fetchFn);
 			throw new Error('expected fetchPipeline to throw');
 		} catch (e) {
 			if (!(e instanceof ApiError)) throw e;
@@ -190,6 +188,7 @@ describe('fetchPipelineSteps', () => {
 				failureRate: 0,
 				failureCount: 0,
 				flaky: false,
+				quarantined: false,
 			},
 		];
 		const fetchFn: FetchMock = (input) => {
@@ -197,9 +196,7 @@ describe('fetchPipelineSteps', () => {
 			return Promise.resolve(jsonResponse(steps));
 		};
 
-		await expect(
-			fetchPipelineSteps('1', {}, fetchFn as typeof fetch),
-		).resolves.toEqual(steps);
+		await expect(fetchPipelineSteps('1', {}, fetchFn)).resolves.toEqual(steps);
 		expect(requestedUrl).toBe('/api/pipelines/1/steps');
 	});
 
@@ -210,7 +207,7 @@ describe('fetchPipelineSteps', () => {
 			return Promise.resolve(jsonResponse([]));
 		};
 
-		await fetchPipelineSteps('1', { window: '30d' }, fetchFn as typeof fetch);
+		await fetchPipelineSteps('1', { window: '30d' }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/pipelines/1/steps?window=30d');
 	});
@@ -219,9 +216,9 @@ describe('fetchPipelineSteps', () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(new Response(null, { status: 500 }));
 
-		await expect(
-			fetchPipelineSteps('1', {}, fetchFn as typeof fetch),
-		).rejects.toThrow(ApiError);
+		await expect(fetchPipelineSteps('1', {}, fetchFn)).rejects.toThrow(
+			ApiError,
+		);
 	});
 });
 
@@ -234,9 +231,7 @@ describe('fetchRepoUsage', () => {
 			return Promise.resolve(jsonResponse(usage));
 		};
 
-		await expect(
-			fetchRepoUsage('r1', fetchFn as typeof fetch),
-		).resolves.toEqual(usage);
+		await expect(fetchRepoUsage('r1', fetchFn)).resolves.toEqual(usage);
 		expect(requestedUrl).toBe('/api/repos/r1/usage');
 	});
 
@@ -245,7 +240,7 @@ describe('fetchRepoUsage', () => {
 			Promise.resolve(new Response(null, { status: 404 }));
 
 		try {
-			await fetchRepoUsage('missing', fetchFn as typeof fetch);
+			await fetchRepoUsage('missing', fetchFn);
 			throw new Error('expected fetchRepoUsage to throw');
 		} catch (e) {
 			if (!(e instanceof ApiError)) throw e;
@@ -273,10 +268,7 @@ describe('fetchFailureInsights', () => {
 			return Promise.resolve(jsonResponse(insights));
 		};
 
-		const result = await fetchFailureInsights(
-			{ window: '30d' },
-			fetchFn as typeof fetch,
-		);
+		const result = await fetchFailureInsights({ window: '30d' }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/insights/failures?window=30d');
 		expect(result).toEqual(insights);
@@ -289,7 +281,7 @@ describe('fetchFailureInsights', () => {
 			return Promise.resolve(jsonResponse(insights));
 		};
 
-		await fetchFailureInsights({}, fetchFn as typeof fetch);
+		await fetchFailureInsights({}, fetchFn);
 
 		expect(requestedUrl).toBe('/api/insights/failures');
 	});
@@ -298,7 +290,7 @@ describe('fetchFailureInsights', () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(jsonResponse({ ...insights, window: '30d' }));
 
-		const result = await fetchFailureInsights({}, fetchFn as typeof fetch);
+		const result = await fetchFailureInsights({}, fetchFn);
 
 		expect(result.window).toBe('30d');
 	});
@@ -312,7 +304,7 @@ describe('fetchFailureInsights', () => {
 
 		await fetchFailureInsights(
 			{ window: '24h', repoId: 'r1', forge: 'forgejo' },
-			fetchFn as typeof fetch,
+			fetchFn,
 		);
 
 		expect(requestedUrl).toBe(
@@ -323,10 +315,7 @@ describe('fetchFailureInsights', () => {
 	test('a missing passRate stays absent rather than becoming zero', async () => {
 		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse(insights));
 
-		const result = await fetchFailureInsights(
-			{ window: '7d' },
-			fetchFn as typeof fetch,
-		);
+		const result = await fetchFailureInsights({ window: '7d' }, fetchFn);
 
 		expect(result.passRate).toBeUndefined();
 	});
@@ -335,10 +324,9 @@ describe('fetchFailureInsights', () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(jsonResponse({ message: 'nope' }, 401));
 
-		const error = await fetchFailureInsights(
-			{ window: '7d' },
-			fetchFn as typeof fetch,
-		).catch((e: unknown) => e);
+		const error = await fetchFailureInsights({ window: '7d' }, fetchFn).catch(
+			(e: unknown) => e,
+		);
 
 		expect(error).toBeInstanceOf(ApiError);
 		expect((error as ApiError).status).toBe(401);
@@ -353,10 +341,7 @@ describe('fetchRuns', () => {
 			return Promise.resolve(jsonResponse({ runs: [], hasMore: false }));
 		};
 
-		await fetchRuns(
-			{ limit: 20, offset: 40, status: 'failed' },
-			fetchFn as typeof fetch,
-		);
+		await fetchRuns({ limit: 20, offset: 40, status: 'failed' }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/runs?limit=20&offset=40&status=failed');
 	});
@@ -368,10 +353,7 @@ describe('fetchRuns', () => {
 			return Promise.resolve(jsonResponse({ runs: [], hasMore: false }));
 		};
 
-		await fetchRuns(
-			{ limit: 20, offset: 0, status: 'all' },
-			fetchFn as typeof fetch,
-		);
+		await fetchRuns({ limit: 20, offset: 0, status: 'all' }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/runs?limit=20&offset=0');
 	});
@@ -385,7 +367,7 @@ describe('fetchRuns', () => {
 
 		await fetchRuns(
 			{ limit: 10, offset: 0, repoId: 'r1', forge: 'github' },
-			fetchFn as typeof fetch,
+			fetchFn,
 		);
 
 		expect(requestedUrl).toBe(
@@ -416,10 +398,7 @@ describe('fetchRuns', () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(jsonResponse({ runs: [run], hasMore: true }));
 
-		const result = await fetchRuns(
-			{ limit: 1, offset: 0 },
-			fetchFn as typeof fetch,
-		);
+		const result = await fetchRuns({ limit: 1, offset: 0 }, fetchFn);
 
 		expect(result.runs[0]).toEqual(run);
 		expect(result.runs[0].branch).toBeUndefined();
@@ -429,10 +408,9 @@ describe('fetchRuns', () => {
 	test('throws an ApiError carrying the status on a non-2xx response', async () => {
 		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 400));
 
-		const error = await fetchRuns(
-			{ limit: 1, offset: 0 },
-			fetchFn as typeof fetch,
-		).catch((e: unknown) => e);
+		const error = await fetchRuns({ limit: 1, offset: 0 }, fetchFn).catch(
+			(e: unknown) => e,
+		);
 
 		expect(error).toBeInstanceOf(ApiError);
 		expect((error as ApiError).status).toBe(400);
@@ -464,10 +442,7 @@ describe('fetchFlakySteps', () => {
 			return Promise.resolve(jsonResponse(list));
 		};
 
-		const result = await fetchFlakySteps(
-			{ window: '24h' },
-			fetchFn as typeof fetch,
-		);
+		const result = await fetchFlakySteps({ window: '24h' }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/steps/flaky?window=24h');
 		expect(result).toEqual(list);
@@ -480,7 +455,7 @@ describe('fetchFlakySteps', () => {
 			return Promise.resolve(jsonResponse(list));
 		};
 
-		await fetchFlakySteps({}, fetchFn as typeof fetch);
+		await fetchFlakySteps({}, fetchFn);
 
 		expect(requestedUrl).toBe('/api/steps/flaky');
 	});
@@ -494,7 +469,7 @@ describe('fetchFlakySteps', () => {
 
 		await fetchFlakySteps(
 			{ forge: 'github', repoId: 'r1', limit: 20, offset: 40 },
-			fetchFn as typeof fetch,
+			fetchFn,
 		);
 
 		const params = new URL(requestedUrl ?? '', 'http://x').searchParams;
@@ -507,9 +482,9 @@ describe('fetchFlakySteps', () => {
 	test('throws an ApiError carrying the status on a failed response', async () => {
 		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 500));
 
-		await expect(
-			fetchFlakySteps({}, fetchFn as typeof fetch),
-		).rejects.toMatchObject({ status: 500 });
+		await expect(fetchFlakySteps({}, fetchFn)).rejects.toMatchObject({
+			status: 500,
+		});
 	});
 });
 
@@ -529,18 +504,12 @@ describe('branch scoping', () => {
 		const runs = recordingFetch({ runs: [], hasMore: false });
 		const flaky = recordingFetch({ steps: [], hasMore: false });
 
-		await fetchFailureInsights(
-			{ branch: 'feat/a b' },
-			insights.fetchFn as typeof fetch,
-		);
-		await fetchRuns(
-			{ limit: 5, offset: 0, branch: 'main' },
-			runs.fetchFn as typeof fetch,
-		);
-		await fetchFlakySteps({ branch: 'main' }, flaky.fetchFn as typeof fetch);
-		await fetchFailureInsights({}, insights.fetchFn as typeof fetch);
-		await fetchRuns({ limit: 5, offset: 0 }, runs.fetchFn as typeof fetch);
-		await fetchFlakySteps({}, flaky.fetchFn as typeof fetch);
+		await fetchFailureInsights({ branch: 'feat/a b' }, insights.fetchFn);
+		await fetchRuns({ limit: 5, offset: 0, branch: 'main' }, runs.fetchFn);
+		await fetchFlakySteps({ branch: 'main' }, flaky.fetchFn);
+		await fetchFailureInsights({}, insights.fetchFn);
+		await fetchRuns({ limit: 5, offset: 0 }, runs.fetchFn);
+		await fetchFlakySteps({}, flaky.fetchFn);
 
 		expect(insights.urls).toEqual([
 			'/api/insights/failures?branch=feat%2Fa+b',
@@ -565,7 +534,7 @@ describe('branch scoping', () => {
 
 		const result = await fetchBranches(
 			{ window: '7d', forge: 'github', repoId: 'r1' },
-			fetchFn as typeof fetch,
+			fetchFn,
 		);
 
 		expect(urls).toEqual(['/api/branches?window=7d&repoId=r1&forge=github']);
@@ -575,7 +544,7 @@ describe('branch scoping', () => {
 	test('fetchBranches sends nothing for an unset window', async () => {
 		const { urls, fetchFn } = recordingFetch({ window: '7d', branches: [] });
 
-		await fetchBranches({}, fetchFn as typeof fetch);
+		await fetchBranches({}, fetchFn);
 
 		expect(urls).toEqual(['/api/branches']);
 	});
@@ -583,9 +552,7 @@ describe('branch scoping', () => {
 	test('fetchBranches throws an ApiError on a failed response', async () => {
 		const fetchFn: FetchMock = () => Promise.resolve(jsonResponse({}, 500));
 
-		await expect(
-			fetchBranches({}, fetchFn as typeof fetch),
-		).rejects.toBeInstanceOf(ApiError);
+		await expect(fetchBranches({}, fetchFn)).rejects.toBeInstanceOf(ApiError);
 	});
 });
 
@@ -605,12 +572,7 @@ describe('fetchJobLog', () => {
 			);
 		};
 
-		const log = await fetchJobLog(
-			'run 1',
-			'job/2',
-			{},
-			fetchFn as typeof fetch,
-		);
+		const log = await fetchJobLog('run 1', 'job/2', {}, fetchFn);
 
 		expect(requestedUrl).toBe('/api/runs/run%201/jobs/job%2F2/log?lines=200');
 		expect(log.lines).toEqual(['a']);
@@ -631,7 +593,7 @@ describe('fetchJobLog', () => {
 			);
 		};
 
-		await fetchJobLog('r', 'j', { lines: 500 }, fetchFn as typeof fetch);
+		await fetchJobLog('r', 'j', { lines: 500 }, fetchFn);
 
 		expect(requestedUrl).toBe('/api/runs/r/jobs/j/log?lines=500');
 	});
@@ -648,7 +610,7 @@ describe('fetchJobLog', () => {
 				}),
 			);
 
-		const log = await fetchJobLog('r', 'j', {}, fetchFn as typeof fetch);
+		const log = await fetchJobLog('r', 'j', {}, fetchFn);
 
 		expect(log).toMatchObject({ available: false, reason: 'unsupported' });
 	});
@@ -657,12 +619,7 @@ describe('fetchJobLog', () => {
 		const fetchFn: FetchMock = () =>
 			Promise.resolve(jsonResponse({ code: 'not_found' }, 404));
 
-		const failure = await fetchJobLog(
-			'r',
-			'j',
-			{},
-			fetchFn as typeof fetch,
-		).catch((e) => e);
+		const failure = await fetchJobLog('r', 'j', {}, fetchFn).catch((e) => e);
 
 		expect(failure).toBeInstanceOf(ApiError);
 		expect((failure as ApiError).status).toBe(404);
@@ -689,7 +646,7 @@ describe('quarantineStep', () => {
 			'p1',
 			'Run unit tests/ci',
 			'known race',
-			fetchFn as typeof fetch,
+			fetchFn,
 		);
 
 		expect(url).toBe(
@@ -710,7 +667,7 @@ describe('quarantineStep', () => {
 			return Promise.resolve(jsonResponse({ quarantined: true, quarantine }));
 		};
 
-		await quarantineStep('p1', 'test', undefined, fetchFn as typeof fetch);
+		await quarantineStep('p1', 'test', undefined, fetchFn);
 
 		expect(init?.body).toBeUndefined();
 	});
@@ -719,7 +676,7 @@ describe('quarantineStep', () => {
 		const fetchFn = () => Promise.resolve(jsonResponse({}, 422));
 
 		await expect(
-			quarantineStep('p1', 'test', 'x', fetchFn as typeof fetch),
+			quarantineStep('p1', 'test', 'x', fetchFn),
 		).rejects.toMatchObject({ status: 422 });
 	});
 });
@@ -734,11 +691,7 @@ describe('unquarantineStep', () => {
 			return Promise.resolve(jsonResponse({ quarantined: false }));
 		};
 
-		const result = await unquarantineStep(
-			'p1',
-			'Run unit tests',
-			fetchFn as typeof fetch,
-		);
+		const result = await unquarantineStep('p1', 'Run unit tests', fetchFn);
 
 		expect(url).toBe('/api/pipelines/p1/steps/Run%20unit%20tests/quarantine');
 		expect(init?.method).toBe('DELETE');
@@ -748,9 +701,9 @@ describe('unquarantineStep', () => {
 	test('throws an ApiError with the status on failure', async () => {
 		const fetchFn = () => Promise.resolve(jsonResponse({}, 401));
 
-		await expect(
-			unquarantineStep('p1', 'test', fetchFn as typeof fetch),
-		).rejects.toMatchObject({ status: 401 });
+		await expect(unquarantineStep('p1', 'test', fetchFn)).rejects.toMatchObject(
+			{ status: 401 },
+		);
 	});
 });
 
@@ -763,7 +716,7 @@ function recording(body: unknown, status = 200) {
 		return Promise.resolve(jsonResponse(body, status));
 	};
 
-	return { seen, fetchFn: fetchFn as typeof fetch };
+	return { seen, fetchFn: fetchFn };
 }
 
 describe('fetchRunSteps', () => {
@@ -851,7 +804,7 @@ describe('window on the pipeline reads', () => {
 			return Promise.resolve(jsonResponse([]));
 		};
 
-		return { urls, fetchFn: fetchFn as typeof fetch };
+		return { urls, fetchFn: fetchFn };
 	}
 
 	test('fetchPipelines sends the window when one is given', async () => {

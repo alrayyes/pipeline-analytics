@@ -2,6 +2,7 @@
 // picks from presets. The presets are UX only -- the server clamps whatever
 // it is sent to its own ceiling (#191) -- and none of them is "never
 // expires", because every token expires.
+import type { Fetcher } from './fetcher.js';
 
 const DAY_SECONDS = 86_400;
 
@@ -41,7 +42,7 @@ export function expiryFor(preset: TtlPreset, now: Date = new Date()): Date {
 
 export async function createApiToken(
 	preset: TtlPreset,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<IssuedApiToken> {
 	const res = await fetchFn('/api/auth/tokens', {
 		method: 'POST',

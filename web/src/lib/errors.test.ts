@@ -39,9 +39,8 @@ describe('shapeError', () => {
 
 	test('returns the generic message, whatever was thrown', () => {
 		const shaped = shapeError({
+			kind: 'unknown',
 			error: new Error('ENOENT /srv/app/secret.db at drivers/s3.go:318'),
-			status: 500,
-			message: 'ENOENT /srv/app/secret.db',
 		});
 
 		expect(shaped).toEqual({ message: 'Something went wrong' });
@@ -50,20 +49,28 @@ describe('shapeError', () => {
 	test('logs the detail for the operator', () => {
 		const error = new Error('boom');
 
-		shapeError({ error, status: 500, message: 'boom' });
+		shapeError({ kind: 'unknown', error });
 
 		expect(logged).toHaveBeenCalledTimes(1);
-		expect(logged.mock.calls[0]).toContain(error);
+		expect(logged).toHaveBeenCalledWith(error);
 	});
 
 	test('keeps a missing page quiet and plain', () => {
 		const shaped = shapeError({
-			error: new Error('Not found: /nope'),
-			status: 404,
-			message: 'Not Found',
+			kind: 'framework',
+			error: { status: 404, message: 'Not Found' },
 		});
 
 		expect(shaped).toEqual({ message: 'Page not found' });
 		expect(logged).not.toHaveBeenCalled();
+	});
+
+	test('treats an error thrown with error(404) as a missing page too', () => {
+		const shaped = shapeError({
+			kind: 'app',
+			error: { status: 404, message: 'No such repository' },
+		});
+
+		expect(shaped).toEqual({ message: 'Page not found' });
 	});
 });

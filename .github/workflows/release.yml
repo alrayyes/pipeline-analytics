@@ -197,7 +197,7 @@ jobs:
     # .github/scripts/playwright-image.test.sh fails the `changes` job when they
     # differ, so bump both together. It has no Go, so setup-go stays.
     container:
-      image: ghcr.io/alrayyes/ci-playwright:1.64.1@sha256:8475bb332de43de88e3a442ed5c168586a378790b6a5c109753e7de93bc1dd3d
+      image: ghcr.io/alrayyes/ci-playwright:1.65.0@sha256:e97df7901b53cb7026d1790e41b7cf6bab9be9a2577e3abb7306fe2f0951f788
       # Chromium shares memory through IPC; Playwright's Docker guide asks for this.
       options: --ipc=host
     permissions:

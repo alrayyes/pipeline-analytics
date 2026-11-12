@@ -5,6 +5,7 @@
 // words for the person; a request that never arrives rejects as fetch does.
 
 import { refusal } from './apiError.js';
+import type { Fetcher } from './fetcher.js';
 
 export type Forge = 'github' | 'forgejo';
 
@@ -27,7 +28,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 export async function fetchRepoPage(
 	params: { limit: number; offset: number; forge?: Forge },
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<RepoPage> {
 	const query = new URLSearchParams({
 		limit: String(params.limit),
@@ -45,7 +46,7 @@ export async function fetchRepoPage(
 // caller that only wants its name can tell "gone" from "could not ask".
 export async function fetchRepo(
 	repoId: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<TrackedRepo | undefined> {
 	const res = await fetchFn(`/api/repos/${encodeURIComponent(repoId)}`);
 	if (res.status === 404) return undefined;
@@ -58,7 +59,7 @@ export async function fetchRepo(
 // cannot rely on whichever page of the list is showing (#197).
 export async function fetchRepoIdentifiers(
 	params: { forge: Forge; forgejoInstanceUrl?: string },
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<string[]> {
 	const query = new URLSearchParams({ forge: params.forge });
 	if (params.forgejoInstanceUrl) {
@@ -74,7 +75,7 @@ export async function fetchRepoIdentifiers(
 // A request without a `token` uses the one saved for the forge and instance.
 export async function discoverRepos(
 	request: { forge: Forge; forgejoInstanceUrl?: string; token?: string },
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<string[]> {
 	const res = await fetchFn('/api/repos/discover', {
 		method: 'POST',
@@ -93,7 +94,7 @@ export async function registerRepo(
 		forgejoInstanceUrl?: string;
 		token?: string;
 	},
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<TrackedRepo> {
 	const res = await fetchFn('/api/repos', {
 		method: 'POST',
@@ -107,7 +108,7 @@ export async function registerRepo(
 
 export async function untrackRepo(
 	repoId: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<void> {
 	const res = await fetchFn(`/api/repos/${encodeURIComponent(repoId)}`, {
 		method: 'DELETE',

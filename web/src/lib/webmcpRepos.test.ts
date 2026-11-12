@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { rejection } from './testing/rejection.js';
+import { userInteraction } from './testing/userInteraction.js';
 import { inputSchemas } from './webmcpSchemas.generated.js';
 import { registerWebMCPTools } from './webmcpTools.js';
 
@@ -253,9 +255,7 @@ describe('register_repo', () => {
 
 	test('asks through the agent when it offers requestUserInteraction', async () => {
 		answer(201, {});
-		const requestUserInteraction = mock(<T>(ask: () => Promise<T> | T) =>
-			ask(),
-		);
+		const requestUserInteraction = userInteraction((ask) => ask());
 
 		await tool('register_repo').execute(
 			{ forge: 'github', identifier: 'a/b' },
@@ -279,9 +279,12 @@ describe('register_repo', () => {
 	test("fails with the server's message and code when it refuses", async () => {
 		answer(409, { code: 'already_tracked', message: 'Already tracked.' });
 
-		const error = await tool('register_repo')
-			.execute({ forge: 'github', identifier: 'a/b' }, { signal })
-			.catch((e: unknown) => e as Error);
+		const error = await rejection(
+			tool('register_repo').execute(
+				{ forge: 'github', identifier: 'a/b' },
+				{ signal },
+			),
+		);
 
 		expect(error.message).toContain('409');
 		expect(error.message).toContain('Already tracked.');
@@ -360,8 +363,8 @@ describe('untrack_repo', () => {
 
 	test('does nothing when the agent reports the person said no', async () => {
 		answer(200, { id: 'r1', identifier: 'a/b' });
-		const requestUserInteraction = mock(<T>(_ask: () => Promise<T> | T) =>
-			Promise.resolve(false as T),
+		const requestUserInteraction = userInteraction(() =>
+			Promise.resolve(false),
 		);
 
 		await expect(
