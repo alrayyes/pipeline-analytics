@@ -57,7 +57,7 @@ describe('Insights page', () => {
 	test('says so when the server cannot be reached', async () => {
 		network.restore();
 		globalThis.fetch = (() =>
-			Promise.reject(new TypeError('offline'))) as typeof fetch;
+			Promise.reject(new TypeError('offline'))) as unknown as typeof fetch;
 
 		await open();
 

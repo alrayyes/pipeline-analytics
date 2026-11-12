@@ -4,6 +4,7 @@
 // second path to the same API.
 
 import { ApiError } from './apiError.js';
+import type { Fetcher } from './fetcher.js';
 
 export { ApiError };
 
@@ -239,7 +240,7 @@ function windowQuery(params: WindowParams): string {
 
 export async function fetchPipelines(
 	params: PipelinesParams,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<PipelineListResponse> {
 	const searchParams = new URLSearchParams({
 		limit: String(params.limit),
@@ -259,9 +260,7 @@ export async function fetchPipelines(
 
 // Best effort, matching the overview page's existing behavior: repo names
 // are a grouping nicety, not something worth surfacing an error banner for.
-export async function fetchRepos(
-	fetchFn: typeof fetch = fetch,
-): Promise<Repo[]> {
+export async function fetchRepos(fetchFn: Fetcher = fetch): Promise<Repo[]> {
 	try {
 		const res = await fetchFn('/api/repos');
 		if (!res.ok) return [];
@@ -275,7 +274,7 @@ export async function fetchRepos(
 
 export async function fetchPipeline(
 	id: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 	params: WindowParams = {},
 ): Promise<PipelineDetail> {
 	const res = await fetchFn(`/api/pipelines/${id}${windowQuery(params)}`);
@@ -292,7 +291,7 @@ export interface PipelineStepsParams {
 export async function fetchPipelineSteps(
 	id: string,
 	params: PipelineStepsParams = {},
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<Step[]> {
 	const searchParams = new URLSearchParams();
 	if (params.window) searchParams.set('window', params.window);
@@ -306,7 +305,7 @@ export async function fetchPipelineSteps(
 
 export async function fetchRepoUsage(
 	repoId: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 	params: WindowParams = {},
 ): Promise<UsageEntry[]> {
 	const res = await fetchFn(`/api/repos/${repoId}/usage${windowQuery(params)}`);
@@ -338,7 +337,7 @@ export async function fetchJobLog(
 	runId: string,
 	jobId: string,
 	params: JobLogParams = {},
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<JobLog> {
 	const lines = params.lines ?? JOB_LOG_LINES;
 	const res = await fetchFn(
@@ -360,7 +359,7 @@ export interface FailureInsightsParams {
 
 export async function fetchFailureInsights(
 	params: FailureInsightsParams,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<FailureInsights> {
 	const searchParams = new URLSearchParams();
 	if (params.window) searchParams.set('window', params.window);
@@ -387,7 +386,7 @@ export interface RunsParams {
 
 export async function fetchRuns(
 	params: RunsParams,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<RunListResponse> {
 	const searchParams = new URLSearchParams({
 		limit: String(params.limit),
@@ -420,7 +419,7 @@ export interface FlakyStepsParams {
 
 export async function fetchFlakySteps(
 	params: FlakyStepsParams,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<FlakyStepList> {
 	const searchParams = new URLSearchParams();
 	if (params.window) searchParams.set('window', params.window);
@@ -462,7 +461,7 @@ export interface BranchesParams {
 
 export async function fetchBranches(
 	params: BranchesParams,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<BranchList> {
 	const searchParams = new URLSearchParams();
 	if (params.window) searchParams.set('window', params.window);
@@ -487,7 +486,7 @@ export interface RunDetail {
 // could not be loaded.
 export async function fetchRunSteps(
 	runId: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<RunDetail> {
 	const res = await fetchFn(`/api/runs/${encodeURIComponent(runId)}/steps`);
 	if (!res.ok) throw new ApiError(res.status);
@@ -502,7 +501,7 @@ export interface BuildVersion {
 // The running build's version, which the footer shows. A failed response
 // throws an ApiError; the footer treats that as no version to show.
 export async function fetchVersion(
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<BuildVersion> {
 	const res = await fetchFn('/api/version');
 	if (!res.ok) throw new ApiError(res.status);
@@ -526,7 +525,7 @@ export interface GitHubTokenUsage {
 // GitHub REST rate-limit use per token, for the Insights page. A failed
 // response throws an ApiError carrying the status.
 export async function fetchGitHubRateLimit(
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<GitHubTokenUsage[]> {
 	const res = await fetchFn('/api/insights/github-rate-limit');
 	if (!res.ok) throw new ApiError(res.status);
@@ -552,7 +551,7 @@ export interface FlakyRunsParams {
 export async function fetchFlakyRuns(
 	pipelineId: string,
 	params: FlakyRunsParams,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<FlakyRun[]> {
 	const searchParams = new URLSearchParams({ step: params.step });
 	if (params.window) searchParams.set('window', params.window);
@@ -588,7 +587,7 @@ export interface UnhealthyStepsParams {
 // The pipelines with a flaky or failing step, grouped by pipeline.
 export async function fetchUnhealthySteps(
 	params: UnhealthyStepsParams,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<UnhealthyStepsList> {
 	const searchParams = new URLSearchParams();
 	if (params.window) searchParams.set('window', params.window);
@@ -615,7 +614,7 @@ export async function quarantineStep(
 	pipelineId: string,
 	step: string,
 	note?: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<QuarantineState> {
 	const res = await fetchFn(
 		quarantineUrl(pipelineId, step),
@@ -635,7 +634,7 @@ export async function quarantineStep(
 export async function unquarantineStep(
 	pipelineId: string,
 	step: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<QuarantineState> {
 	const res = await fetchFn(quarantineUrl(pipelineId, step), {
 		method: 'DELETE',

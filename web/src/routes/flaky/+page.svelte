@@ -7,6 +7,7 @@ import {
 	type FlakyStepList,
 	fetchFlakySteps,
 	type InsightsWindow,
+	type QuarantineState,
 } from '#lib/dashboardApi.js';
 import {
 	getTelemetryWindow,
@@ -81,7 +82,7 @@ $effect(() => {
 				<li class="min-w-0">
 					<FlakyStepCard
 						{step}
-						onChange={(state) => {
+						onChange={(state: QuarantineState) => {
 							if (list) {
 								list = {
 									...list,

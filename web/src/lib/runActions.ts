@@ -4,6 +4,7 @@
 // the wording is decided here so each outcome reads differently.
 
 import type { RunSummary } from './dashboardApi.js';
+import type { Fetcher } from './fetcher.js';
 
 export type RunActionKind = 'rerun' | 'cancel';
 
@@ -14,7 +15,7 @@ export type RunActionResult =
 async function postAction(
 	kind: RunActionKind,
 	runId: string,
-	fetchFn: typeof fetch,
+	fetchFn: Fetcher,
 ): Promise<RunActionResult> {
 	try {
 		const res = await fetchFn(
@@ -35,14 +36,14 @@ async function postAction(
 
 export function rerunRun(
 	runId: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<RunActionResult> {
 	return postAction('rerun', runId, fetchFn);
 }
 
 export function cancelRun(
 	runId: string,
-	fetchFn: typeof fetch = fetch,
+	fetchFn: Fetcher = fetch,
 ): Promise<RunActionResult> {
 	return postAction('cancel', runId, fetchFn);
 }

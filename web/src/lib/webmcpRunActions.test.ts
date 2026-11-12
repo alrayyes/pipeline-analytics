@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { userInteraction } from './testing/userInteraction.js';
 
 const rerunRunMock = mock((_runId: string) =>
 	Promise.resolve<{ ok: true } | { ok: false; status: number; code: string }>({
@@ -98,8 +99,8 @@ describe.each([
 	});
 
 	test('does nothing when the agent reports the person said no', async () => {
-		const requestUserInteraction = mock(<T>(_ask: () => Promise<T> | T) =>
-			Promise.resolve(false as T),
+		const requestUserInteraction = userInteraction(() =>
+			Promise.resolve(false),
 		);
 
 		await expect(
@@ -111,8 +112,8 @@ describe.each([
 	});
 
 	test('does nothing when the agent answers with anything but true', async () => {
-		const requestUserInteraction = mock(<T>(_ask: () => Promise<T> | T) =>
-			Promise.resolve({ declined: true } as T),
+		const requestUserInteraction = userInteraction(() =>
+			Promise.resolve({ declined: true }),
 		);
 
 		await expect(
@@ -124,9 +125,7 @@ describe.each([
 	});
 
 	test('asks through the agent when it offers requestUserInteraction', async () => {
-		const requestUserInteraction = mock(<T>(ask: () => Promise<T> | T) =>
-			ask(),
-		);
+		const requestUserInteraction = userInteraction((ask) => ask());
 
 		await tools()
 			.get(name)

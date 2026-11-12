@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { rejection } from './testing/rejection.js';
 import { inputSchemas } from './webmcpSchemas.generated.js';
 import { registerWebMCPTools } from './webmcpTools.js';
 
@@ -125,9 +126,9 @@ describe('update_settings', () => {
 	test("fails with the server's message and does not refresh when it refuses", async () => {
 		answer(400, { code: 'bad_request', message: 'theme: invalid' });
 
-		const error = await tool('update_settings')
-			.execute({ theme: 'blue' }, { signal })
-			.catch((e: unknown) => e as Error);
+		const error = await rejection(
+			tool('update_settings').execute({ theme: 'blue' }, { signal }),
+		);
 
 		expect(error.message).toContain('400');
 		expect(error.message).toContain('theme: invalid');
@@ -162,10 +163,10 @@ describe('update_settings', () => {
 });
 
 describe('the update_settings schema', () => {
-	const props = inputSchemas.update_settings.properties as Record<
+	const props: Record<
 		string,
-		{ description?: string; enum?: unknown[]; type?: unknown }
-	>;
+		{ description?: string; enum?: readonly unknown[]; type?: unknown }
+	> = inputSchemas.update_settings.properties;
 
 	test('lists every setting as optional', () => {
 		expect(Object.keys(props).sort()).toEqual([
