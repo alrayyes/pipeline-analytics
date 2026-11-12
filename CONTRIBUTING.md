@@ -182,6 +182,13 @@ same files, and a path added to `changes.sh` reaches both. To add a hook,
 name its CI group as the guard's first argument; an unknown group fails the
 hook instead of skipping it.
 
+LTeX+ (grammar and spelling) runs through
+[`scripts/lint-mechanics.sh`](scripts/lint-mechanics.sh), which the hook and CI
+both call. In CI it checks every document on the list. In `pre-push` it checks
+only the Markdown in your push, and all of it when `.ltex.json` or the script
+changed, so a push with no prose never starts the JVM. The image is pinned by
+digest in the script.
+
 Vale runs through [`scripts/lint-prose.sh`](scripts/lint-prose.sh), which the
 hooks and CI both call. It uses a `vale` on your `PATH` and otherwise runs the
 official `jdkato/vale` image, pinned by tag and digest in the script, so

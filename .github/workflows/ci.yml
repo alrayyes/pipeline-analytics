@@ -59,6 +59,7 @@ jobs:
           .github/scripts/assemble-reports.test.sh
           .github/scripts/wait-for-artifact.test.sh
           .github/scripts/playwright-image.test.sh
+          .github/scripts/lint-mechanics.test.sh
       - id: filter
         env:
           EVENT: ${{ github.event_name }}
@@ -466,11 +467,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: >
-          docker run --rm -v "$PWD:/data" -w /data
-          ghcr.io/alrayyes/ltex-cli-plus@sha256:00c30809802234d6c43b0ce0b295075bd0aff9c576aaba57433bc8baf314398c
-          --client-configuration=/data/.ltex.json
-          README.md CONTRIBUTING.md SECURITY.md .github/PULL_REQUEST_TEMPLATE.md openspec/specs
+      - run: scripts/lint-mechanics.sh
 
   style:
     name: prose style (vale)
