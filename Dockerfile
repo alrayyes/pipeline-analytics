@@ -2,7 +2,7 @@
 # The binary is cross-compiled by goreleaser before this runs -- COPY only,
 # never `go build` here (go-releases.md: avoids paying QEMU emulation cost
 # per non-native arch in the release matrix).
-FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
 # /data is created and owned by the non-root user here so a fresh named volume
 # mounted on it inherits that ownership: Docker copies the image directory's
